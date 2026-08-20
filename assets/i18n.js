@@ -63,7 +63,9 @@ const GROWMI_I18N = {
     nl_eyebrow:"Newsletter", nl_title:"Non perderti i prossimi eventi",
     nl_lead:"Iscriviti alla newsletter di GrowMi: eventi, artisti e novità via email, senza spam.",
     nl_email_placeholder:"La tua email", nl_submit:"Iscrivimi",
-    nl_success:"Fatto! Sei iscritto alla newsletter.", nl_fine:"Puoi disiscriverti quando vuoi.",
+    nl_success_title:"Grazie!", nl_success:"Sei iscritto con successo alla newsletter.",
+    nl_fine:"Puoi disiscriverti quando vuoi. Per maggiori dettagli, consulta la nostra Privacy Policy.",
+    nl_consent:"Accetto di ricevere notizie e aggiornamenti.",
     nl_tab:"Newsletter",
 
     ct_eyebrow:"Contatti", ct_title:"Parliamone",
@@ -137,7 +139,9 @@ const GROWMI_I18N = {
     nl_eyebrow:"Newsletter", nl_title:"Don't miss the next events",
     nl_lead:"Subscribe to the GrowMi newsletter: events, artists and news by email, no spam.",
     nl_email_placeholder:"Your email", nl_submit:"Subscribe",
-    nl_success:"Done! You're subscribed to the newsletter.", nl_fine:"Unsubscribe anytime.",
+    nl_success_title:"Thank you!", nl_success:"You've successfully joined the newsletter.",
+    nl_fine:"Unsubscribe anytime. For more details, see our Privacy Policy.",
+    nl_consent:"I agree to receive news and updates.",
     nl_tab:"Newsletter",
 
     ct_eyebrow:"Contact", ct_title:"Let's talk",
