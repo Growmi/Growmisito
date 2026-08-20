@@ -82,7 +82,7 @@ nav.wrap{
 }
 .logo{display:flex; align-items:center;}
 .logo img{height:34px; width:auto; display:block;}
-.navlinks{display:flex; gap:26px; font-size:14.5px; font-weight:600;}
+.navlinks{display:flex; gap:16px; font-size:13.5px; font-weight:600;}
 .navlinks a{padding:6px 0; border-bottom:2px solid transparent;}
 .navlinks a:hover, .navlinks a.active{border-color:var(--coral);}
 .navright{display:flex; align-items:center; gap:14px;}
@@ -103,7 +103,7 @@ nav.wrap{
 .nav-toggle[aria-expanded="true"] span:nth-child(1){transform:translateY(7px) rotate(45deg);}
 .nav-toggle[aria-expanded="true"] span:nth-child(2){opacity:0;}
 .nav-toggle[aria-expanded="true"] span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
-@media (max-width:900px){
+@media (max-width:1040px){
   .nav-toggle{display:flex;}
   .navlinks{
     display:none; position:absolute; top:76px; left:0; right:0;

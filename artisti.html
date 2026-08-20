@@ -3,13 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>The Miseducation of GrowMI — 10 Settembre 2026 · Art Mall Milano</title>
-<meta name="description" content="The Miseducation of GrowMI: una notte hip-hop con live graffiti, musica e DJ set. 10 settembre 2026, Art Mall Milano.">
+<title>Artisti — GrowMi</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
-<link rel="stylesheet" href="assets/event-miseducation.css">
 <link rel="stylesheet" href="assets/mailerlite-form.css">
 <link rel="stylesheet" href="assets/redesign.css">
 </head>
@@ -20,8 +18,8 @@
     <a class="logo" href="index.html"><img src="assets/img/logo-growmi.png" alt="GrowMi"></a>
     <div class="navlinks">
       <a href="index.html" data-i18n="nav_home">Home</a>
-      <a href="eventi.html" class="active" data-i18n="nav_eventi">Eventi</a>
-      <a href="artisti.html" data-i18n="nav_artisti">Artisti</a>
+      <a href="eventi.html" data-i18n="nav_eventi">Eventi</a>
+      <a href="artisti.html" class="active" data-i18n="nav_artisti">Artisti</a>
       <a href="chi-siamo.html" data-i18n="nav_chisiamo">Chi siamo</a>
       <a href="contatti.html" data-i18n="nav_contatti">Contatti</a>
       <a href="loyalty-card.html" data-i18n="nav_loyalty">Loyalty Card</a>
@@ -32,7 +30,7 @@
         <button data-lang="it">IT</button>
         <button data-lang="en">EN</button>
       </div>
-      <a class="btn coral small" href="#mise-tickets" data-i18n="nav_cta">Biglietti</a>
+      <a class="btn coral small" href="eventi.html" data-i18n="nav_cta">Biglietti</a>
     </div>
     <button type="button" class="nav-toggle" aria-label="Menu" aria-expanded="false">
       <span></span><span></span><span></span>
@@ -40,94 +38,44 @@
   </nav>
 </header>
 
-<section class="mise-hero">
-  <div class="wrap mise-wrap">
-    <div class="mise-advisory">
-      <b data-i18n="ev1_advisory">GROWMI ADVISORY</b>
-      <span data-i18n="ev1_advisory_sub">HIP HOP NIGHT · EXPLICIT VIBES</span>
-    </div>
-    <span class="mise-eyebrow" data-i18n="ev1_eyebrow">GrowMi presenta</span>
-    <h1 class="mise-title">The Miseducation of GrowMI</h1>
-    <p class="mise-sub">10 settembre 2026 · Art Mall Milano</p>
-    <p class="mise-lead" data-i18n="ev1_lead">Una notte dedicata alla cultura hip-hop: graffiti dal vivo, musica e DJ set nel cuore di Milano.</p>
-    <div class="mise-actions">
-      <a class="btn coral" href="#mise-tickets" data-i18n="ev1_cta_tickets">Vedi i biglietti</a>
-      <a class="btn outline on-dark" href="eventi.html" data-i18n="ev1_cta_back">Tutti gli eventi</a>
-    </div>
+<section class="ed-hero" style="padding:110px 0 80px;">
+  <div class="wrap ed-wrap">
+    <span class="ed-eyebrow" data-i18n="art_eyebrow">I nostri artisti</span>
+    <h1 style="font-size:clamp(40px,6.5vw,88px);" data-i18n="art_title">Chi sale sul palco</h1>
+    <p class="ed-lead" data-i18n="art_lead">Cantautori, producer, DJ e creativi visivi selezionati e seguiti da GrowMi.</p>
   </div>
 </section>
 
-<section class="mise-infobar">
+<section class="ed-section-tight">
   <div class="wrap">
-    <div class="mise-info-item">
-      <span class="lbl" data-i18n="ev1_info_date_label">Data</span>
-      <span class="val">10.09.2026</span>
-    </div>
-    <div class="mise-info-item">
-      <span class="lbl" data-i18n="ev1_info_time_label">Apertura</span>
-      <span class="val">19:00</span>
-    </div>
-    <div class="mise-info-item">
-      <span class="lbl" data-i18n="ev1_info_dress_label">Dress code</span>
-      <span class="val">Street wear</span>
-    </div>
-    <div class="mise-info-item">
-      <span class="lbl" data-i18n="ev1_info_loc_label">Location</span>
-      <span class="val">Art Mall Milano</span>
-    </div>
-  </div>
-</section>
-
-<section class="mise-section">
-  <div class="wrap">
-    <div class="section-head">
-      <p class="eyebrow" data-i18n="ev1_lineup_eyebrow">Lineup</p>
-      <h2 data-i18n="ev1_lineup_title">Chi sale sul palco</h2>
-    </div>
-    <div class="mise-lineup">
-      <div class="mise-lineup-card">
-        <span class="role" data-i18n="ev1_lineup_graffiti_role">Live graffiti</span>
-        <h3>Lorenzo Vergani</h3>
-        <span class="time">19:00 – 23:30</span>
-        <p data-i18n="ev1_lineup_graffiti_desc">Realizza dal vivo la scritta GROWMI con le bombolette spray, poi personalizza il tuo nome in stile graffiti dietro al palco (3€ a persona).</p>
-      </div>
-      <div class="mise-lineup-card">
-        <span class="role" data-i18n="ev1_lineup_singer_role">Live</span>
+    <!-- Duplica questo blocco .ed-card per ogni artista, cambia nome/genere -->
+    <div class="ed-grid">
+      <div class="ed-card">
+        <div class="ed-card-media"></div>
+        <span class="tag">Cantante</span>
         <h3>Lucevera</h3>
-        <span class="time">20:45 – 21:30 · Palco principale</span>
-        <p data-i18n="ev1_lineup_singer_desc">Performance live sul palco principale. Scenografia curata insieme a Lulita.</p>
       </div>
-      <div class="mise-lineup-card">
-        <span class="role" data-i18n="ev1_lineup_dj_role">DJ set</span>
+      <div class="ed-card">
+        <div class="ed-card-media"></div>
+        <span class="tag">DJ</span>
         <h3>Mattia Pagliarin</h3>
-        <span class="time">21:30 – 23:30 · Stanza piccola</span>
-        <p data-i18n="ev1_lineup_dj_desc">Chiude la serata nella seconda stanza.</p>
+      </div>
+      <div class="ed-card">
+        <div class="ed-card-media"></div>
+        <span class="tag">Live graffiti</span>
+        <h3>Lorenzo Vergani</h3>
       </div>
     </div>
   </div>
 </section>
 
-<section class="mise-section" id="mise-tickets" style="padding-top:0;">
-  <div class="wrap">
-    <div class="section-head">
-      <p class="eyebrow" data-i18n="ev1_tickets_eyebrow">Biglietti</p>
-      <h2 data-i18n="ev1_tickets_title">Prendi il tuo posto</h2>
-      <p data-i18n="ev1_tickets_note">Prezzi e prevendite in arrivo a breve.</p>
+<section class="ed-cta">
+  <div class="wrap ed-cta-row">
+    <div>
+      <h2 data-i18n="art_apply_title">Sei un artista emergente?</h2>
+      <p data-i18n="art_apply_p">Raccontaci il tuo progetto: valutiamo ogni candidatura per i prossimi eventi.</p>
     </div>
-    <div class="mise-tier-list">
-      <div class="mise-tier-row">
-        <div class="mise-tier-name"><span data-i18n="tier_earlybird">Early bird</span><small data-i18n="tier_earlybird_sub">Posti limitati</small></div>
-        <span class="badge-soon" data-i18n="ev1_soon_btn">Presto disponibile</span>
-      </div>
-      <div class="mise-tier-row">
-        <div class="mise-tier-name"><span data-i18n="tier_standard">Standard</span><small data-i18n="tier_standard_sub">Ingresso serata</small></div>
-        <span class="badge-soon" data-i18n="ev1_soon_btn">Presto disponibile</span>
-      </div>
-      <div class="mise-tier-row">
-        <div class="mise-tier-name"><span data-i18n="tier_vip">VIP</span><small data-i18n="tier_vip_sub">Accesso prioritario</small></div>
-        <span class="badge-soon" data-i18n="ev1_soon_btn">Presto disponibile</span>
-      </div>
-    </div>
+    <a class="ed-btn-ghost" href="contatti.html" data-i18n="art_apply_btn">Candidati</a>
   </div>
 </section>
 

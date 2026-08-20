@@ -3,13 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>The Miseducation of GrowMI — 10 Settembre 2026 · Art Mall Milano</title>
-<meta name="description" content="The Miseducation of GrowMI: una notte hip-hop con live graffiti, musica e DJ set. 10 settembre 2026, Art Mall Milano.">
+<title>Chi siamo — GrowMi</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
-<link rel="stylesheet" href="assets/event-miseducation.css">
 <link rel="stylesheet" href="assets/mailerlite-form.css">
 <link rel="stylesheet" href="assets/redesign.css">
 </head>
@@ -20,9 +18,9 @@
     <a class="logo" href="index.html"><img src="assets/img/logo-growmi.png" alt="GrowMi"></a>
     <div class="navlinks">
       <a href="index.html" data-i18n="nav_home">Home</a>
-      <a href="eventi.html" class="active" data-i18n="nav_eventi">Eventi</a>
+      <a href="eventi.html" data-i18n="nav_eventi">Eventi</a>
       <a href="artisti.html" data-i18n="nav_artisti">Artisti</a>
-      <a href="chi-siamo.html" data-i18n="nav_chisiamo">Chi siamo</a>
+      <a href="chi-siamo.html" class="active" data-i18n="nav_chisiamo">Chi siamo</a>
       <a href="contatti.html" data-i18n="nav_contatti">Contatti</a>
       <a href="loyalty-card.html" data-i18n="nav_loyalty">Loyalty Card</a>
       <a href="financial-supporters.html" data-i18n="nav_supporters">Financial Supporters</a>
@@ -32,7 +30,7 @@
         <button data-lang="it">IT</button>
         <button data-lang="en">EN</button>
       </div>
-      <a class="btn coral small" href="#mise-tickets" data-i18n="nav_cta">Biglietti</a>
+      <a class="btn coral small" href="eventi.html" data-i18n="nav_cta">Biglietti</a>
     </div>
     <button type="button" class="nav-toggle" aria-label="Menu" aria-expanded="false">
       <span></span><span></span><span></span>
@@ -40,93 +38,111 @@
   </nav>
 </header>
 
-<section class="mise-hero">
-  <div class="wrap mise-wrap">
-    <div class="mise-advisory">
-      <b data-i18n="ev1_advisory">GROWMI ADVISORY</b>
-      <span data-i18n="ev1_advisory_sub">HIP HOP NIGHT · EXPLICIT VIBES</span>
-    </div>
-    <span class="mise-eyebrow" data-i18n="ev1_eyebrow">GrowMi presenta</span>
-    <h1 class="mise-title">The Miseducation of GrowMI</h1>
-    <p class="mise-sub">10 settembre 2026 · Art Mall Milano</p>
-    <p class="mise-lead" data-i18n="ev1_lead">Una notte dedicata alla cultura hip-hop: graffiti dal vivo, musica e DJ set nel cuore di Milano.</p>
-    <div class="mise-actions">
-      <a class="btn coral" href="#mise-tickets" data-i18n="ev1_cta_tickets">Vedi i biglietti</a>
-      <a class="btn outline on-dark" href="eventi.html" data-i18n="ev1_cta_back">Tutti gli eventi</a>
-    </div>
+<section class="ed-hero" style="padding:110px 0 80px;">
+  <div class="wrap ed-wrap">
+    <span class="ed-eyebrow" data-i18n="cs_eyebrow">Chi siamo</span>
+    <h1 style="font-size:clamp(36px,6vw,76px); max-width:820px;" data-i18n="cs_title">Coltivare il talento e trasformarlo in realtà</h1>
   </div>
 </section>
 
-<section class="mise-infobar">
+<section>
+  <div class="wrap" style="max-width:820px;">
+    <p style="font-size:16.5px; margin-bottom:20px;" data-i18n="cs_p1">GrowMI è un progetto che nasce dalla volontà di dare la possibilità ai piccoli artisti ed emergenti, con un talento più che unico, di poter crescere e mostrarsi presenti nel mondo. Sosteniamo artisti emergenti – cantautori, produttori, DJ, creativi visivi – che vogliono proporre qualcosa di nuovo, rompendo le regole delle tendenze attuali. Perché spesso è proprio chi non è ancora sotto i riflettori a portare l'innovazione più autentica. I grandi di oggi erano una scommessa ieri. È tempo quindi che le nuove idee trovino il loro posto.</p>
+    <p style="font-size:16.5px;" data-i18n="cs_p2">Attraverso supporto mediatico, storytelling e l'organizzazione di eventi dal vivo, aiutiamo questi artisti a farsi vedere, sentire e riconoscere. GrowMI è qui per questo: per coltivare talento e trasformarlo in realtà.</p>
+  </div>
+</section>
+
+<section class="ed-section-tight">
+  <div class="wrap" style="max-width:540px;">
+    <div class="ed-head" style="margin-bottom:32px;">
+      <p class="ed-eyebrow" data-i18n="cs_video_eyebrow">Il video</p>
+      <h2 data-i18n="cs_video_title">Cos'è GrowMi, in un minuto</h2>
+    </div>
+    <video controls preload="metadata" playsinline style="width:100%; border-radius:6px; background:#000; display:block;">
+      <source src="assets/video/cos-e-growmi.mp4" type="video/mp4">
+    </video>
+  </div>
+</section>
+
+<section>
   <div class="wrap">
-    <div class="mise-info-item">
-      <span class="lbl" data-i18n="ev1_info_date_label">Data</span>
-      <span class="val">10.09.2026</span>
-    </div>
-    <div class="mise-info-item">
-      <span class="lbl" data-i18n="ev1_info_time_label">Apertura</span>
-      <span class="val">19:00</span>
-    </div>
-    <div class="mise-info-item">
-      <span class="lbl" data-i18n="ev1_info_dress_label">Dress code</span>
-      <span class="val">Street wear</span>
-    </div>
-    <div class="mise-info-item">
-      <span class="lbl" data-i18n="ev1_info_loc_label">Location</span>
-      <span class="val">Art Mall Milano</span>
-    </div>
-  </div>
-</section>
-
-<section class="mise-section">
-  <div class="wrap">
-    <div class="section-head">
-      <p class="eyebrow" data-i18n="ev1_lineup_eyebrow">Lineup</p>
-      <h2 data-i18n="ev1_lineup_title">Chi sale sul palco</h2>
-    </div>
-    <div class="mise-lineup">
-      <div class="mise-lineup-card">
-        <span class="role" data-i18n="ev1_lineup_graffiti_role">Live graffiti</span>
-        <h3>Lorenzo Vergani</h3>
-        <span class="time">19:00 – 23:30</span>
-        <p data-i18n="ev1_lineup_graffiti_desc">Realizza dal vivo la scritta GROWMI con le bombolette spray, poi personalizza il tuo nome in stile graffiti dietro al palco (3€ a persona).</p>
+    <div class="ed-value-list" style="grid-template-columns:1fr 1fr;">
+      <div>
+        <span class="n" data-i18n="cs_mission_t">Mission</span>
+        <p data-i18n="cs_mission_p">Creare un sistema tangibile che riporti gli artisti in contesti reali e qualificanti...</p>
       </div>
-      <div class="mise-lineup-card">
-        <span class="role" data-i18n="ev1_lineup_singer_role">Live</span>
-        <h3>Lucevera</h3>
-        <span class="time">20:45 – 21:30 · Palco principale</span>
-        <p data-i18n="ev1_lineup_singer_desc">Performance live sul palco principale. Scenografia curata insieme a Lulita.</p>
-      </div>
-      <div class="mise-lineup-card">
-        <span class="role" data-i18n="ev1_lineup_dj_role">DJ set</span>
-        <h3>Mattia Pagliarin</h3>
-        <span class="time">21:30 – 23:30 · Stanza piccola</span>
-        <p data-i18n="ev1_lineup_dj_desc">Chiude la serata nella seconda stanza.</p>
+      <div>
+        <span class="n" data-i18n="cs_vision_t">Vision</span>
+        <p data-i18n="cs_vision_p">Gli emergenti sono la principale fonte di innovazione culturale...</p>
       </div>
     </div>
   </div>
 </section>
 
-<section class="mise-section" id="mise-tickets" style="padding-top:0;">
+<section>
   <div class="wrap">
     <div class="section-head">
-      <p class="eyebrow" data-i18n="ev1_tickets_eyebrow">Biglietti</p>
-      <h2 data-i18n="ev1_tickets_title">Prendi il tuo posto</h2>
-      <p data-i18n="ev1_tickets_note">Prezzi e prevendite in arrivo a breve.</p>
+      <p class="eyebrow" data-i18n="cs_team_eyebrow">Il team</p>
+      <h2 data-i18n="cs_team_title">Fondatori</h2>
     </div>
-    <div class="mise-tier-list">
-      <div class="mise-tier-row">
-        <div class="mise-tier-name"><span data-i18n="tier_earlybird">Early bird</span><small data-i18n="tier_earlybird_sub">Posti limitati</small></div>
-        <span class="badge-soon" data-i18n="ev1_soon_btn">Presto disponibile</span>
+    <div class="team-grid">
+      <div class="team-card">
+        <div class="team-photo"></div>
+        <h3>Carlo Capizzoto</h3>
+        <p class="role">Co-founder · CEO</p>
       </div>
-      <div class="mise-tier-row">
-        <div class="mise-tier-name"><span data-i18n="tier_standard">Standard</span><small data-i18n="tier_standard_sub">Ingresso serata</small></div>
-        <span class="badge-soon" data-i18n="ev1_soon_btn">Presto disponibile</span>
+      <div class="team-card">
+        <div class="team-photo"></div>
+        <h3>Alessandro Decollanz</h3>
+        <p class="role">Co-founder · Direttore operativo</p>
       </div>
-      <div class="mise-tier-row">
-        <div class="mise-tier-name"><span data-i18n="tier_vip">VIP</span><small data-i18n="tier_vip_sub">Accesso prioritario</small></div>
-        <span class="badge-soon" data-i18n="ev1_soon_btn">Presto disponibile</span>
-      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="ed-head">
+      <p class="ed-eyebrow" data-i18n="staff_eyebrow">Staff</p>
+      <h2 data-i18n="staff_title">Il team GrowMi</h2>
+    </div>
+    <div class="empty-state" data-i18n="staff_empty">Il team completo arriva presto.</div>
+  </div>
+</section>
+
+<section class="ed-cta">
+  <div class="wrap ed-cta-row">
+    <div>
+      <h2 data-i18n="staff_apply_title">Vuoi entrare in GrowMi come staff?</h2>
+      <p data-i18n="staff_apply_p">Raccontaci come vuoi contribuire: eventi, social, produzione, organizzazione.</p>
+    </div>
+    <a class="ed-btn-ghost" href="contatti.html" data-i18n="art_apply_btn">Candidati</a>
+  </div>
+</section>
+
+<section class="ed-cta" style="background:var(--ink);">
+  <div class="wrap ed-cta-row">
+    <div>
+      <span class="badge-soon" data-i18n="fs_badge">Dettagli in arrivo</span>
+      <p class="ed-eyebrow" style="color:var(--magenta);">Financial Supporters</p>
+      <h2 data-i18n="fs_title">Sostieni GrowMi da vicino</h2>
+      <p data-i18n="fs_lead">Un livello di supporto pensato per chi vuole sostenere economicamente il progetto: accesso prioritario agli eventi e altri vantaggi, ancora in fase di definizione.</p>
+    </div>
+    <a class="ed-btn-ghost" href="financial-supporters.html" data-i18n="ev_discover">Scopri di più</a>
+  </div>
+</section>
+
+<section class="ed-section-tight">
+  <div class="wrap" style="text-align:center;">
+    <p class="ed-eyebrow" data-i18n="ct_social_t">Seguici</p>
+    <h2 data-i18n="cs_social_title">Seguici sui social</h2>
+  </div>
+  <div class="wrap" style="display:flex; justify-content:center;">
+    <div class="social-row">
+      <a href="https://www.instagram.com/growmiii/" target="_blank" rel="noopener" aria-label="Instagram">IG</a>
+      <a href="https://www.tiktok.com/@growmii_" target="_blank" rel="noopener" aria-label="TikTok">TT</a>
+      <a href="https://www.youtube.com/@GrowMiii" target="_blank" rel="noopener" aria-label="YouTube">YT</a>
+      <a href="https://www.linkedin.com/company/growmiagency/" target="_blank" rel="noopener" aria-label="LinkedIn">LI</a>
     </div>
   </div>
 </section>

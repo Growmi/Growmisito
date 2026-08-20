@@ -1,6 +1,7 @@
 const GROWMI_I18N = {
   it: {
     nav_home:"Home", nav_eventi:"Eventi", nav_artisti:"Artisti", nav_chisiamo:"Chi siamo", nav_contatti:"Contatti", nav_cta:"Biglietti",
+    nav_loyalty:"Loyalty Card", nav_supporters:"Financial Supporters",
     foot_sito:"Sito", foot_contatti:"Contatti", foot_social:"Social", foot_rights:"© 2026 GrowMi. Milano.", foot_madewith:"Sito in fase di sviluppo",
 
     home_eyebrow:"Milano · eventi dal vivo",
@@ -22,7 +23,7 @@ const GROWMI_I18N = {
 
     ev_eyebrow:"Prossimi eventi", ev_title:"Prendi il tuo biglietto",
     ev_lead:"Posti limitati. Il pagamento avviene in modo sicuro tramite Stripe.",
-    ev_empty:"Nessun evento in programma al momento. Torna presto — stiamo preparando qualcosa di nuovo.",
+    ev_empty:"Nessun evento in programma al momento. Torna presto, stiamo preparando qualcosa di nuovo.",
     tier_earlybird:"Early bird", tier_standard:"Standard", tier_vip:"VIP",
     tier_earlybird_sub:"Posti limitati", tier_standard_sub:"Ingresso serata", tier_vip_sub:"Accesso prioritario",
     buy_btn:"Acquista",
@@ -104,6 +105,7 @@ const GROWMI_I18N = {
   },
   en: {
     nav_home:"Home", nav_eventi:"Events", nav_artisti:"Artists", nav_chisiamo:"About", nav_contatti:"Contact", nav_cta:"Tickets",
+    nav_loyalty:"Loyalty Card", nav_supporters:"Financial Supporters",
     foot_sito:"Site", foot_contatti:"Contact", foot_social:"Social", foot_rights:"© 2026 GrowMi. Milan.", foot_madewith:"Site in development",
 
     home_eyebrow:"Milan · live events",
@@ -125,7 +127,7 @@ const GROWMI_I18N = {
 
     ev_eyebrow:"Upcoming events", ev_title:"Grab your ticket",
     ev_lead:"Limited spots. Payments are handled securely via Stripe.",
-    ev_empty:"No events scheduled right now. Check back soon — we're planning something new.",
+    ev_empty:"No events scheduled right now. Check back soon, we're planning something new.",
     tier_earlybird:"Early bird", tier_standard:"Standard", tier_vip:"VIP",
     tier_earlybird_sub:"Limited spots", tier_standard_sub:"Night entry", tier_vip_sub:"Priority access",
     buy_btn:"Buy",
