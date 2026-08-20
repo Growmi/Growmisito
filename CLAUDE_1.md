@@ -10,10 +10,19 @@ Sito statico multi-pagina, nessun framework, nessun build step:
 - index.html — Home
 - eventi.html — Eventi + acquisto biglietti
 - artisti.html — Artisti
+- loyalty-card.html — Loyalty Card (informativa, no registrazione utente)
+- financial-supporters.html — Financial Supporters
 - chi-siamo.html — Chi siamo + fondatori
 - contatti.html — Contatti (form via Netlify Forms)
 - assets/style.css — tutti gli stili, palette e font
 - assets/i18n.js — tutte le traduzioni IT/EN (attributi data-i18n nell'HTML)
+
+Il menu principale (header, su tutte le pagine) ha 7 voci, in quest'ordine: Home, Eventi, Artisti,
+Loyalty Card ("Carta fedeltà" in IT, "Loyalty Card" in EN — nome invariato in EN perché è un termine
+già di uso comune), Financial Supporters ("Supportaci" in IT, "Support us" in EN — nomi tradotti,
+diversi dal titolo interno della pagina che resta "Financial Supporters"), Chi siamo, Contatti. Sotto i
+1040px scatta il menu hamburger (soglia alzata da 900px per fare spazio alle 7 voci senza andare a capo
+su schermi medi tipo tablet/laptop piccoli).
 
 ## Identità di brand
 - Palette colori ufficiale: #3E0D5D (viola scuro, base/hero/footer), #B867CD (lilla),
