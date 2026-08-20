@@ -118,24 +118,85 @@
 
 <div class="nl-popup" id="nl-popup" hidden>
   <div class="nl-popup-backdrop" data-nl-close></div>
-  <div class="nl-popup-card" role="dialog" aria-modal="true" aria-labelledby="nl-popup-title">
+  <div class="nl-popup-card" role="dialog" aria-modal="true" aria-labelledby="mlb2-45022886">
     <button type="button" class="nl-popup-close" data-nl-close aria-label="Chiudi">&times;</button>
-    <p class="eyebrow" data-i18n="nl_eyebrow">Newsletter</p>
-    <h3 id="nl-popup-title" data-i18n="nl_title">Non perderti i prossimi eventi</h3>
-    <p data-i18n="nl_lead">Iscriviti alla newsletter di GrowMi: eventi, artisti e novità via email, senza spam.</p>
-    <form name="newsletter-growmi" method="POST" data-netlify="true" netlify-honeypot="nl-bot-field" id="nl-form">
-      <input type="hidden" name="form-name" value="newsletter-growmi">
-      <p style="display:none;"><label>Non compilare: <input name="nl-bot-field"></label></p>
-      <div class="nl-form-row">
-        <input type="email" name="email" required data-i18n-placeholder="nl_email_placeholder" placeholder="La tua email">
-        <button type="submit" class="btn coral" data-i18n="nl_submit">Iscrivimi</button>
+
+    <div id="mlb2-45022886" class="ml-form-embedContainer ml-subscribe-form ml-subscribe-form-45022886">
+      <div class="ml-form-align-center">
+        <div class="ml-form-embedWrapper embedForm">
+          <div class="ml-form-embedBody ml-form-embedBodyDefault row-form">
+            <div class="ml-form-embedContent">
+              <h4>Newsletter</h4>
+              <p>Iscriviti per eventi, novità e offerte speciali.</p>
+            </div>
+            <form class="ml-block-form" action="https://assets.mailerlite.com/jsonp/2351466/forms/196308997987370118/subscribe" data-code="" method="post" target="_blank">
+              <div class="ml-form-formContent">
+                <div class="ml-form-fieldRow ml-last-item">
+                  <div class="ml-field-group ml-field-email ml-validate-email ml-validate-required">
+                    <input aria-label="email" aria-required="true" type="email" class="form-control" data-inputmask="" name="fields[email]" placeholder="La tua email" autocomplete="email">
+                  </div>
+                </div>
+              </div>
+
+              <div class="ml-form-embedPermissions">
+                <div class="ml-form-embedPermissionsContent default privacy-policy">
+                  <p>Puoi disiscriverti quando vuoi. Per maggiori dettagli, consulta la nostra Privacy Policy.</p>
+                </div>
+              </div>
+
+              <div class="ml-form-checkboxRow ml-validate-required">
+                <label class="checkbox">
+                  <input type="checkbox">
+                  <div class="label-description">
+                    <p>Accetto di ricevere notizie e aggiornamenti.</p>
+                  </div>
+                </label>
+              </div>
+
+              <div class="ml-form-recaptcha ml-validate-required" style="float: left;">
+                <script src="https://www.google.com/recaptcha/api.js"></script>
+                <div class="g-recaptcha" data-sitekey="6Lf1KHQUAAAAAFNKEX1hdSWCS3mRMv4FlFaNslaD"></div>
+              </div>
+
+              <input type="hidden" name="ml-submit" value="1">
+
+              <div class="ml-form-embedSubmit">
+                <button type="submit" class="primary">Iscrivimi</button>
+                <button disabled="disabled" style="display: none;" type="button" class="loading">
+                  <div class="ml-form-embedSubmitLoad"></div>
+                  <span class="sr-only">Loading...</span>
+                </button>
+              </div>
+
+              <input type="hidden" name="anticsrf" value="true">
+            </form>
+          </div>
+
+          <div class="ml-form-successBody row-success" style="display: none">
+            <div class="ml-form-successContent">
+              <h4>Grazie!</h4>
+              <p>Ti sei iscritto con successo alla newsletter.</p>
+            </div>
+          </div>
+        </div>
       </div>
-    </form>
-    <p class="nl-success" id="nl-success" hidden data-i18n="nl_success">Fatto! Sei iscritto alla newsletter.</p>
-    <p class="nl-fine" data-i18n="nl_fine">Puoi disiscriverti quando vuoi.</p>
+    </div>
+
   </div>
 </div>
 <button type="button" class="nl-tab" id="nl-tab" hidden data-i18n="nl_tab">Newsletter</button>
+
+<script>
+  function ml_webform_success_45022886() {
+    var $ = ml_jQuery || jQuery;
+    $('.ml-subscribe-form-45022886 .row-success').show();
+    $('.ml-subscribe-form-45022886 .row-form').hide();
+  }
+</script>
+<script src="https://groot.mailerlite.com/js/w/webforms.min.js?v83147fa8ce2d95cb73ece7f28b469519" type="text/javascript"></script>
+<script>
+  fetch("https://assets.mailerlite.com/jsonp/2351466/forms/196308997987370118/takel")
+</script>
 
 <script src="assets/i18n.js"></script>
 <script src="assets/newsletter.js"></script>
