@@ -7,9 +7,7 @@
   ready(function(){
     var popup = document.getElementById('nl-popup');
     var tab = document.getElementById('nl-tab');
-    var form = document.getElementById('nl-form');
-    var success = document.getElementById('nl-success');
-    if(!popup || !form) return;
+    if(!popup) return;
 
     var DISMISS_KEY = 'growmi_nl_dismissed';
     var SUBSCRIBED_KEY = 'growmi_nl_subscribed';
@@ -47,21 +45,13 @@
       tab.hidden = false;
     }
 
-    form.addEventListener('submit', function(e){
-      e.preventDefault();
-      var data = new FormData(form);
-      fetch('/', {
-        method:'POST',
-        headers:{'Content-Type':'application/x-www-form-urlencoded'},
-        body:new URLSearchParams(data).toString()
-      }).then(onSubscribed).catch(onSubscribed);
-    });
-
-    function onSubscribed(){
-      form.hidden = true;
-      if(success) success.hidden = false;
+    // MailerLite calls this global function on a successful signup.
+    // Wrap it so our popup shell (backdrop, reopen tab, dismiss memory) stays in sync.
+    var mlOriginalSuccess = window.ml_webform_success_45022886;
+    window.ml_webform_success_45022886 = function(){
+      if(typeof mlOriginalSuccess === 'function'){ mlOriginalSuccess(); }
       try{ localStorage.setItem(SUBSCRIBED_KEY, '1'); }catch(e){}
       window.setTimeout(function(){ closePopup(false); }, 2200);
-    }
+    };
   });
 })();
