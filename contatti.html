@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contatti — GrowMi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/mailerlite-form.css">
+<link rel="stylesheet" href="assets/redesign.css">
+</head>
+<body>
+
+<header>
+  <nav class="wrap">
+    <a class="logo" href="index.html"><img src="assets/img/logo-growmi.png" alt="GrowMi"></a>
+    <div class="navlinks">
+      <a href="index.html" data-i18n="nav_home">Home</a>
+      <a href="eventi.html" data-i18n="nav_eventi">Eventi</a>
+      <a href="artisti.html" data-i18n="nav_artisti">Artisti</a>
+      <a href="chi-siamo.html" data-i18n="nav_chisiamo">Chi siamo</a>
+      <a href="contatti.html" class="active" data-i18n="nav_contatti">Contatti</a>
+    </div>
+    <div class="navright">
+      <div class="lang-switch">
+        <button data-lang="it">IT</button>
+        <button data-lang="en">EN</button>
+      </div>
+      <a class="btn coral small" href="eventi.html" data-i18n="nav_cta">Biglietti</a>
+    </div>
+    <button type="button" class="nav-toggle" aria-label="Menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+</header>
+
+<section class="ed-hero" style="padding:110px 0 80px;">
+  <div class="wrap ed-wrap">
+    <span class="ed-eyebrow" data-i18n="ct_eyebrow">Contatti</span>
+    <h1 style="font-size:clamp(40px,6.5vw,88px);" data-i18n="ct_title">Parliamone</h1>
+    <p class="ed-lead" data-i18n="ct_lead">Per collaborazioni, domande sugli eventi o proposte artistiche, scrivici: ti rispondiamo il prima possibile.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap contact-grid">
+    <div>
+      <!-- Modulo gestito automaticamente da Netlify (nessun backend necessario).
+           Funziona SOLO una volta pubblicato su Netlify: le risposte arrivano
+           nella dashboard Netlify → Forms. In locale non invia nulla. -->
+      <form name="contatto-growmi" method="POST" data-netlify="true" netlify-honeypot="bot-field">
+        <input type="hidden" name="form-name" value="contatto-growmi">
+        <p style="display:none;"><label>Non compilare: <input name="bot-field"></label></p>
+
+        <div class="field">
+          <label data-i18n="ct_name">Nome</label>
+          <input type="text" name="nome" required>
+        </div>
+        <div class="field">
+          <label data-i18n="ct_email">Email</label>
+          <input type="email" name="email" required>
+        </div>
+        <div class="field">
+          <label data-i18n="ct_subject">Motivo del contatto</label>
+          <select name="motivo">
+            <option data-i18n="ct_subject_opt1">Sono un artista</option>
+            <option data-i18n="ct_subject_opt2">Sono un locale</option>
+            <option data-i18n="ct_subject_opt3">Domanda su un evento</option>
+            <option data-i18n="ct_subject_opt_staff">Voglio entrare nello staff</option>
+            <option data-i18n="ct_subject_opt_supporter">Voglio diventare financial supporter</option>
+            <option data-i18n="ct_subject_opt4">Altro</option>
+          </select>
+        </div>
+        <div class="field">
+          <label data-i18n="ct_message">Messaggio</label>
+          <textarea name="messaggio" required></textarea>
+        </div>
+        <button type="submit" class="btn coral block" data-i18n="ct_send">Invia messaggio</button>
+      </form>
+    </div>
+
+    <div class="contact-side">
+      <div class="item">
+        <p class="eyebrow" data-i18n="ct_direct_t">Contatto diretto</p>
+        <p><a href="mailto:grow.mi@outlook.it">grow.mi@outlook.it</a></p>
+      </div>
+      <div class="item">
+        <p class="eyebrow" data-i18n="ct_social_t">Seguici</p>
+        <div class="social-row">
+          <a href="https://www.instagram.com/growmiii/" target="_blank" rel="noopener" aria-label="Instagram">IG</a>
+          <a href="https://www.tiktok.com/@growmii_" target="_blank" rel="noopener" aria-label="TikTok">TT</a>
+          <a href="https://www.youtube.com/@GrowMiii" target="_blank" rel="noopener" aria-label="YouTube">YT</a>
+          <a href="https://www.linkedin.com/company/growmiagency/" target="_blank" rel="noopener" aria-label="LinkedIn">LI</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="ed-cta compact">
+  <div class="wrap ed-cta-row">
+    <div>
+      <p class="ed-eyebrow" data-i18n="nl_eyebrow">Newsletter</p>
+      <h2 data-i18n="nl_title">Non perderti i prossimi eventi</h2>
+      <p data-i18n="nl_lead">Iscriviti alla newsletter di GrowMi: eventi, artisti e novità via email, senza spam.</p>
+    </div>
+    <button type="button" class="ed-btn-ghost" data-nl-open data-i18n="nl_submit">Iscrivimi</button>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div><a class="foot-logo" href="index.html"><img src="assets/img/logo-growmi.png" alt="GrowMi"></a></div>
+      <div>
+        <h4 data-i18n="foot_sito">Sito</h4>
+        <ul>
+          <li><a href="eventi.html" data-i18n="nav_eventi">Eventi</a></li>
+          <li><a href="artisti.html" data-i18n="nav_artisti">Artisti</a></li>
+          <li><a href="chi-siamo.html" data-i18n="nav_chisiamo">Chi siamo</a></li>
+          <li><a href="loyalty-card.html">Loyalty Card</a></li>
+          <li><a href="financial-supporters.html">Financial Supporters</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 data-i18n="foot_contatti">Contatti</h4>
+        <ul>
+          <li><a href="mailto:grow.mi@outlook.it">grow.mi@outlook.it</a></li>
+          <li><a href="contatti.html" data-i18n="nav_contatti">Contatti</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 data-i18n="foot_social">Social</h4>
+        <ul>
+          <li><a href="https://www.instagram.com/growmiii/" target="_blank" rel="noopener">Instagram</a></li>
+          <li><a href="https://www.tiktok.com/@growmii_" target="_blank" rel="noopener">TikTok</a></li>
+          <li><a href="https://www.youtube.com/@GrowMiii" target="_blank" rel="noopener">YouTube</a></li>
+          <li><a href="https://www.linkedin.com/company/growmiagency/" target="_blank" rel="noopener">LinkedIn</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span data-i18n="foot_rights">© 2026 GrowMi. Milano.</span>
+      <span data-i18n="foot_madewith">Sito in fase di sviluppo</span>
+    </div>
+  </div>
+</footer>
+
+<div class="nl-popup" id="nl-popup" hidden>
+  <div class="nl-popup-backdrop" data-nl-close></div>
+  <div class="nl-popup-card" role="dialog" aria-modal="true" aria-labelledby="mlb2-45022886">
+    <button type="button" class="nl-popup-close" data-nl-close aria-label="Chiudi">&times;</button>
+    <p class="eyebrow" data-i18n="nl_eyebrow">Newsletter</p>
+
+    <div id="mlb2-45022886" class="ml-form-embedContainer ml-subscribe-form ml-subscribe-form-45022886">
+      <div class="ml-form-align-center">
+        <div class="ml-form-embedWrapper embedForm">
+          <div class="ml-form-embedBody ml-form-embedBodyDefault row-form">
+            <div class="ml-form-embedContent">
+              <h4 data-i18n="nl_title">Non perderti i prossimi eventi</h4>
+              <p data-i18n="nl_lead">Iscriviti alla newsletter di GrowMi: eventi, artisti e novità via email, senza spam.</p>
+            </div>
+            <form class="ml-block-form" action="https://assets.mailerlite.com/jsonp/2351466/forms/196308997987370118/subscribe" data-code="" method="post" target="_blank">
+              <div class="ml-form-formContent">
+                <div class="ml-form-fieldRow ml-last-item">
+                  <div class="ml-field-group ml-field-email ml-validate-email ml-validate-required">
+                    <input aria-label="email" aria-required="true" type="email" class="form-control" data-inputmask="" name="fields[email]" data-i18n-placeholder="nl_email_placeholder" placeholder="La tua email" autocomplete="email">
+                  </div>
+                </div>
+              </div>
+
+              <div class="ml-form-embedPermissions">
+                <div class="ml-form-embedPermissionsContent default privacy-policy">
+                  <p data-i18n="nl_fine">Puoi disiscriverti quando vuoi. Per maggiori dettagli, consulta la nostra Privacy Policy.</p>
+                </div>
+              </div>
+
+              <div class="ml-form-checkboxRow ml-validate-required">
+                <label class="checkbox">
+                  <input type="checkbox">
+                  <div class="label-description">
+                    <p data-i18n="nl_consent">Accetto di ricevere notizie e aggiornamenti.</p>
+                  </div>
+                </label>
+              </div>
+
+              <div class="ml-form-recaptcha ml-validate-required" style="float: left;">
+                <script src="https://www.google.com/recaptcha/api.js"></script>
+                <div class="g-recaptcha" data-sitekey="6Lf1KHQUAAAAAFNKEX1hdSWCS3mRMv4FlFaNslaD"></div>
+              </div>
+
+              <input type="hidden" name="ml-submit" value="1">
+
+              <div class="ml-form-embedSubmit">
+                <button type="submit" class="primary" data-i18n="nl_submit">Iscrivimi</button>
+                <button disabled="disabled" style="display: none;" type="button" class="loading">
+                  <div class="ml-form-embedSubmitLoad"></div>
+                  <span class="sr-only">Loading...</span>
+                </button>
+              </div>
+
+              <input type="hidden" name="anticsrf" value="true">
+            </form>
+          </div>
+
+          <div class="ml-form-successBody row-success" style="display: none">
+            <div class="ml-form-successContent">
+              <h4 data-i18n="nl_success_title">Grazie!</h4>
+              <p data-i18n="nl_success">Sei iscritto con successo alla newsletter.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+<button type="button" class="nl-tab" id="nl-tab" hidden data-i18n="nl_tab">Newsletter</button>
+
+<script>
+  function ml_webform_success_45022886() {
+    var $ = ml_jQuery || jQuery;
+    $('.ml-subscribe-form-45022886 .row-success').show();
+    $('.ml-subscribe-form-45022886 .row-form').hide();
+  }
+</script>
+<script src="https://groot.mailerlite.com/js/w/webforms.min.js?v83147fa8ce2d95cb73ece7f28b469519" type="text/javascript"></script>
+<script>
+  fetch("https://assets.mailerlite.com/jsonp/2351466/forms/196308997987370118/takel")
+</script>
+
+<script src="assets/i18n.js"></script>
+<script src="assets/newsletter.js"></script>
+</body>
+</html>
