@@ -2,6 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
+<script>if(performance.getEntriesByType("navigation")[0]&&performance.getEntriesByType("navigation")[0].type==="back_forward"){document.documentElement.classList.add("nav-back");}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Miseducation of GrowMI — 10 Settembre 2026 · Art Mall Milano</title>
 <meta name="description" content="The Miseducation of GrowMI: una notte hip-hop con live graffiti, musica e DJ set. 10 settembre 2026, Art Mall Milano.">
@@ -33,7 +34,7 @@
         <button data-lang="it">IT</button>
         <button data-lang="en">EN</button>
       </div>
-      <a class="btn coral small" href="#mise-tickets" data-i18n="nav_cta">Biglietti</a>
+      <div class="nav-tickets"><a class="btn coral small nav-tickets-toggle" href="#mise-tickets" data-i18n="nav_cta" aria-haspopup="true" aria-expanded="false">Biglietti</a><div class="nav-tickets-menu"></div></div>
     </div>
     <button type="button" class="nav-toggle" aria-label="Menu" aria-expanded="false">
       <span></span><span></span><span></span>
@@ -108,27 +109,88 @@
   </div>
 </section>
 
+<section class="mise-section" id="mise-registration" style="padding-top:0;">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Prima di acquistare</p>
+      <h2>I tuoi dati</h2>
+      <p>Compila questo modulo prima di scegliere il biglietto: ci servono i tuoi dati per l'ingresso e per le comunicazioni sull'evento.</p>
+    </div>
+    <!-- Modulo gestito automaticamente da Netlify (nessun backend necessario), stesso principio
+         del form contatti. Il campo "evento" nascosto identifica a quale evento si riferisce
+         l'iscrizione: per un evento futuro basta duplicare questo blocco e cambiarne il valore. -->
+    <form name="registrazione-evento" method="POST" data-netlify="true" netlify-honeypot="bot-field-reg" class="mise-reg-form" id="mise-reg-form">
+      <input type="hidden" name="form-name" value="registrazione-evento">
+      <input type="hidden" name="evento" value="The Miseducation of GrowMI — 10 settembre 2026">
+      <p style="display:none;"><label>Non compilare: <input name="bot-field-reg"></label></p>
+      <div class="mise-reg-row">
+        <div class="mise-reg-field">
+          <label for="mise-reg-nome">Nome e cognome</label>
+          <input type="text" id="mise-reg-nome" name="nome" required>
+        </div>
+        <div class="mise-reg-field">
+          <label for="mise-reg-email">Email</label>
+          <input type="email" id="mise-reg-email" name="email" required>
+        </div>
+      </div>
+      <label class="mise-reg-checkbox">
+        <input type="checkbox" name="consenso_foto" required>
+        <span>Accetto che GrowMi possa scattare foto e video durante l'evento e utilizzarle sui propri canali media (social, sito, newsletter, articoli e magazine). <strong>Obbligatorio per partecipare.</strong></span>
+      </label>
+      <label class="mise-reg-checkbox">
+        <input type="checkbox" name="newsletter_optin">
+        <span>Voglio iscrivermi alla newsletter GrowMi per restare aggiornato sui prossimi eventi.</span>
+      </label>
+      <button type="submit" class="btn coral" id="mise-reg-submit">Continua all'acquisto</button>
+      <p class="mise-reg-status" id="mise-reg-status" hidden></p>
+    </form>
+  </div>
+</section>
+
 <section class="mise-section" id="mise-tickets" style="padding-top:0;">
   <div class="wrap">
     <div class="section-head">
       <p class="eyebrow" data-i18n="ev1_tickets_eyebrow">Biglietti</p>
       <h2 data-i18n="ev1_tickets_title">Prendi il tuo posto</h2>
-      <p data-i18n="ev1_tickets_note">Prezzi e prevendite in arrivo a breve.</p>
+      <p data-i18n="ev1_tickets_note">I prezzi salgono a scaglioni: prima si acquista, meno si paga. Ogni fascia include anche l'opzione con birra alla spina 250ml + panzerotto grande.</p>
     </div>
-    <div class="mise-tier-list">
+    <p class="mise-locked-note" id="mise-locked-note">Compila prima il modulo qui sopra per sbloccare l'acquisto dei biglietti.</p>
+    <div class="mise-tier-list mise-locked" id="mise-tier-list">
       <div class="mise-tier-row">
-        <div class="mise-tier-name"><span data-i18n="tier_earlybird">Early bird</span><small data-i18n="tier_earlybird_sub">Posti limitati</small></div>
-        <span class="badge-soon" data-i18n="ev1_soon_btn">Presto disponibile</span>
+        <div class="mise-tier-name"><span data-i18n="tier_fascia1_name">Prima fascia</span><small data-i18n="tier_fascia1_sub">Posti limitati</small></div>
+        <div class="mise-tier-options">
+          <a class="mise-tier-btn" href="https://buy.stripe.com/bJebJ03HHfRn8VE9tv4ow04" target="_blank" rel="noopener">
+            <span class="mise-tier-btn-label" data-i18n="tier_btn_plain">Solo ingresso</span><span class="mise-tier-btn-price">€12</span>
+          </a>
+          <a class="mise-tier-btn" href="https://buy.stripe.com/00w4gya657kRdbUdJL4ow05" target="_blank" rel="noopener">
+            <span class="mise-tier-btn-label" data-i18n="tier_btn_food">+ Birra e panzerotto</span><span class="mise-tier-btn-price">€18,50</span>
+          </a>
+        </div>
       </div>
       <div class="mise-tier-row">
-        <div class="mise-tier-name"><span data-i18n="tier_standard">Standard</span><small data-i18n="tier_standard_sub">Ingresso serata</small></div>
-        <span class="badge-soon" data-i18n="ev1_soon_btn">Presto disponibile</span>
+        <div class="mise-tier-name"><span data-i18n="tier_fascia2_name">Seconda fascia</span><small data-i18n="tier_fascia2_sub">Prossimo scaglione</small></div>
+        <div class="mise-tier-options">
+          <a class="mise-tier-btn" href="https://buy.stripe.com/14AfZg921bB7efYdJL4ow06" target="_blank" rel="noopener">
+            <span class="mise-tier-btn-label" data-i18n="tier_btn_plain">Solo ingresso</span><span class="mise-tier-btn-price">€15</span>
+          </a>
+          <a class="mise-tier-btn" href="https://buy.stripe.com/3cIfZgfqpdJf7RAcFH4ow07" target="_blank" rel="noopener">
+            <span class="mise-tier-btn-label" data-i18n="tier_btn_food">+ Birra e panzerotto</span><span class="mise-tier-btn-price">€21,50</span>
+          </a>
+        </div>
       </div>
       <div class="mise-tier-row">
-        <div class="mise-tier-name"><span data-i18n="tier_vip">VIP</span><small data-i18n="tier_vip_sub">Accesso prioritario</small></div>
-        <span class="badge-soon" data-i18n="ev1_soon_btn">Presto disponibile</span>
+        <div class="mise-tier-name"><span data-i18n="tier_fascia3_name">Terza fascia</span><small data-i18n="tier_fascia3_sub">Ultimo scaglione</small></div>
+        <div class="mise-tier-options">
+          <a class="mise-tier-btn" href="https://buy.stripe.com/dRmcN4diheNjfk28pr4ow08" target="_blank" rel="noopener">
+            <span class="mise-tier-btn-label" data-i18n="tier_btn_plain">Solo ingresso</span><span class="mise-tier-btn-price">€20</span>
+          </a>
+          <a class="mise-tier-btn" href="https://buy.stripe.com/4gM4gya65eNjfk249b4ow09" target="_blank" rel="noopener">
+            <span class="mise-tier-btn-label" data-i18n="tier_btn_food">+ Birra e panzerotto</span><span class="mise-tier-btn-price">€26,50</span>
+          </a>
+        </div>
       </div>
     </div>
+    <p class="mise-tickets-note" data-i18n="ev1_tickets_stripe_note">Il pagamento avviene su Stripe, in una nuova scheda. Riceverai il biglietto via email.</p>
   </div>
 </section>
 
@@ -181,6 +243,15 @@
   </div>
 </footer>
 
+<div class="tickets-overlay" id="tickets-overlay" hidden>
+  <div class="tickets-overlay-backdrop" data-tickets-close></div>
+  <div class="tickets-overlay-panel">
+    <button type="button" class="tickets-overlay-close" data-tickets-close aria-label="Chiudi">&times;</button>
+    <p class="eyebrow">Biglietti</p>
+    <h2>Eventi disponibili</h2>
+    <div class="ed-grid tickets-overlay-grid" id="tickets-overlay-grid"></div>
+  </div>
+</div>
 <div class="nl-popup" id="nl-popup" hidden>
   <div class="nl-popup-backdrop" data-nl-close></div>
   <div class="nl-popup-card" role="dialog" aria-modal="true" aria-labelledby="mlb2-45022886">
@@ -264,6 +335,7 @@
   fetch("https://assets.mailerlite.com/jsonp/2351466/forms/196308997987370118/takel")
 </script>
 
+<script src="assets/events-data.js"></script>
 <script src="assets/i18n.js"></script>
 <script src="assets/newsletter.js"></script>
 <script src="assets/interactive.js"></script>

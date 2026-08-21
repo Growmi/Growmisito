@@ -36,7 +36,9 @@
 .ed-hero:has(.ed-hero-slideshow)::before,
 .ed-hero:has(.ed-hero-slideshow)::after,
 .ed-hero:has(.ed-hero-video)::before,
-.ed-hero:has(.ed-hero-video)::after{ display:none; }
+.ed-hero:has(.ed-hero-video)::after,
+.ed-hero:has(.ed-hero-photo)::before,
+.ed-hero:has(.ed-hero-photo)::after{ display:none; }
 
 /* video di sfondo per un hero (es. contatti.html): sotto il testo e sotto la texture/striscia
    decorativa, con un velo scuro sopra per mantenere leggibili titolo e testo. Riempie sempre
@@ -48,6 +50,12 @@
 }
 .ed-hero-video-overlay{
   position:absolute; inset:0; background:rgba(30,12,44,.68); z-index:-1;
+}
+
+/* foto di sfondo fissa per un hero (es. art-mall-collab.html): stesso trattamento del video
+   di sfondo qui sopra, solo con un'immagine statica al posto del video */
+.ed-hero-photo{
+  position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:-2;
 }
 
 /* slideshow di sfondo per l'hero della home: foto che si alternano lentamente in dissolvenza
@@ -272,7 +280,8 @@
 
 /* photo gallery, past events */
 .ed-gallery{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px;}
-.ed-gallery a{display:block; border-radius:6px; overflow:hidden; aspect-ratio:3/2;}
+/* foto della galleria non aperture/ingrandibili al click, di proposito: solo un div, non un link */
+.ed-gallery-item{display:block; border-radius:6px; overflow:hidden; aspect-ratio:3/2;}
 .ed-gallery img{width:100%; height:100%; object-fit:cover; display:block; transition:transform .3s ease;}
-.ed-gallery a:hover img{transform:scale(1.04);}
+.ed-gallery-item:hover img{transform:scale(1.04);}
 .ed-gallery-credit{font-size:12.5px; color:var(--grey); margin-top:18px;}

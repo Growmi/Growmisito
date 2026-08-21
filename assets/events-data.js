@@ -11,18 +11,22 @@
    - date: formato AAAA-MM-GG, usato per decidere prossimo/passato e per l'ordine
    - cover: percorso immagine di copertina, oppure null per la card scura col solo testo
    - comingSoon: true = mostra il badge "Dettagli e biglietti in arrivo" (solo per
-     eventi futuri senza prezzi/link Stripe ancora pronti) */
+     eventi futuri senza prezzi/link Stripe ancora pronti)
+   - ticketsAnchor: opzionale, es. "#mise-tickets" — se l'evento ha una sezione
+     biglietti dedicata nella sua pagina, il menu a tendina "Biglietti" nell'header
+     punta lì direttamente invece che all'inizio della pagina */
 const GROWMI_EVENTS = [
   {
     slug: "miseducation",
-    draft: true,
+    draft: false,
     title: "The Miseducation of GrowMI",
     date: "2026-09-10",
     tag: "GIO 10 SETT 2026 · APERTURA 19:00",
     location: "Art Mall Milano · Milano",
     url: "the-miseducation-of-growmi.html",
     cover: null,
-    comingSoon: true
+    comingSoon: false,
+    ticketsAnchor: "#mise-tickets"
   },
   {
     slug: "art-mall",

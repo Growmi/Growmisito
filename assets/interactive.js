@@ -216,6 +216,138 @@
     });
   }
 
+  function initTicketsOverlay(){
+    var toggle = document.querySelector('.nav-tickets-toggle');
+    var overlay = document.getElementById('tickets-overlay');
+    var grid = document.getElementById('tickets-overlay-grid');
+    if(!toggle || !overlay || !grid || typeof GROWMI_EVENTS === 'undefined') return;
+
+    function escapeHTML(s){
+      return String(s).replace(/[&<>"]/g, function(c){
+        return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c];
+      });
+    }
+    function cardHTML(ev){
+      var title = escapeHTML(ev.title);
+      var mediaInner = ev.cover
+        ? '<img src="' + ev.cover + '" alt="' + title + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;">'
+        : '<span>' + title + '</span>';
+      var mediaClass = ev.cover ? '' : ' dark';
+      var badge = ev.comingSoon
+        ? '<span class="badge-soon" style="margin-top:14px;">Dettagli e biglietti in arrivo</span>'
+        : '';
+      return (
+        '<a class="ed-card" href="' + ev.url + (ev.ticketsAnchor || '') + '">' +
+          '<div class="ed-card-media' + mediaClass + '">' + mediaInner + '</div>' +
+          '<span class="tag">' + escapeHTML(ev.tag) + '</span>' +
+          '<h3>' + title + '</h3>' +
+          '<p class="meta">' + escapeHTML(ev.location) + '</p>' +
+          badge +
+        '</a>'
+      );
+    }
+
+    function open(){
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+      // filtro rifatto a ogni apertura: un evento la cui data è passata smette di
+      // comparire da solo, senza bisogno di toccare nulla a mano
+      var upcoming = GROWMI_EVENTS.filter(function(ev){
+        if(ev.draft) return false;
+        var d = new Date(ev.date + 'T00:00:00');
+        return d >= today;
+      }).sort(function(a, b){ return new Date(a.date) - new Date(b.date); });
+
+      grid.innerHTML = upcoming.length
+        ? upcoming.map(cardHTML).join('')
+        : '<p class="tickets-overlay-empty">Nessun evento disponibile al momento.</p>';
+
+      overlay.hidden = false;
+      toggle.setAttribute('aria-expanded', 'true');
+    }
+    function close(){
+      if(overlay.hidden) return;
+      var panel = overlay.querySelector('.tickets-overlay-panel');
+      toggle.setAttribute('aria-expanded', 'false');
+      panel.classList.add('is-closing');
+      // timeout invece di animationend: cosi' la tendina si chiude comunque anche se
+      // l'animazione viene saltata (prefers-reduced-motion) o interrotta
+      setTimeout(function(){
+        panel.classList.remove('is-closing');
+        overlay.hidden = true;
+      }, 280);
+    }
+
+    toggle.addEventListener('click', function(e){ e.preventDefault(); open(); });
+    overlay.querySelectorAll('[data-tickets-close]').forEach(function(el){
+      el.addEventListener('click', close);
+    });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape' && !overlay.hidden) close();
+    });
+  }
+
+  function initEventRegistrationGate(){
+    var form = document.getElementById('mise-reg-form');
+    var tierList = document.getElementById('mise-tier-list');
+    var lockedNote = document.getElementById('mise-locked-note');
+    var status = document.getElementById('mise-reg-status');
+    var submitBtn = document.getElementById('mise-reg-submit');
+    if(!form || !tierList) return;
+
+    function encode(data){
+      return Object.keys(data).map(function(k){
+        return encodeURIComponent(k) + '=' + encodeURIComponent(data[k]);
+      }).join('&');
+    }
+
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      var data = {};
+      new FormData(form).forEach(function(value, key){ data[key] = value; });
+      submitBtn.disabled = true;
+
+      fetch('/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: encode(data)
+      }).then(function(){
+        tierList.classList.remove('mise-locked');
+        if(lockedNote) lockedNote.hidden = true;
+        form.hidden = true;
+        status.hidden = false;
+        status.classList.remove('is-error');
+        status.textContent = 'Grazie! I tuoi dati sono stati registrati. Scegli il biglietto qui sotto.';
+        status.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        document.getElementById('mise-tickets').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }).catch(function(){
+        submitBtn.disabled = false;
+        status.hidden = false;
+        status.classList.add('is-error');
+        status.textContent = 'Invio non riuscito, riprova (funziona solo sul sito pubblicato, non in locale).';
+      });
+    });
+  }
+
+  // dissolvenza in uscita quando si clicca un link interno verso un'altra pagina del sito,
+  // cosi' il passaggio da una pagina all'altra non è un cambio secco. Va in fondo al bootstrap
+  // cosi' il suo listener sul click gira per ultimo: se un altro handler ha già gestito il click
+  // (es. il toggle "Biglietti", i popup) e ha chiamato preventDefault, qui non si fa nulla.
+  function initPageTransitions(){
+    document.addEventListener('click', function(e){
+      if(e.defaultPrevented || e.button !== 0) return;
+      if(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      var link = e.target.closest('a[href]');
+      if(!link || link.target === '_blank' || link.hasAttribute('download')) return;
+      var href = link.getAttribute('href');
+      if(!href || href.charAt(0) === '#' || href.indexOf('mailto:') === 0 || href.indexOf('tel:') === 0) return;
+      if(link.hostname !== window.location.hostname) return;
+      e.preventDefault();
+      document.body.classList.add('page-leaving');
+      setTimeout(function(){ window.location.href = link.href; }, 550);
+    });
+  }
+
   initReveal();
   initCursor();
   initMagnetic();
@@ -223,4 +355,14 @@
   initCarousels();
   initHeroSlideshow();
   initLogosCluster();
+  // se la pagina viene ripristinata dalla cache del browser (bfcache) a metà di una dissolvenza
+  // in uscita, resterebbe bloccata invisibile: qui si toglie quello stato. L'animazione di
+  // rientro vera e propria è già decisa PRIMA che questo script giri, da uno script inline in <head>.
+  window.addEventListener('pageshow', function(){
+    document.body.classList.remove('page-leaving');
+  });
+
+  initTicketsOverlay();
+  initEventRegistrationGate();
+  initPageTransitions();
 })();

@@ -22,7 +22,21 @@ body{
   line-height:1.6;
   -webkit-font-smoothing:antialiased;
   overflow-x:hidden;
+  animation:pageFadeIn .2s cubic-bezier(.22,1,.36,1);
 }
+/* transizione tra pagine: all'arrivo la pagina appare con una dissolvenza morbida (sotto), e
+   quando si clicca un link interno (vedi initPageTransitions in interactive.js) la pagina
+   corrente si dissolve leggermente prima di navigare, cosi' il passaggio non è secco. */
+@keyframes pageFadeIn{ from{ opacity:0; transform:translateY(5px); } to{ opacity:1; transform:translateY(0); } }
+/* rientro con il tasto indietro: stesso principio dell'ingresso normale ma più lento e con
+   un movimento più marcato, cosi' si sente chiaramente come un "ritorno". La classe html.nav-back
+   viene aggiunta da uno script inline in <head> di ogni pagina, PRIMA che il body inizi a
+   renderizzare, cosi' funziona indipendentemente da come il browser gestisce la cache. */
+@keyframes pageReturnIn{ from{ opacity:0; transform:translateY(18px) scale(.99); } to{ opacity:1; transform:translateY(0) scale(1); } }
+html.nav-back body{ animation:pageReturnIn .5s cubic-bezier(.22,1,.36,1); }
+@keyframes pageFadeOut{ from{ opacity:1; transform:translateY(0); } to{ opacity:0; transform:translateY(-8px); } }
+body.page-leaving{ animation:pageFadeOut .55s cubic-bezier(.45,0,.55,1) forwards; }
+@media (prefers-reduced-motion: reduce){ body{animation:none;} body.page-leaving{animation:none;} }
 img{max-width:100%; display:block;}
 a{color:inherit; text-decoration:none;}
 ul{list-style:none;}
@@ -113,6 +127,29 @@ nav.wrap{
   font-family:inherit; font-weight:inherit; font-size:inherit;
 }
 .lang-switch button.active{background:var(--ink); color:var(--cream);}
+
+/* menu a tendina del bottone "Biglietti" nell'header: elenca gli eventi disponibili,
+   generato da assets/interactive.js → initTicketsDropdown() leggendo GROWMI_EVENTS */
+.nav-tickets{ position:relative; }
+.nav-tickets-menu{
+  position:absolute; top:calc(100% + 10px); right:0; min-width:230px;
+  max-width:min(300px, calc(100vw - 32px));
+  background:var(--cream); border:1.5px solid var(--ink); border-radius:12px;
+  padding:8px; box-shadow:0 16px 32px -12px rgba(30,12,44,.35);
+  display:flex; flex-direction:column; gap:2px; z-index:70;
+  opacity:0; transform:translateY(-6px); pointer-events:none;
+  transition:opacity .18s ease, transform .18s ease;
+}
+.nav-tickets.is-open .nav-tickets-menu{ opacity:1; transform:translateY(0); pointer-events:auto; }
+.nav-tickets-menu a{
+  display:block; padding:10px 12px; border-radius:8px;
+  font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:var(--ink);
+  text-decoration:none; transition:background .15s ease;
+}
+.nav-tickets-menu a:hover{ background:rgba(30,12,44,.06); }
+.nav-tickets-menu a small{
+  display:block; font-family:'Inter',sans-serif; font-weight:400; color:var(--grey); font-size:11.5px; margin-top:2px;
+}
 .nav-toggle{
   display:none; flex-direction:column; justify-content:center; align-items:flex-end; gap:5px;
   width:32px; height:32px; background:none; border:none; cursor:pointer; padding:0; flex-shrink:0;
@@ -129,10 +166,12 @@ nav.wrap{
     border-bottom:1px solid var(--line); padding:8px 28px 16px;
     box-shadow:0 12px 20px rgba(30,12,44,.08);
   }
-  .navlinks.open{display:flex;}
+  .navlinks.open{display:flex; animation:ticketsOverlayIn .24s cubic-bezier(.22,1,.36,1);}
+  .navlinks.closing{display:flex; animation:ticketsOverlayOut .28s cubic-bezier(.22,1,.36,1);}
   .navlinks a{padding:13px 0; border-bottom:1px solid var(--line); font-size:16px;}
   .navlinks a:last-child{border-bottom:none;}
 }
+@media (max-width:1040px) and (prefers-reduced-motion: reduce){ .navlinks.open, .navlinks.closing{animation:none;} }
 
 /* HERO (dark) */
 .hero-dark{
@@ -301,6 +340,48 @@ footer .wrap{ max-width:1600px; }
 .nl-tab[hidden]{display:none;}
 @media (max-width:600px){ .nl-popup-card{padding:28px 22px;} }
 
+/* tendina del bottone "Biglietti" nell'header: si apre a comparsa sotto l'header esattamente
+   come il menu mobile delle tre linee (.navlinks.open) — stessa larghezza piena, stesso sfondo
+   crema, nessun overlay/backdrop scuro. Dentro mostra le vere card quadrate degli eventi (stesse
+   di eventi.html), popolate da assets/interactive.js → initTicketsOverlay() leggendo
+   GROWMI_EVENTS. Gli eventi già passati non compaiono più da soli, dato che il filtro si basa
+   sulla data odierna a ogni apertura. La card resta piccola e parte da sinistra, non riempie
+   tutta la larghezza della tendina. */
+.tickets-overlay{position:fixed; top:76px; left:0; right:0; z-index:65;}
+.tickets-overlay[hidden]{display:none;}
+.tickets-overlay-backdrop{position:fixed; top:76px; left:0; right:0; bottom:0; background:transparent;}
+.tickets-overlay-panel{
+  position:relative; background:var(--cream);
+  border-bottom:1px solid var(--line);
+  box-shadow:0 12px 20px rgba(30,12,44,.08);
+  padding:24px 28px 32px; box-sizing:border-box;
+  max-height:calc(100vh - 76px); max-height:calc(100dvh - 76px);
+  overflow-y:auto; -webkit-overflow-scrolling:touch;
+  animation:ticketsOverlayIn .24s cubic-bezier(.22,1,.36,1);
+}
+@keyframes ticketsOverlayIn{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:translateY(0); } }
+/* la scomparsa è volutamente un filo più lenta dell'apertura, cosi' non sparisce di scatto */
+@keyframes ticketsOverlayOut{ from{ opacity:1; transform:translateY(0); } to{ opacity:0; transform:translateY(-6px); } }
+.tickets-overlay-panel.is-closing{ animation:ticketsOverlayOut .28s cubic-bezier(.22,1,.36,1); }
+@media (prefers-reduced-motion: reduce){ .tickets-overlay-panel{animation:none;} }
+.tickets-overlay-close{
+  position:absolute; top:16px; right:20px; width:36px; height:36px; border-radius:50%;
+  border:1.5px solid var(--line); background:transparent; font-size:20px; cursor:pointer; line-height:1;
+}
+.tickets-overlay-panel h2{margin-top:4px;}
+/* niente grid a piena larghezza: le card restano di dimensione fissa e piccola, allineate
+   a sinistra, cosi' la tendina non sembra una sezione a pagina intera */
+.tickets-overlay-grid{
+  display:flex; flex-wrap:wrap; justify-content:flex-start; gap:20px;
+  margin-top:22px;
+}
+.tickets-overlay-grid .ed-card{ width:190px; flex:0 0 auto; }
+.tickets-overlay-empty{font-size:14.5px; color:var(--grey); margin-top:24px;}
+@media (max-width:600px){
+  .tickets-overlay-panel{ padding:20px 20px 26px; }
+  .tickets-overlay-grid .ed-card{ width:150px; }
+}
+
 /* loyalty card */
 .loyalty-rewards{display:flex; justify-content:center; gap:40px; flex-wrap:wrap; margin-bottom:50px;}
 .loyalty-reward{text-align:center; max-width:220px;}
@@ -315,11 +396,6 @@ footer .wrap{ max-width:1600px; }
 /* più impatto su schermi non piccolissimi: la card cresce, e con lei logo/timbri/testi al suo interno */
 @media (min-width:640px){
   .loyalty-card{ width:480px; }
-  .loyalty-logo{ width:190px; }
-  .loyalty-card-face{ padding:32px 36px; }
-  .loyalty-stamp{ width:52px; height:52px; font-size:18px; }
-  .loyalty-stamp-star{ font-size:20px; }
-  .loyalty-card-foot{ font-size:14px; }
 }
 .loyalty-card-inner{
   position:relative; width:100%; height:100%;
@@ -330,25 +406,10 @@ footer .wrap{ max-width:1600px; }
 .loyalty-card:focus-visible .loyalty-card-inner{outline:3px solid var(--coral); outline-offset:6px;}
 .loyalty-card-face{
   position:absolute; inset:0; backface-visibility:hidden;
-  border-radius:18px; background:var(--loy-cream);
+  border-radius:18px; overflow:hidden;
   box-shadow:0 20px 40px rgba(30,12,44,.2);
-  padding:26px 28px; display:flex; flex-direction:column;
 }
-.loyalty-card-back{transform:rotateY(180deg); justify-content:space-between;}
-.loyalty-logo{width:150px; margin:0 auto 18px;}
-.loyalty-card-front h3{
-  text-align:center; color:var(--magenta); font-size:clamp(22px,4vw,30px);
-  letter-spacing:.02em; margin-bottom:auto;
-}
-.loyalty-card-foot{display:flex; justify-content:space-between; font-family:'Inter',sans-serif; font-size:12.5px; color:var(--ink); margin-top:18px;}
-.loyalty-stamps{display:flex; justify-content:space-between; gap:10px;}
-.loyalty-stamp{
-  width:44px; height:44px; border-radius:50%; border:1.5px solid var(--ink);
-  display:flex; align-items:center; justify-content:center;
-  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; color:var(--ink);
-}
-.loyalty-stamp-icon{color:var(--magenta); border-color:var(--magenta);}
-.loyalty-stamp-star{color:#fff; background:var(--magenta); border-color:var(--magenta); font-size:18px;}
-.loyalty-thanks{color:var(--magenta); font-weight:600; text-align:center; margin:16px 0 0;}
+.loyalty-card-img{ width:100%; height:100%; object-fit:cover; display:block; }
+.loyalty-card-back{transform:rotateY(180deg);}
 .loyalty-hint{font-size:12.5px; color:var(--grey); margin-top:16px; text-align:center;}
 @media (prefers-reduced-motion: reduce){ .loyalty-card-inner{transition:none;} }

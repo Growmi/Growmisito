@@ -24,7 +24,7 @@ const GROWMI_I18N = {
     cta_title:"Vuoi collaborare<br>con GrowMi?", cta_p:"Sei un artista, un locale o vuoi sostenere il progetto? Scrivici.", cta_btn:"Vai ai contatti",
 
     ev_eyebrow:"Prossimi eventi", ev_title:"Prendi il tuo biglietto",
-    ev_lead:"Posti limitati. Il pagamento avviene in modo sicuro tramite Stripe.",
+    ev_lead:"Eventi esclusivi nel cuore di Milano, a un prezzo che non ti aspetti.",
     ev_empty:"Nessun evento in programma al momento. Torna presto, stiamo preparando qualcosa di nuovo.",
     tier_earlybird:"Early bird", tier_standard:"Standard", tier_vip:"VIP",
     tier_earlybird_sub:"Posti limitati", tier_standard_sub:"Ingresso serata", tier_vip_sub:"Accesso prioritario",
@@ -106,8 +106,13 @@ const GROWMI_I18N = {
     ev1_lineup_dj_role:"DJ set",
     ev1_lineup_dj_desc:"Chiude la serata nella seconda stanza.",
     ev1_tickets_eyebrow:"Biglietti", ev1_tickets_title:"Prendi il tuo posto",
-    ev1_tickets_note:"Prezzi e prevendite in arrivo a breve.",
+    ev1_tickets_note:"I prezzi salgono a scaglioni: prima si acquista, meno si paga. Ogni fascia include anche l'opzione con birra alla spina 250ml + panzerotto grande.",
     ev1_soon_btn:"Presto disponibile",
+    tier_fascia1_name:"Prima fascia", tier_fascia1_sub:"Posti limitati",
+    tier_fascia2_name:"Seconda fascia", tier_fascia2_sub:"Prossimo scaglione",
+    tier_fascia3_name:"Terza fascia", tier_fascia3_sub:"Ultimo scaglione",
+    tier_btn_plain:"Solo ingresso", tier_btn_food:"+ Birra e panzerotto",
+    ev1_tickets_stripe_note:"Il pagamento avviene su Stripe, in una nuova scheda. Riceverai il biglietto via email.",
 
     nl_eyebrow:"Newsletter", nl_title:"Non perderti i prossimi eventi",
     nl_lead:"Iscriviti alla newsletter di GrowMi: eventi, artisti e novità via email, senza spam.",
@@ -149,7 +154,7 @@ const GROWMI_I18N = {
     cta_title:"Want to work<br>with GrowMi?", cta_p:"Are you an artist, a venue, or do you want to support the project? Get in touch.", cta_btn:"Go to contact",
 
     ev_eyebrow:"Upcoming events", ev_title:"Grab your ticket",
-    ev_lead:"Limited spots. Payments are handled securely via Stripe.",
+    ev_lead:"Exclusive nights in the heart of Milan, at a price you won't expect.",
     ev_empty:"No events scheduled right now. Check back soon, we're planning something new.",
     tier_earlybird:"Early bird", tier_standard:"Standard", tier_vip:"VIP",
     tier_earlybird_sub:"Limited spots", tier_standard_sub:"Night entry", tier_vip_sub:"Priority access",
@@ -231,8 +236,13 @@ const GROWMI_I18N = {
     ev1_lineup_dj_role:"DJ set",
     ev1_lineup_dj_desc:"Closes the night in the second room.",
     ev1_tickets_eyebrow:"Tickets", ev1_tickets_title:"Grab your spot",
-    ev1_tickets_note:"Prices and presale coming soon.",
+    ev1_tickets_note:"Prices go up in steps: the earlier you buy, the less you pay. Every tier also has an option with a 250ml draft beer + large panzerotto.",
     ev1_soon_btn:"Coming soon",
+    tier_fascia1_name:"First tier", tier_fascia1_sub:"Limited spots",
+    tier_fascia2_name:"Second tier", tier_fascia2_sub:"Next price step",
+    tier_fascia3_name:"Third tier", tier_fascia3_sub:"Last price step",
+    tier_btn_plain:"Entry only", tier_btn_food:"+ Beer and panzerotto",
+    ev1_tickets_stripe_note:"Payment happens on Stripe, in a new tab. You'll get your ticket by email.",
 
     nl_eyebrow:"Newsletter", nl_title:"Don't miss the next events",
     nl_lead:"Subscribe to the GrowMi newsletter: events, artists and news by email, no spam.",
@@ -285,15 +295,31 @@ function growmiInitNavToggle(){
     var nav = toggle.closest('nav');
     var navlinks = nav ? nav.querySelector('.navlinks') : null;
     if(!navlinks) return;
+    // la chiusura resta leggermente più lenta dell'apertura: si aggiunge .closing (che riproduce
+    // l'animazione di uscita) e solo a fine animazione si toglie davvero .open, cosi' la tendina
+    // non sparisce di scatto
+    function closeMenu(){
+      if(!navlinks.classList.contains('open')) return;
+      navlinks.classList.remove('open');
+      navlinks.classList.add('closing');
+      toggle.setAttribute('aria-expanded', 'false');
+      // timeout invece di animationend: cosi' il menu si chiude comunque anche se
+      // l'animazione viene saltata (prefers-reduced-motion) o interrotta
+      setTimeout(function(){
+        navlinks.classList.remove('closing');
+      }, 280);
+    }
     toggle.addEventListener('click', function(){
-      var open = navlinks.classList.toggle('open');
-      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if(navlinks.classList.contains('open')){
+        closeMenu();
+      } else {
+        navlinks.classList.remove('closing');
+        navlinks.classList.add('open');
+        toggle.setAttribute('aria-expanded', 'true');
+      }
     });
     navlinks.querySelectorAll('a').forEach(function(link){
-      link.addEventListener('click', function(){
-        navlinks.classList.remove('open');
-        toggle.setAttribute('aria-expanded', 'false');
-      });
+      link.addEventListener('click', closeMenu);
     });
   });
 }

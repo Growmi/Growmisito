@@ -2,6 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
+<script>if(performance.getEntriesByType("navigation")[0]&&performance.getEntriesByType("navigation")[0].type==="back_forward"){document.documentElement.classList.add("nav-back");}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Grow With Us — 6 Maggio 2025 · GrowMi</title>
 <meta name="description" content="Grow With Us: il primo evento esclusivo di GrowMi, 6 maggio 2025 da Black (by Mixum), Milano. Denim party con sponsor Pogo Store.">
@@ -32,7 +33,7 @@
         <button data-lang="it">IT</button>
         <button data-lang="en">EN</button>
       </div>
-      <a class="btn coral small" href="eventi.html" data-i18n="nav_cta">Biglietti</a>
+      <div class="nav-tickets"><a class="btn coral small nav-tickets-toggle" href="eventi.html" data-i18n="nav_cta" aria-haspopup="true" aria-expanded="false">Biglietti</a><div class="nav-tickets-menu"></div></div>
     </div>
     <button type="button" class="nav-toggle" aria-label="Menu" aria-expanded="false">
       <span></span><span></span><span></span>
@@ -81,12 +82,18 @@
     </div>
 
     <div class="ed-gallery">
-      <a href="assets/img/eventi/grow-with-us/01.jpg" target="_blank" rel="noopener"><img src="assets/img/eventi/grow-with-us/01.jpg" alt="Grow With Us — 6 maggio 2025" loading="lazy"></a>
-      <a href="assets/img/eventi/grow-with-us/02.jpg" target="_blank" rel="noopener"><img src="assets/img/eventi/grow-with-us/02.jpg" alt="Grow With Us — 6 maggio 2025" loading="lazy"></a>
-      <a href="assets/img/eventi/grow-with-us/03.jpg" target="_blank" rel="noopener"><img src="assets/img/eventi/grow-with-us/03.jpg" alt="Grow With Us — 6 maggio 2025" loading="lazy"></a>
-      <a href="assets/img/eventi/grow-with-us/04.jpg" target="_blank" rel="noopener"><img src="assets/img/eventi/grow-with-us/04.jpg" alt="Grow With Us — 6 maggio 2025" loading="lazy"></a>
-      <a href="assets/img/eventi/grow-with-us/05.jpg" target="_blank" rel="noopener"><img src="assets/img/eventi/grow-with-us/05.jpg" alt="Grow With Us — 6 maggio 2025" loading="lazy"></a>
-      <a href="assets/img/eventi/grow-with-us/06.jpg" target="_blank" rel="noopener"><img src="assets/img/eventi/grow-with-us/06.jpg" alt="Grow With Us — 6 maggio 2025" loading="lazy"></a>
+      <div class="ed-gallery-item"><img src="assets/img/eventi/grow-with-us/01.jpg" alt="Grow With Us — 6 maggio 2025" loading="lazy"></div>
+      <div class="ed-gallery-item"><img src="assets/img/eventi/grow-with-us/02.jpg" alt="Grow With Us — 6 maggio 2025" loading="lazy"></div>
+      <div class="ed-gallery-item"><img src="assets/img/eventi/grow-with-us/03.jpg" alt="Grow With Us — 6 maggio 2025" loading="lazy"></div>
+      <div class="ed-gallery-item"><img src="assets/img/eventi/grow-with-us/04.jpg" alt="Grow With Us — 6 maggio 2025" loading="lazy"></div>
+      <div class="ed-gallery-item"><img src="assets/img/eventi/grow-with-us/05.jpg" alt="Grow With Us — 6 maggio 2025" loading="lazy"></div>
+      <div class="ed-gallery-item"><img src="assets/img/eventi/grow-with-us/06.jpg" alt="Grow With Us — 6 maggio 2025" loading="lazy"></div>
+      <div class="ed-gallery-item"><img src="assets/img/eventi/grow-with-us/07.jpg" alt="Grow With Us — 6 maggio 2025" loading="lazy"></div>
+      <div class="ed-gallery-item"><img src="assets/img/eventi/grow-with-us/08.jpg" alt="Grow With Us — 6 maggio 2025" loading="lazy"></div>
+      <div class="ed-gallery-item"><img src="assets/img/eventi/grow-with-us/09.jpg" alt="Grow With Us — 6 maggio 2025" loading="lazy"></div>
+      <div class="ed-gallery-item"><img src="assets/img/eventi/grow-with-us/10.jpg" alt="Grow With Us — 6 maggio 2025" loading="lazy"></div>
+      <div class="ed-gallery-item"><img src="assets/img/eventi/grow-with-us/11.jpg" alt="Grow With Us — 6 maggio 2025" loading="lazy"></div>
+      <div class="ed-gallery-item"><img src="assets/img/eventi/grow-with-us/12.jpg" alt="Grow With Us — 6 maggio 2025" loading="lazy"></div>
     </div>
     <p class="ed-gallery-credit"><span data-i18n="past_gallery_credit">Foto di</span> Alice Amoruso</p>
   </div>
@@ -151,6 +158,15 @@
   </div>
 </footer>
 
+<div class="tickets-overlay" id="tickets-overlay" hidden>
+  <div class="tickets-overlay-backdrop" data-tickets-close></div>
+  <div class="tickets-overlay-panel">
+    <button type="button" class="tickets-overlay-close" data-tickets-close aria-label="Chiudi">&times;</button>
+    <p class="eyebrow">Biglietti</p>
+    <h2>Eventi disponibili</h2>
+    <div class="ed-grid tickets-overlay-grid" id="tickets-overlay-grid"></div>
+  </div>
+</div>
 <div class="nl-popup" id="nl-popup" hidden>
   <div class="nl-popup-backdrop" data-nl-close></div>
   <div class="nl-popup-card" role="dialog" aria-modal="true" aria-labelledby="mlb2-45022886">
@@ -234,6 +250,7 @@
   fetch("https://assets.mailerlite.com/jsonp/2351466/forms/196308997987370118/takel")
 </script>
 
+<script src="assets/events-data.js"></script>
 <script src="assets/i18n.js"></script>
 <script src="assets/newsletter.js"></script>
 <script src="assets/interactive.js"></script>

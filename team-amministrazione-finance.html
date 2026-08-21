@@ -2,6 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
+<script>if(performance.getEntriesByType("navigation")[0]&&performance.getEntriesByType("navigation")[0].type==="back_forward"){document.documentElement.classList.add("nav-back");}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Amministrazione e Finanza — Team GrowMi</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31,7 +32,7 @@
         <button data-lang="it">IT</button>
         <button data-lang="en">EN</button>
       </div>
-      <a class="btn coral small" href="eventi.html" data-i18n="nav_cta">Biglietti</a>
+      <div class="nav-tickets"><a class="btn coral small nav-tickets-toggle" href="eventi.html" data-i18n="nav_cta" aria-haspopup="true" aria-expanded="false">Biglietti</a><div class="nav-tickets-menu"></div></div>
     </div>
     <button type="button" class="nav-toggle" aria-label="Menu" aria-expanded="false">
       <span></span><span></span><span></span>
@@ -118,6 +119,15 @@
   </div>
 </footer>
 
+<div class="tickets-overlay" id="tickets-overlay" hidden>
+  <div class="tickets-overlay-backdrop" data-tickets-close></div>
+  <div class="tickets-overlay-panel">
+    <button type="button" class="tickets-overlay-close" data-tickets-close aria-label="Chiudi">&times;</button>
+    <p class="eyebrow">Biglietti</p>
+    <h2>Eventi disponibili</h2>
+    <div class="ed-grid tickets-overlay-grid" id="tickets-overlay-grid"></div>
+  </div>
+</div>
 <div class="nl-popup" id="nl-popup" hidden>
   <div class="nl-popup-backdrop" data-nl-close></div>
   <div class="nl-popup-card" role="dialog" aria-modal="true" aria-labelledby="mlb2-45022886">
@@ -201,6 +211,7 @@
   fetch("https://assets.mailerlite.com/jsonp/2351466/forms/196308997987370118/takel")
 </script>
 
+<script src="assets/events-data.js"></script>
 <script src="assets/i18n.js"></script>
 <script src="assets/newsletter.js"></script>
 <script src="assets/interactive.js"></script>

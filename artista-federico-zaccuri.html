@@ -2,6 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
+<script>if(performance.getEntriesByType("navigation")[0]&&performance.getEntriesByType("navigation")[0].type==="back_forward"){document.documentElement.classList.add("nav-back");}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Federico Zaccuri — Artisti GrowMi</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31,7 +32,7 @@
         <button data-lang="it">IT</button>
         <button data-lang="en">EN</button>
       </div>
-      <a class="btn coral small" href="eventi.html" data-i18n="nav_cta">Biglietti</a>
+      <div class="nav-tickets"><a class="btn coral small nav-tickets-toggle" href="eventi.html" data-i18n="nav_cta" aria-haspopup="true" aria-expanded="false">Biglietti</a><div class="nav-tickets-menu"></div></div>
     </div>
     <button type="button" class="nav-toggle" aria-label="Menu" aria-expanded="false">
       <span></span><span></span><span></span>
@@ -40,6 +41,10 @@
 </header>
 
 <section class="ed-hero" style="padding:110px 0 80px;">
+  <video class="ed-hero-video" autoplay muted loop playsinline>
+    <source src="assets/video/federico-zaccuri-bg.mp4" type="video/mp4">
+  </video>
+  <div class="ed-hero-video-overlay"></div>
   <div class="wrap ed-wrap">
     <span class="ed-eyebrow">Artista GrowMi</span>
     <h1 style="font-size:clamp(36px,6vw,76px);">Federico Zaccuri</h1>
@@ -49,7 +54,10 @@
 
 <section class="ed-section-tight">
   <div class="wrap" style="max-width:720px;">
-    <div class="empty-state">Descrizione in arrivo.</div>
+    <p style="font-size:16.5px; margin-bottom:20px;">Da otto anni Federico Zaccuri esplora le ritmiche ipnotiche della tech house e della house contemporanea, con incursioni nella minimal underground: groove tesi, costruzioni sonore stratificate, un'energia che oscilla tra la danza pura e l'atmosfera immersiva.</p>
+    <p style="font-size:16.5px; margin-bottom:20px;">Il momento che ha aperto la sua strada come DJ è stato il set a Blab to the Park, lo storico evento della Bocconi che ha radunato 10.000 persone a Milano: una performance che ha consolidato la sua visione musicale e acceso l'attenzione della scena.</p>
+    <p style="font-size:16.5px; margin-bottom:20px;">Quest'anno è entrato a far parte del Kissene, la storica realtà di eventi di Messina che negli ultimi anni si è imposta come istituzione della musica house e punto di riferimento della città. Come volto della label, ne incarna la ricerca sonora e la dedizione.</p>
+    <p style="font-size:16.5px;">In consolle continua a indagare le sfumature della tech house e della house, portando ogni volta suoni nuovi e una firma sempre riconoscibile in chi lo ascolta.</p>
   </div>
 </section>
 
@@ -102,6 +110,15 @@
   </div>
 </footer>
 
+<div class="tickets-overlay" id="tickets-overlay" hidden>
+  <div class="tickets-overlay-backdrop" data-tickets-close></div>
+  <div class="tickets-overlay-panel">
+    <button type="button" class="tickets-overlay-close" data-tickets-close aria-label="Chiudi">&times;</button>
+    <p class="eyebrow">Biglietti</p>
+    <h2>Eventi disponibili</h2>
+    <div class="ed-grid tickets-overlay-grid" id="tickets-overlay-grid"></div>
+  </div>
+</div>
 <div class="nl-popup" id="nl-popup" hidden>
   <div class="nl-popup-backdrop" data-nl-close></div>
   <div class="nl-popup-card" role="dialog" aria-modal="true" aria-labelledby="mlb2-45022886">
@@ -185,6 +202,7 @@
   fetch("https://assets.mailerlite.com/jsonp/2351466/forms/196308997987370118/takel")
 </script>
 
+<script src="assets/events-data.js"></script>
 <script src="assets/i18n.js"></script>
 <script src="assets/newsletter.js"></script>
 <script src="assets/interactive.js"></script>
