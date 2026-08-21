@@ -7,7 +7,13 @@
   overflow:hidden;
   padding:100px 0 90px;
   border-bottom:6px solid #E7222E;
+  min-height:100vh;
+  min-height:100dvh;
+  display:flex;
+  align-items:center;
+  box-sizing:border-box;
 }
+.mise-hero > .wrap{ width:100%; }
 .mise-hero::before{
   content:"";
   position:absolute; inset:0;

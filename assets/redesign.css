@@ -4,9 +4,16 @@
   background:var(--ink);
   color:var(--cream);
   position:relative;
+  z-index:0;
   overflow:hidden;
   padding:150px 0 110px;
+  min-height:100vh;
+  min-height:100dvh;
+  display:flex;
+  align-items:center;
+  box-sizing:border-box;
 }
+.ed-hero > .wrap{ width:100%; }
 .ed-hero::before{
   content:"";
   position:absolute; inset:0;
@@ -22,6 +29,55 @@
   pointer-events:none;
 }
 .ed-wrap{position:relative; z-index:2;}
+
+/* nell'hero con un vero media di sfondo (foto/slideshow in home, video in contatti) niente texture
+   a pallini né striscia magenta decorativa sopra: solo il media come sfondo, col velo scuro per
+   la leggibilità del testo. Vale per qualsiasi hero futuro con foto/video di sfondo */
+.ed-hero:has(.ed-hero-slideshow)::before,
+.ed-hero:has(.ed-hero-slideshow)::after,
+.ed-hero:has(.ed-hero-video)::before,
+.ed-hero:has(.ed-hero-video)::after{ display:none; }
+
+/* video di sfondo per un hero (es. contatti.html): sotto il testo e sotto la texture/striscia
+   decorativa, con un velo scuro sopra per mantenere leggibili titolo e testo. Riempie sempre
+   tutto lo schermo (object-fit:cover): su schermi molto larghi il video verticale viene
+   ingrandito e i lati vengono tagliati — scelta voluta dall'utente per avere lo sfondo a
+   tutto schermo invece delle bande nere laterali */
+.ed-hero-video{
+  position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:-2;
+}
+.ed-hero-video-overlay{
+  position:absolute; inset:0; background:rgba(30,12,44,.68); z-index:-1;
+}
+
+/* slideshow di sfondo per l'hero della home: foto che si alternano lentamente in dissolvenza
+   (vedi assets/interactive.js → initHeroSlideshow), stesso principio del video di contatti.html */
+.ed-hero-slideshow{ position:absolute; inset:0; z-index:-3; }
+.ed-hero-slide{ position:absolute; inset:0; opacity:0; transition:opacity 1.4s ease; }
+.ed-hero-slide.is-active{ opacity:1; }
+.ed-hero-slide img{ width:100%; height:100%; object-fit:cover; display:block; }
+.ed-hero-slide.placeholder{
+  display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(135deg,var(--lilac),var(--purple-deep));
+}
+.ed-hero-slide.placeholder span{
+  font-family:'Space Grotesk',sans-serif; font-weight:700; color:#fff; font-size:13px;
+  letter-spacing:.06em; text-transform:uppercase; opacity:.6;
+}
+.ed-hero-slideshow-overlay{ position:absolute; inset:0; z-index:-2; background:rgba(30,12,44,.6); }
+
+/* pallini di navigazione sul bordo destro dell'hero, sopra le foto (ispirato a tridentmusic.it) */
+.ed-hero-dots{
+  position:absolute; right:24px; top:50%; transform:translateY(-50%); z-index:3;
+  display:flex; flex-direction:column; gap:14px;
+}
+.ed-hero-dot{
+  width:10px; height:10px; border-radius:50%; background:transparent;
+  border:2px solid rgba(251,246,240,.55); cursor:pointer; padding:0;
+  transition:background .25s ease, border-color .25s ease, transform .25s ease;
+}
+.ed-hero-dot.is-active{ background:var(--cream); border-color:var(--cream); transform:scale(1.2); }
+@media (max-width:640px){ .ed-hero-dots{ right:14px; } }
 .ed-eyebrow{
   font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12.5px;
   letter-spacing:.16em; text-transform:uppercase; color:var(--magenta);
@@ -47,6 +103,15 @@
 .ed-btn-ghost::after{content:"→";}
 .ed-btn-ghost:hover{opacity:.75; transform:translateX(2px);}
 .ed-btn-ghost.on-light{color:var(--ink); border-color:var(--coral);}
+
+/* i bottoni dentro le bande CTA (viola scuro) — "Vai ai contatti", "Iscrivimi" ecc — hanno un
+   rettangolo bianco dietro, invece del semplice link sottolineato. Su tutte le pagine, dato che
+   .ed-cta/.ed-btn-ghost sono condivisi da tutto il sito via redesign.css */
+.ed-cta .ed-btn-ghost{
+  background:var(--loy-cream); color:var(--ink); border:none; border-radius:6px;
+  padding:10px 18px; font-size:14px;
+}
+.ed-cta .ed-btn-ghost:hover{ background:#fff; opacity:1; transform:translateX(2px); }
 
 .ed-section{padding:120px 0;}
 .ed-section-tight{padding:70px 0 120px;}
@@ -76,6 +141,7 @@
   display:flex; align-items:center; justify-content:center; position:relative;
 }
 .ed-card-media.dark{background:#0A0A0A;}
+.ed-card-media img{width:100%; height:100%; object-fit:cover; display:block;}
 .ed-card-media span{
   font-family:'Space Grotesk',sans-serif; font-weight:700; color:#fff; font-size:15px;
   text-align:center; padding:0 20px; letter-spacing:-0.01em;
@@ -93,18 +159,116 @@
   font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; letter-spacing:.1em;
   color:var(--magenta); display:block; margin-bottom:16px;
 }
+.ed-value-list > div:nth-child(2) .n{ color:var(--coral); }
+.ed-value-list > div:nth-child(3) .n{ color:#C99A1F; }
 .ed-value-list h3{margin-bottom:10px;}
 .ed-value-list p{font-size:15px;}
 @media (max-width:880px){ .ed-value-list{grid-template-columns:1fr; gap:40px;} }
 
-/* full-bleed cta, no boxed pill */
-.ed-cta{background:var(--purple-deep); color:var(--cream); padding:110px 0;}
+/* Mission/Vision in chi-siamo.html: solo 2 voci invece di 3, più spazio per farle risaltare di più */
+.ed-value-list.mv-large{ gap:72px; }
+.ed-value-list.mv-large .n{ font-size:16px; margin-bottom:20px; }
+.ed-value-list.mv-large p{ font-size:19px; line-height:1.55; }
+@media (max-width:880px){ .ed-value-list.mv-large{ gap:44px; } }
+
+/* due blocchi di testo affiancati sulla stessa riga (es. "Come funziona" + "Alcuni esempi") */
+.ed-two-col{display:grid; grid-template-columns:1fr 1fr; gap:56px;}
+@media (max-width:760px){ .ed-two-col{grid-template-columns:1fr; gap:36px;} }
+
+/* full-bleed cta (usata dalla banda newsletter) */
+.ed-cta{background:var(--purple-deep); color:var(--cream); padding:72px 0;}
 .ed-cta h2{color:var(--cream); font-size:clamp(34px,5vw,60px);}
 .ed-cta p{color:#D9C9E6; max-width:480px; margin-top:16px; font-size:17px;}
 .ed-cta-row{display:flex; align-items:center; justify-content:space-between; gap:40px; flex-wrap:wrap;}
 .ed-cta.compact{padding:56px 0;}
 .ed-cta.compact h2{font-size:clamp(24px,3vw,34px);}
-.ed-cta + .ed-cta{border-top:1px solid rgba(255,255,255,.14);}
+/* banda "Vuoi collaborare con GrowMi?" (non-compact, la prima delle due): non piu' a tutta
+   larghezza — diventa un riquadro viola arrotondato al centro della pagina, come il rettangolo
+   del bottone "Vai ai contatti" al suo interno, invece di un'intera banda colorata */
+.ed-cta:not(.compact){ background:transparent; padding:60px 0; }
+.ed-cta:not(.compact) .ed-cta-row{
+  background:#5C2088; border-radius:16px; padding:48px 44px;
+}
+/* divisore tra la banda newsletter e il footer */
+.ed-cta.compact + footer{ border-top:2px solid rgba(255,255,255,.16); }
+
+/* due bande CTA affiancate sulla stessa riga invece che impilate (usato quando due CTA
+   correlate stanno bene una accanto all'altra, es. artisti.html e chi-siamo.html) */
+.ed-cta-pair{ display:grid; grid-template-columns:1fr 1fr; gap:32px; }
+.ed-cta-pair .ed-cta-row{ background:#5C2088; border-radius:16px; padding:44px 36px; }
+@media (max-width:760px){ .ed-cta-pair{ grid-template-columns:1fr; } }
+
+/* hero con artwork a fianco (usato per pagine evento con materiale grafico ufficiale) */
+.ed-hero-split{ display:grid; grid-template-columns:1.15fr .85fr; gap:56px; align-items:center; }
+.ed-hero-split img{ width:100%; max-width:360px; margin:0 auto; display:block; filter:drop-shadow(0 20px 40px rgba(0,0,0,.3)); }
+@media (max-width:760px){
+  .ed-hero-split{ grid-template-columns:1fr; }
+  .ed-hero-split img{ max-width:260px; order:-1; }
+}
+
+/* poster ufficiale + sticker sponsor sovrapposto, effetto "poster con adesivo" */
+.ed-poster-feature{ position:relative; max-width:420px; margin:0 auto 64px; }
+.ed-poster-img{ width:100%; border-radius:10px; box-shadow:0 30px 60px rgba(0,0,0,.35); display:block; }
+.ed-poster-badge{
+  position:absolute; width:118px; bottom:-22px; right:-22px; transform:rotate(-9deg);
+  filter:drop-shadow(0 10px 18px rgba(0,0,0,.35)); transition:transform .3s ease;
+}
+.ed-poster-feature:hover .ed-poster-badge{ transform:rotate(-3deg) scale(1.05); }
+.ed-poster-badge-left{
+  position:absolute; width:96px; bottom:-16px; left:-16px; transform:rotate(8deg);
+  filter:drop-shadow(0 10px 18px rgba(0,0,0,.3)); transition:transform .3s ease;
+}
+/* il logo Pogo è bianco su trasparente: senza un fondo scuro proprio sparirebbe sul crema
+   della pagina (lo sticker sta fuori dalla locandina, non sopra), quindi gli diamo una
+   "targhetta" scura dietro, come un vero adesivo */
+.ed-poster-badge-left[src*="badge-pogo"]{
+  background:var(--ink); border-radius:14px; padding:14px 10px; box-sizing:border-box;
+}
+.ed-poster-feature:hover .ed-poster-badge-left{ transform:rotate(3deg) scale(1.05); }
+@media (max-width:520px){
+  .ed-poster-badge{ width:84px; bottom:-12px; right:-8px; }
+  .ed-poster-badge-left{ width:72px; bottom:-10px; left:-8px; }
+}
+
+/* badge sponsor autonomo, per pagine senza poster ufficiale (es. grow-with-us.html) */
+.ed-sponsor-badges{ display:flex; gap:24px; margin:-8px 0 44px; }
+.ed-sponsor-badge{ width:96px; transform:rotate(-6deg); filter:drop-shadow(0 8px 16px rgba(0,0,0,.18)); transition:transform .3s ease; }
+.ed-sponsor-badge:hover{ transform:rotate(-2deg) scale(1.05); }
+
+/* carosello immagini, riutilizzabile su qualsiasi pagina (vedi assets/interactive.js → initCarousels) */
+.carousel{ position:relative; display:flex; align-items:center; gap:14px; }
+.carousel-track{
+  display:flex; gap:20px; overflow-x:auto; scroll-snap-type:x mandatory;
+  scroll-behavior:smooth; padding:4px 2px 14px; flex:1;
+  -webkit-overflow-scrolling:touch; scrollbar-width:none;
+}
+.carousel-track::-webkit-scrollbar{ display:none; }
+.carousel-slide{
+  scroll-snap-align:center; flex:0 0 auto; width:min(78vw,420px); aspect-ratio:4/3;
+  border-radius:10px; overflow:hidden;
+  background:linear-gradient(135deg,var(--lilac),var(--purple-deep));
+  display:flex; align-items:center; justify-content:center;
+}
+.carousel-slide img{ width:100%; height:100%; object-fit:cover; display:block; }
+.carousel-slide.placeholder span{
+  font-family:'Space Grotesk',sans-serif; font-weight:700; color:#fff; font-size:14px;
+  letter-spacing:.04em; text-transform:uppercase; opacity:.85; padding:0 20px; text-align:center;
+}
+.carousel-arrow{
+  flex:0 0 auto; width:44px; height:44px; border-radius:50%; border:2px solid var(--ink);
+  background:var(--cream); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:background .2s ease, color .2s ease, transform .2s ease;
+}
+.carousel-arrow:hover{ background:var(--ink); color:var(--cream); transform:scale(1.06); }
+.carousel-dots{ display:flex; justify-content:center; gap:8px; margin-top:6px; }
+.carousel-dot{
+  width:8px; height:8px; border-radius:50%; background:var(--line); border:none; cursor:pointer;
+  padding:0; transition:background .2s ease, transform .2s ease;
+}
+.carousel-dot.is-active{ background:var(--coral); transform:scale(1.3); }
+/* variante verticale: pallini in colonna a destra del carosello, per scorrere le foto */
+.carousel-dots.vertical{ flex-direction:column; justify-content:center; gap:12px; margin-top:0; flex:0 0 auto; }
+@media (max-width:640px){ .carousel-arrow{ display:none; } }
 
 /* photo gallery, past events */
 .ed-gallery{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px;}

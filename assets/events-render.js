@@ -27,7 +27,7 @@
       ? '<span class="badge-soon" style="margin-top:14px;" data-i18n="ev_soon">Dettagli e biglietti in arrivo</span>'
       : '';
     return (
-      '<a class="ed-card" href="' + ev.url + '">' +
+      '<a class="ed-card reveal" href="' + ev.url + '">' +
         '<div class="ed-card-media' + mediaClass + '">' + mediaInner + '</div>' +
         '<span class="tag">' + escapeHTML(ev.tag) + '</span>' +
         '<h3>' + title + '</h3>' +

@@ -21,6 +21,7 @@ body{
   font-family:'Inter', system-ui, sans-serif;
   line-height:1.6;
   -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
 }
 img{max-width:100%; display:block;}
 a{color:inherit; text-decoration:none;}
@@ -75,7 +76,24 @@ header{
   background:rgba(251,246,240,0.9);
   backdrop-filter:blur(8px);
   border-bottom:1px solid var(--line);
+  transition:background .3s ease, border-color .3s ease, backdrop-filter .3s ease;
 }
+/* in cima a una pagina con hero scuro (.ed-hero/.mise-hero subito sotto), il menu diventa una banda
+   viola semi-trasparente (non del tutto invisibile, cosi il testo chiaro resta sempre leggibile
+   qualunque cosa ci sia dietro) — diventa opaco crema appena si scrolla, ispirato a tridentmusic.it */
+header.at-top{
+  background:rgba(44,9,67,0.68);
+  backdrop-filter:blur(10px);
+  border-bottom-color:transparent;
+}
+header.at-top .navlinks a{ color:var(--cream); }
+/* il menu a tendina mobile (.navlinks.open) ha SEMPRE sfondo crema, indipendentemente dalla banda
+   viola in cima: qui il testo deve restare scuro, altrimenti e' crema su crema e sparisce */
+header.at-top .navlinks.open a{ color:var(--ink); }
+header.at-top .lang-switch{ border-color:var(--cream); }
+header.at-top .lang-switch button{ color:var(--cream); }
+header.at-top .lang-switch button.active{ background:var(--cream); color:var(--ink); }
+header.at-top .nav-toggle span{ background:var(--cream); }
 nav.wrap{
   display:flex; align-items:center; justify-content:space-between;
   height:76px; gap:20px;
@@ -222,14 +240,26 @@ section{padding:90px 0;}
 @media (max-width:860px){ .contact-grid{grid-template-columns:1fr;} }
 
 /* footer */
-footer{background:var(--purple-deep); color:#D9C9E6; padding:56px 0 30px; margin-top:0;}
-.foot-grid{display:flex; justify-content:space-between; flex-wrap:wrap; gap:34px; margin-bottom:34px;}
-.foot-grid h4{font-family:'Space Grotesk',sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#fff; margin-bottom:12px;}
-.foot-grid ul{display:flex; flex-direction:column; gap:8px; font-size:14px;}
-.foot-grid a:hover{color:#fff;}
+footer{background:var(--purple-deep); color:#D9C9E6; padding:90px 0 32px; margin-top:0;}
+/* su schermi molto larghi le colonne del footer si allargano di piu' del contenitore standard
+   (1180px), cosi' le informazioni si distribuiscono su tutta la finestra invece di restare compresse */
+footer .wrap{ max-width:1600px; }
+.foot-grid{display:flex; justify-content:space-between; flex-wrap:wrap; gap:48px; margin-bottom:48px;}
+.foot-grid h4{font-family:'Space Grotesk',sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--coral); margin-bottom:14px;}
+.foot-grid ul{display:flex; flex-direction:column; gap:10px; font-size:14px;}
+.foot-grid a{transition:color .2s ease;}
+.foot-grid a:hover{color:var(--yellow);}
 .foot-logo{display:inline-flex; align-items:center;}
-.foot-logo img{height:28px; width:auto; display:block;}
-.foot-bottom{border-top:1px solid rgba(255,255,255,0.14); padding-top:20px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; font-size:13px;}
+.foot-logo img{height:32px; width:auto; display:block;}
+.foot-bottom{
+  position:relative; padding-top:22px; display:flex; justify-content:space-between;
+  flex-wrap:wrap; gap:10px; font-size:13px; color:#B39DC7;
+}
+/* la riga separatrice deve arrivare da un bordo all'altro della finestra, non fermarsi al wrap centrale */
+.foot-bottom::before{
+  content:""; position:absolute; top:0; left:50%; width:100vw; margin-left:-50vw;
+  height:1px; background:rgba(255,255,255,0.14);
+}
 
 .badge-soon{
   display:inline-block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:11px;
@@ -282,6 +312,15 @@ footer{background:var(--purple-deep); color:#D9C9E6; padding:56px 0 30px; margin
 
 .loyalty-card-wrap{display:flex; flex-direction:column; align-items:center;}
 .loyalty-card{width:360px; max-width:90vw; aspect-ratio:1.62; perspective:1400px; cursor:pointer; outline:none;}
+/* più impatto su schermi non piccolissimi: la card cresce, e con lei logo/timbri/testi al suo interno */
+@media (min-width:640px){
+  .loyalty-card{ width:480px; }
+  .loyalty-logo{ width:190px; }
+  .loyalty-card-face{ padding:32px 36px; }
+  .loyalty-stamp{ width:52px; height:52px; font-size:18px; }
+  .loyalty-stamp-star{ font-size:20px; }
+  .loyalty-card-foot{ font-size:14px; }
+}
 .loyalty-card-inner{
   position:relative; width:100%; height:100%;
   transition:transform .7s cubic-bezier(.2,.8,.2,1);

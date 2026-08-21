@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="assets/style.css">
 <link rel="stylesheet" href="assets/mailerlite-form.css">
 <link rel="stylesheet" href="assets/redesign.css">
+<link rel="stylesheet" href="assets/interactive.css">
 </head>
 <body>
 
@@ -48,34 +49,74 @@
 
 <section class="ed-section-tight">
   <div class="wrap">
-    <!-- Duplica questo blocco .ed-card per ogni artista, cambia nome/genere -->
+    <!-- Duplica questo blocco .ed-card per ogni artista, cambia nome/genere. Ogni card linka a una
+         sotto-pagina artista-*.html (foto + descrizione, ancora da scrivere per la maggior parte). -->
     <div class="ed-grid">
-      <div class="ed-card">
-        <div class="ed-card-media"></div>
+      <a class="ed-card" href="artista-lucevera.html">
+        <div class="ed-card-media"><img src="assets/img/artisti/lucevera.jpg" alt="Lucevera" loading="lazy"></div>
         <span class="tag">Cantante</span>
         <h3>Lucevera</h3>
-      </div>
-      <div class="ed-card">
+      </a>
+      <a class="ed-card" href="artista-la-cianci.html">
         <div class="ed-card-media"></div>
+        <span class="tag">Cantante</span>
+        <h3>La Cianci</h3>
+      </a>
+      <a class="ed-card" href="artista-mattia-pagliarin.html">
+        <div class="ed-card-media"><img src="assets/img/artisti/mattia-pagliarin.jpg" alt="Mattia Pagliarin" loading="lazy" style="object-position:center 15%;"></div>
         <span class="tag">DJ</span>
         <h3>Mattia Pagliarin</h3>
-      </div>
-      <div class="ed-card">
+      </a>
+      <a class="ed-card" href="artista-lorenzo-vergani.html">
         <div class="ed-card-media"></div>
         <span class="tag">Live graffiti</span>
         <h3>Lorenzo Vergani</h3>
-      </div>
+      </a>
+      <a class="ed-card" href="artista-yeffri.html">
+        <div class="ed-card-media"></div>
+        <span class="tag">Ritrattista</span>
+        <h3>Yeffri</h3>
+      </a>
+      <a class="ed-card" href="artista-emily.html">
+        <div class="ed-card-media"></div>
+        <span class="tag">Pittrice</span>
+        <h3>Emily</h3>
+      </a>
+      <a class="ed-card" href="artista-federico-zaccuri.html">
+        <div class="ed-card-media"></div>
+        <span class="tag">DJ</span>
+        <h3>Federico Zaccuri</h3>
+      </a>
+      <a class="ed-card" href="artista-francesco-arbues.html">
+        <div class="ed-card-media"><img src="assets/img/artisti/francesco-arbues.jpg" alt="Francesco Arbues" loading="lazy"></div>
+        <span class="tag">DJ</span>
+        <h3>Francesco Arbues</h3>
+      </a>
+      <a class="ed-card" href="artista-lorenzo-caratozzolo.html">
+        <div class="ed-card-media"><img src="assets/img/artisti/lorenzo-caratozzolo.jpg" alt="Lorenzo Caratozzolo" loading="lazy"></div>
+        <span class="tag">DJ</span>
+        <h3>Lorenzo Caratozzolo</h3>
+      </a>
     </div>
   </div>
 </section>
 
 <section class="ed-cta">
-  <div class="wrap ed-cta-row">
-    <div>
-      <h2 data-i18n="art_apply_title">Sei un artista emergente?</h2>
-      <p data-i18n="art_apply_p">Raccontaci il tuo progetto: valutiamo ogni candidatura per i prossimi eventi.</p>
+  <div class="wrap ed-cta-pair">
+    <div class="ed-cta-row">
+      <div>
+        <h2 data-i18n="art_book_title">Vuoi un artista GrowMi per un tuo evento?</h2>
+        <p data-i18n="art_book_p">Locali, aziende, festival: richiedi uno dei nostri artisti per un evento fuori dal calendario GrowMi.</p>
+      </div>
+      <a class="ed-btn-ghost" href="contatti.html?motivo=booking" data-i18n="art_book_btn">Richiedi un artista</a>
     </div>
-    <a class="ed-btn-ghost" href="contatti.html" data-i18n="art_apply_btn">Candidati</a>
+    <div class="ed-cta-row">
+      <div>
+        <h2 data-i18n="art_apply_title">Sei un artista emergente?</h2>
+        <p data-i18n="art_apply_p">Raccontaci il tuo progetto: valutiamo ogni candidatura per i prossimi eventi.</p>
+      </div>
+      <a class="ed-btn-ghost" href="contatti.html" data-i18n="art_apply_btn">Candidati</a>
+    </div>
   </div>
 </section>
 
@@ -213,5 +254,6 @@
 
 <script src="assets/i18n.js"></script>
 <script src="assets/newsletter.js"></script>
+<script src="assets/interactive.js"></script>
 </body>
 </html>

@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="assets/style.css">
 <link rel="stylesheet" href="assets/mailerlite-form.css">
 <link rel="stylesheet" href="assets/redesign.css">
+<link rel="stylesheet" href="assets/interactive.css">
 </head>
 <body>
 
@@ -39,6 +40,10 @@
 </header>
 
 <section class="ed-hero" style="padding:110px 0 80px;">
+  <video class="ed-hero-video" autoplay muted loop playsinline>
+    <source src="assets/video/contatti-bg.mp4" type="video/mp4">
+  </video>
+  <div class="ed-hero-video-overlay"></div>
   <div class="wrap ed-wrap">
     <span class="ed-eyebrow" data-i18n="ct_eyebrow">Contatti</span>
     <h1 style="font-size:clamp(40px,6.5vw,88px);" data-i18n="ct_title">Parliamone</h1>
@@ -66,13 +71,14 @@
         </div>
         <div class="field">
           <label data-i18n="ct_subject">Motivo del contatto</label>
-          <select name="motivo">
-            <option data-i18n="ct_subject_opt1">Sono un artista</option>
-            <option data-i18n="ct_subject_opt2">Sono un locale</option>
-            <option data-i18n="ct_subject_opt3">Domanda su un evento</option>
-            <option data-i18n="ct_subject_opt_staff">Voglio entrare nello staff</option>
-            <option data-i18n="ct_subject_opt_supporter">Voglio diventare financial supporter</option>
-            <option data-i18n="ct_subject_opt4">Altro</option>
+          <select name="motivo" id="ct-motivo">
+            <option value="artista" data-i18n="ct_subject_opt1">Sono un artista</option>
+            <option value="locale" data-i18n="ct_subject_opt2">Sono un locale</option>
+            <option value="evento" data-i18n="ct_subject_opt3">Domanda su un evento</option>
+            <option value="booking" data-i18n="ct_subject_opt_booking">Voglio richiedere un artista GrowMi per un mio evento</option>
+            <option value="staff" data-i18n="ct_subject_opt_staff">Voglio entrare nello staff</option>
+            <option value="supporter" data-i18n="ct_subject_opt_supporter">Voglio diventare financial supporter</option>
+            <option value="altro" data-i18n="ct_subject_opt4">Altro</option>
           </select>
         </div>
         <div class="field">
@@ -235,5 +241,15 @@
 
 <script src="assets/i18n.js"></script>
 <script src="assets/newsletter.js"></script>
+<script src="assets/interactive.js"></script>
+<script>
+  (function(){
+    var motivo = new URLSearchParams(location.search).get('motivo');
+    var select = document.getElementById('ct-motivo');
+    if(motivo && select && select.querySelector('option[value="' + motivo + '"]')){
+      select.value = motivo;
+    }
+  })();
+</script>
 </body>
 </html>

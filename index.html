@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="assets/style.css">
 <link rel="stylesheet" href="assets/mailerlite-form.css">
 <link rel="stylesheet" href="assets/redesign.css">
+<link rel="stylesheet" href="assets/interactive.css">
 </head>
 <body>
 
@@ -40,6 +41,15 @@
 </header>
 
 <section class="ed-hero">
+  <div class="ed-hero-slideshow">
+    <div class="ed-hero-slide is-active"><img src="assets/img/home/slide-01.jpg" alt="GrowMi live all'Art Mall"></div>
+    <div class="ed-hero-slide"><img src="assets/img/home/slide-02.jpg" alt="Ingresso del locale Black (by Mixum)"></div>
+    <div class="ed-hero-slide"><img src="assets/img/home/slide-03.jpg" alt="DJ Lorenzo alla console"></div>
+  </div>
+  <div class="ed-hero-slideshow-overlay"></div>
+  <div class="ed-hero-dots"></div>
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
   <div class="wrap ed-wrap">
     <span class="ed-eyebrow" data-i18n="home_eyebrow">Milano · eventi dal vivo</span>
     <h1><span data-i18n="home_h1_1">Free to be</span> <span class="accent" data-i18n="home_h1_2">GrowMi</span></h1>
@@ -51,43 +61,63 @@
   </div>
 </section>
 
+<div class="marquee-band">
+  <div class="marquee-track">
+    <span data-i18n="home_marquee">MILANO ★ EVENTI DAL VIVO ★ ARTISTI EMERGENTI ★ ESPRESSIONE E ORIGINALITÀ ★</span>
+    <span data-i18n="home_marquee" aria-hidden="true">MILANO ★ EVENTI DAL VIVO ★ ARTISTI EMERGENTI ★ ESPRESSIONE E ORIGINALITÀ ★</span>
+  </div>
+</div>
+
 <section id="triangolo" class="ed-section">
   <div class="wrap">
-    <div class="ed-head">
+    <div class="ed-head reveal">
       <p class="ed-eyebrow" data-i18n="tri_eyebrow">Cos'è GrowMi</p>
       <h2 data-i18n="tri_title">Il triangolo di GrowMi</h2>
       <p data-i18n="tri_lead">Un ecosistema che mette in relazione tre mondi: chi crea, chi ospita, chi scopre.</p>
     </div>
     <div class="ed-triangle">
-      <svg viewBox="0 0 400 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Triangolo GrowMi" style="max-width:420px;margin:0 auto;">
+      <div class="tri-svg-frame">
+      <svg class="tri-svg" viewBox="0 0 400 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Triangolo GrowMi">
+        <defs>
+          <clipPath id="growmiLogoClip">
+            <circle cx="200" cy="185" r="42"/>
+          </clipPath>
+        </defs>
+        <g class="tri-shrink" transform="translate(200,170) scale(0.88) translate(-200,-170)">
         <polygon points="200,20 370,300 30,300" fill="none" stroke="#3E0D5D" stroke-width="3"/>
-        <circle cx="200" cy="185" r="46" fill="#F86639"/>
-        <text x="200" y="182" text-anchor="middle" fill="#fff" font-family="Space Grotesk, sans-serif" font-weight="700" font-size="19">growmi</text>
-        <text x="200" y="200" text-anchor="middle" fill="#fff" font-size="16">★</text>
-        <text x="200" y="12" text-anchor="middle" font-family="Space Grotesk, sans-serif" font-size="13" font-weight="700" fill="#3E0D5D">PUBBLICO</text>
-        <text x="370" y="322" text-anchor="middle" font-family="Space Grotesk, sans-serif" font-size="13" font-weight="700" fill="#3E0D5D">LOCALI</text>
-        <text x="30" y="322" text-anchor="middle" font-family="Space Grotesk, sans-serif" font-size="13" font-weight="700" fill="#3E0D5D">ARTISTI</text>
+        <circle class="tri-vertex" data-vertex="pubblico" cx="200" cy="14" r="6" fill="#F86639"/>
+        <circle class="tri-vertex" data-vertex="locali" cx="377" cy="304" r="6" fill="#F86639"/>
+        <circle class="tri-vertex" data-vertex="artisti" cx="23" cy="304" r="6" fill="#F86639"/>
+        <g class="tri-center">
+          <circle cx="200" cy="185" r="47" fill="#FBF6F0" stroke="#F86639" stroke-width="3"/>
+          <image href="assets/img/logo-growmi.png" x="162" y="147" width="76" height="76" preserveAspectRatio="xMidYMid meet"/>
+        </g>
+        <text data-vertex="pubblico" x="200" y="-3" text-anchor="middle" font-family="Space Grotesk, sans-serif" font-size="13" font-weight="700" fill="#3E0D5D">PUBBLICO</text>
+        <text data-vertex="locali" x="370" y="322" text-anchor="middle" font-family="Space Grotesk, sans-serif" font-size="13" font-weight="700" fill="#3E0D5D">LOCALI</text>
+        <text data-vertex="artisti" x="30" y="322" text-anchor="middle" font-family="Space Grotesk, sans-serif" font-size="13" font-weight="700" fill="#3E0D5D">ARTISTI</text>
+        </g>
       </svg>
+      </div>
       <div class="ed-tri-points">
-        <div class="ed-tri-point">
+        <div class="ed-tri-point reveal" data-vertex="pubblico" tabindex="0" role="button" aria-expanded="false">
           <span class="n">01</span>
           <div>
             <h3 data-i18n="tri_pub_t">Pubblico</h3>
-            <p data-i18n="tri_pub_p">Scopre un'offerta culturale emergente: nuovi artisti, in eventi e occasioni di divertimento e networking.</p>
+            <p class="tri-desc" data-i18n="tri_pub_p">Scopre un'offerta culturale emergente: nuovi artisti, in eventi e occasioni di divertimento e networking.</p>
           </div>
         </div>
-        <div class="ed-tri-point">
+        <div class="ed-tri-point reveal" data-vertex="artisti" tabindex="0" role="button" aria-expanded="false">
           <span class="n">02</span>
           <div>
             <h3 data-i18n="tri_art_t">Artisti</h3>
-            <p data-i18n="tri_art_p">Vengono raccontati sui profili social e fatti esibire nei locali con cui GrowMi collabora.</p>
+            <p class="tri-desc" data-i18n="tri_art_p">Vengono raccontati sui profili social e fatti esibire nei locali con cui GrowMi collabora.</p>
           </div>
         </div>
-        <div class="ed-tri-point">
+        <div class="ed-tri-point reveal" data-vertex="locali" tabindex="0" role="button" aria-expanded="false">
           <span class="n">03</span>
           <div>
             <h3 data-i18n="tri_loc_t">Locali</h3>
-            <p data-i18n="tri_loc_p">Ricevono un'offerta di cantanti selezionati e copertura mediatica dell'evento; offrono spazio e clientela.</p>
+            <p class="tri-desc" data-i18n="tri_loc_p">Ricevono un'offerta di cantanti selezionati e copertura mediatica dell'evento; offrono spazio e clientela.</p>
           </div>
         </div>
       </div>
@@ -97,7 +127,7 @@
 
 <section class="ed-section-tight">
   <div class="wrap">
-    <div class="ed-head">
+    <div class="ed-head reveal">
       <p class="ed-eyebrow" data-i18n="home_events_eyebrow">Prossimo evento</p>
       <h2 data-i18n="home_events_title">Non perdertelo</h2>
     </div>
@@ -111,22 +141,22 @@
 
 <section class="ed-section">
   <div class="wrap">
-    <div class="ed-head">
+    <div class="ed-head reveal">
       <p class="ed-eyebrow" data-i18n="val_eyebrow">Il valore di GrowMi</p>
       <h2 data-i18n="val_title">Per chi lavoriamo</h2>
     </div>
     <div class="ed-value-list">
-      <div>
+      <div class="reveal">
         <span class="n">01 — ARTISTI</span>
         <h3 data-i18n="val1_t">Esposizione e crescita</h3>
         <p data-i18n="val1_p">Maggior contatto con il pubblico, ampliamento della fanbase, crescita professionale e networking.</p>
       </div>
-      <div>
+      <div class="reveal">
         <span class="n">02 — LOCALI</span>
         <h3 data-i18n="val2_t">Eventi memorabili</h3>
         <p data-i18n="val2_p">Esibizioni di artisti selezionati, aumento della visibilità del locale, associazione con creatività e innovazione.</p>
       </div>
-      <div>
+      <div class="reveal">
         <span class="n">03 — PUBBLICO</span>
         <h3 data-i18n="val3_t">Esperienze uniche</h3>
         <p data-i18n="val3_p">Svago, divertimento, networking e scoperta di nuovi talenti in contesti curati e originali.</p>
@@ -281,5 +311,6 @@
 <script src="assets/events-render.js"></script>
 <script src="assets/i18n.js"></script>
 <script src="assets/newsletter.js"></script>
+<script src="assets/interactive.js"></script>
 </body>
 </html>

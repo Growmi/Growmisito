@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="assets/style.css">
 <link rel="stylesheet" href="assets/mailerlite-form.css">
 <link rel="stylesheet" href="assets/redesign.css">
+<link rel="stylesheet" href="assets/interactive.css">
 </head>
 <body>
 
@@ -64,9 +65,62 @@
   </div>
 </section>
 
+<section class="ed-section-tight">
+  <div class="wrap">
+    <div class="ed-head reveal" style="margin-bottom:36px;">
+      <p class="ed-eyebrow" data-i18n="cs_evo_eyebrow">La nostra crescita</p>
+      <h2 data-i18n="cs_evo_title">L'evoluzione dei contenuti GrowMi</h2>
+    </div>
+    <!-- Screenshot dei post GrowMi scelti dalle griglie Instagram, ordine cronologico dal più
+         vecchio (aprile 2025) al più recente. .ed-evo-year segna il passaggio d'anno. -->
+    <div class="carousel ed-evo-carousel reveal">
+      <button type="button" class="carousel-arrow prev" aria-label="Contenuti precedenti">‹</button>
+      <div class="carousel-track ed-evo-track">
+        <div class="ed-evo-year">2025</div>
+        <div class="carousel-slide ed-evo-item"><img src="assets/img/chi-siamo/evoluzione/evo-01.jpg" alt="Sienna Spiro, contenuto GrowMi 2025" loading="lazy"></div>
+        <div class="carousel-slide ed-evo-item"><img src="assets/img/chi-siamo/evoluzione/evo-02.jpg" alt="Robin Eley, contenuto GrowMi 2025" loading="lazy"></div>
+        <div class="carousel-slide ed-evo-item"><img src="assets/img/chi-siamo/evoluzione/evo-03.jpg" alt="Tyler McGillivary, contenuto GrowMi 2025" loading="lazy"></div>
+        <div class="carousel-slide ed-evo-item"><img src="assets/img/chi-siamo/evoluzione/evo-04.jpg" alt="Kilian Eng, contenuto GrowMi 2025" loading="lazy"></div>
+        <div class="ed-evo-year">2026</div>
+        <div class="carousel-slide ed-evo-item"><img src="assets/img/chi-siamo/evoluzione/evo-05.jpg" alt="The Art of Being Yourself, locandina evento GrowMi 2026" loading="lazy"></div>
+        <div class="carousel-slide ed-evo-item"><img src="assets/img/chi-siamo/evoluzione/evo-06.jpg" alt="Contenuto grafico GrowMi 2026" loading="lazy"></div>
+        <div class="carousel-slide ed-evo-item"><img src="assets/img/chi-siamo/evoluzione/evo-07.jpg" alt="GrowMi x Dischivolanti, partnership 2026" loading="lazy"></div>
+        <div class="carousel-slide ed-evo-item"><img src="assets/img/chi-siamo/evoluzione/evo-08.jpg" alt="Empat, artista GrowMi 2026" loading="lazy"></div>
+        <div class="carousel-slide ed-evo-item"><img src="assets/img/chi-siamo/evoluzione/evo-09.jpg" alt="DJ Federico Zaccuri, evento GrowMi 2026" loading="lazy"></div>
+        <div class="carousel-slide ed-evo-item"><img src="assets/img/chi-siamo/evoluzione/evo-10.jpg" alt="GrowMi Made Me Do It, contenuto GrowMi 2026" loading="lazy"></div>
+      </div>
+      <button type="button" class="carousel-arrow next" aria-label="Contenuti successivi">›</button>
+    </div>
+  </div>
+</section>
+
+<section class="ed-section-tight">
+  <div class="wrap">
+    <div class="ed-head reveal" style="margin-bottom:36px;">
+      <p class="ed-eyebrow">Le origini</p>
+      <h2>I loghi del passato</h2>
+    </div>
+    <!-- Clicca un logo per ingrandirlo al centro (stessa interazione del triangolo in home).
+         Altri loghi arriveranno: aggiungere .ed-logo-4/.ed-logo-5 in interactive.css per le
+         posizioni già previste dal bozzetto. -->
+    <div class="ed-logos-cluster reveal">
+      <div class="ed-logos-arrow" aria-hidden="true"></div>
+      <button type="button" class="ed-logo-item ed-logo-1" aria-label="Logo GrowMi, versione 1">
+        <img src="assets/img/chi-siamo/loghi-passato/logo-01.png" alt="Vecchio logo GrowMi, versione 1">
+      </button>
+      <button type="button" class="ed-logo-item ed-logo-2" aria-label="Logo GrowMi, versione 2">
+        <img src="assets/img/chi-siamo/loghi-passato/logo-02.png" alt="Vecchio logo GrowMi, versione 2">
+      </button>
+      <button type="button" class="ed-logo-item ed-logo-3" aria-label="Logo GrowMi, versione 3">
+        <img src="assets/img/chi-siamo/loghi-passato/logo-03.png" alt="Vecchio logo GrowMi, versione 3">
+      </button>
+    </div>
+  </div>
+</section>
+
 <section>
   <div class="wrap">
-    <div class="ed-value-list" style="grid-template-columns:1fr 1fr;">
+    <div class="ed-value-list mv-large" style="grid-template-columns:1fr 1fr;">
       <div>
         <span class="n" data-i18n="cs_mission_t">Mission</span>
         <p data-i18n="cs_mission_p">Creare un sistema tangibile che riporti gli artisti in contesti reali e qualificanti...</p>
@@ -102,33 +156,58 @@
 
 <section>
   <div class="wrap">
-    <div class="ed-head">
+    <div class="ed-head" style="margin-bottom:32px;">
       <p class="ed-eyebrow" data-i18n="staff_eyebrow">Staff</p>
       <h2 data-i18n="staff_title">Il team GrowMi</h2>
     </div>
-    <div class="empty-state" data-i18n="staff_empty">Il team completo arriva presto.</div>
+    <div class="ed-grid">
+      <a class="ed-card" href="team-amministrazione-finance.html">
+        <div class="ed-card-media"></div>
+        <span class="tag" data-i18n="team_amm_count">3 persone</span>
+        <h3 data-i18n="team_amm_name">Amministrazione e Finanza</h3>
+      </a>
+      <a class="ed-card" href="team-artisti-venue.html">
+        <div class="ed-card-media"></div>
+        <span class="tag" data-i18n="team_artvenue_count">2 persone</span>
+        <h3 data-i18n="team_artvenue_name">Artisti &amp; Locali</h3>
+      </a>
+      <a class="ed-card" href="team-comunicazione-marketing.html">
+        <div class="ed-card-media"></div>
+        <span class="tag" data-i18n="team_comms_count">4 persone</span>
+        <h3 data-i18n="team_comms_name">Comunicazione &amp; Marketing</h3>
+      </a>
+      <a class="ed-card" href="team-commerciale.html">
+        <div class="ed-card-media"></div>
+        <span class="tag" data-i18n="team_comm_count">2 persone</span>
+        <h3 data-i18n="team_comm_name">Commerciale</h3>
+      </a>
+      <a class="ed-card" href="team-software-piattaforme.html">
+        <div class="ed-card-media"></div>
+        <span class="tag" data-i18n="team_sw_count">In crescita</span>
+        <h3 data-i18n="team_sw_name">Software e Piattaforme</h3>
+      </a>
+    </div>
   </div>
 </section>
 
 <section class="ed-cta">
-  <div class="wrap ed-cta-row">
-    <div>
-      <h2 data-i18n="staff_apply_title">Vuoi entrare in GrowMi come staff?</h2>
-      <p data-i18n="staff_apply_p">Raccontaci come vuoi contribuire: eventi, social, produzione, organizzazione.</p>
+  <div class="wrap ed-cta-pair">
+    <div class="ed-cta-row">
+      <div>
+        <h2 data-i18n="staff_apply_title">Vuoi entrare in GrowMi come staff?</h2>
+        <p data-i18n="staff_apply_p">Raccontaci come vuoi contribuire: eventi, social, produzione, organizzazione.</p>
+      </div>
+      <a class="ed-btn-ghost" href="contatti.html" data-i18n="art_apply_btn">Candidati</a>
     </div>
-    <a class="ed-btn-ghost" href="contatti.html" data-i18n="art_apply_btn">Candidati</a>
-  </div>
-</section>
-
-<section class="ed-cta" style="background:var(--ink);">
-  <div class="wrap ed-cta-row">
-    <div>
-      <span class="badge-soon" data-i18n="fs_badge">Dettagli in arrivo</span>
-      <p class="ed-eyebrow" style="color:var(--magenta);">Financial Supporters</p>
-      <h2 data-i18n="fs_title">Sostieni GrowMi da vicino</h2>
-      <p data-i18n="fs_lead">Un livello di supporto pensato per chi vuole sostenere economicamente il progetto: accesso prioritario agli eventi e altri vantaggi, ancora in fase di definizione.</p>
+    <div class="ed-cta-row">
+      <div>
+        <span class="badge-soon" data-i18n="fs_badge">Dettagli in arrivo</span>
+        <p class="ed-eyebrow" style="color:var(--magenta);">Financial Supporters</p>
+        <h2 data-i18n="fs_title">Sostieni GrowMi da vicino</h2>
+        <p data-i18n="fs_lead">Un livello di supporto pensato per chi vuole sostenere economicamente il progetto: accesso prioritario agli eventi e altri vantaggi, ancora in fase di definizione.</p>
+      </div>
+      <a class="ed-btn-ghost" href="financial-supporters.html" data-i18n="ev_discover">Scopri di più</a>
     </div>
-    <a class="ed-btn-ghost" href="financial-supporters.html" data-i18n="ev_discover">Scopri di più</a>
   </div>
 </section>
 
@@ -139,10 +218,10 @@
   </div>
   <div class="wrap" style="display:flex; justify-content:center;">
     <div class="social-row">
-      <a href="https://www.instagram.com/growmiii/" target="_blank" rel="noopener" aria-label="Instagram">IG</a>
-      <a href="https://www.tiktok.com/@growmii_" target="_blank" rel="noopener" aria-label="TikTok">TT</a>
-      <a href="https://www.youtube.com/@GrowMiii" target="_blank" rel="noopener" aria-label="YouTube">YT</a>
-      <a href="https://www.linkedin.com/company/growmiagency/" target="_blank" rel="noopener" aria-label="LinkedIn">LI</a>
+      <a href="https://www.instagram.com/growmiii/" target="_blank" rel="noopener" aria-label="Instagram"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg></a>
+      <a href="https://www.tiktok.com/@growmii_" target="_blank" rel="noopener" aria-label="TikTok"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M16.5 3c.3 2.1 1.7 3.6 3.8 3.9v3c-1.4 0-2.7-.4-3.8-1.2v6.7c0 3.4-2.8 6.1-6.2 6.1S4.1 18.8 4.1 15.4c0-3.3 2.6-6 5.9-6.1v3.1c-1.6.1-2.9 1.4-2.9 3 0 1.7 1.4 3 3 3s3-1.3 3-3V3h3.4z"/></svg></a>
+      <a href="https://www.youtube.com/@GrowMiii" target="_blank" rel="noopener" aria-label="YouTube"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><rect x="2" y="5" width="20" height="14" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10 9l6 3-6 3V9z"/></svg></a>
+      <a href="https://www.linkedin.com/company/growmiagency/" target="_blank" rel="noopener" aria-label="LinkedIn"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><rect x="2" y="2" width="20" height="20" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="7" cy="7.5" r="1.4"/><rect x="6" y="10" width="2" height="8"/><path d="M11 10h2v1.3c.6-.9 1.6-1.5 2.8-1.5 2.1 0 3.2 1.4 3.2 3.9V18h-2v-3.9c0-1.2-.5-2-1.6-2-.9 0-1.5.6-1.7 1.2-.1.2-.1.5-.1.8V18h-2v-8z"/></svg></a>
     </div>
   </div>
 </section>
@@ -281,5 +360,6 @@
 
 <script src="assets/i18n.js"></script>
 <script src="assets/newsletter.js"></script>
+<script src="assets/interactive.js"></script>
 </body>
 </html>

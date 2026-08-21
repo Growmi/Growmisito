@@ -36,8 +36,8 @@ const GROWMI_EVENTS = [
   {
     slug: "grow-with-us",
     title: "Grow With Us",
-    date: "2025-05-07",
-    tag: "7 MAGGIO 2025",
+    date: "2025-05-06",
+    tag: "6 MAGGIO 2025",
     location: "Black (by Mixum) · Milano",
     url: "grow-with-us.html",
     cover: "assets/img/eventi/grow-with-us/01.jpg"
