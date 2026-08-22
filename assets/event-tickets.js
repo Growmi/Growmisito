@@ -20,11 +20,10 @@
 //   <div data-et-checkout-wrap hidden><div data-et-checkout-container></div></div>
 // </div>
 (function(){
-  // Chiave pubblicabile Stripe (pk_...): è fatta apposta per stare in chiaro nel JS lato client,
-  // non è un segreto. TODO Carlo: sostituire con la chiave pubblicabile vera (Stripe Dashboard →
-  // Developers → API keys) prima di andare live — con questo placeholder l'Embedded Checkout non
-  // si monta.
-  var STRIPE_PUBLISHABLE_KEY = "pk_live_REPLACE_WITH_REAL_KEY";
+  // Chiave pubblicabile Stripe (pk_live_...): è fatta apposta per stare in chiaro nel JS lato
+  // client, non è un segreto — è quella pubblica, abbinata alla secret key live già configurata
+  // sul Worker.
+  var STRIPE_PUBLISHABLE_KEY = "pk_live_51RCPfzAlS0d4FgrwKgoxmfFsPUx1a7pAwn5707zCQ9PhmQYHJ41Ji4sXJt60YpD4IuDkEpUZwZe5YKRMz1lKJxbH00hrAkWQYt";
 
   function euro(cents){
     return "€" + (cents / 100).toLocaleString("it-IT", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 });
