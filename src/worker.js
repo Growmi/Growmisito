@@ -139,9 +139,12 @@ async function handleStripeWebhook(request, env) {
     }
 
     if (email) {
-      // Per ora un solo evento attivo (The Miseducation of GrowMi, 10 settembre): quando ce ne
-      // saranno altri in vendita insieme, va distinto leggendo i metadata del Payment Link.
-      const eventName = "The Miseducation of GrowMi";
+      // Il nome evento si legge dai metadata del Payment Link Stripe usato per l'acquisto
+      // (chiave "event", da impostare quando si crea il Payment Link per un nuovo evento —
+      // Stripe → Payment Links → il link → Advanced → Metadata). Se non è impostato (es. i
+      // Payment Link già esistenti del 10 settembre, creati prima di questa modifica), resta
+      // sull'evento attuale come prima: nessuna rottura per quelli già in vendita.
+      const eventName = session.metadata?.event || "The Miseducation of GrowMi";
       const ticketCode = generateTicketCode();
 
       // Il nome della fascia/prodotto acquistato (es. "Prima fascia - Solo ingresso") si legge
