@@ -15,7 +15,15 @@ export default {
     }
 
     if (url.pathname === "/api/stripe-webhook" && request.method === "POST") {
-      return handleStripeWebhook(request, env);
+      // Tutta la gestione del webhook è avvolta qui, dal primo all'ultimo rigo: senza questo,
+      // un'eccezione qualsiasi (anche nella creazione del client Stripe) produce solo un
+      // generico errore 1101 di Cloudflare, senza dire cosa è andato storto davvero.
+      try {
+        return await handleStripeWebhook(request, env);
+      } catch (err) {
+        console.log("Errore webhook:", err.stack || err.message);
+        return new Response(`Errore interno: ${err.message}`, { status: 500 });
+      }
     }
 
     return env.ASSETS.fetch(request);
@@ -29,9 +37,7 @@ function generateTicketCode() {
 }
 
 async function handleStripeWebhook(request, env) {
-  const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
-    httpClient: Stripe.createFetchHttpClient()
-  });
+  const stripe = new Stripe(env.STRIPE_SECRET_KEY);
 
   const signature = request.headers.get("stripe-signature");
   const body = await request.text();
@@ -47,71 +53,58 @@ async function handleStripeWebhook(request, env) {
     if (!env.STRIPE_WEBHOOK_SECRET_TEST) {
       return new Response(`Webhook Error: ${liveErr.message}`, { status: 400 });
     }
-    try {
-      event = await stripe.webhooks.constructEventAsync(body, signature, env.STRIPE_WEBHOOK_SECRET_TEST);
-    } catch (testErr) {
-      return new Response(`Webhook Error: ${testErr.message}`, { status: 400 });
-    }
+    event = await stripe.webhooks.constructEventAsync(body, signature, env.STRIPE_WEBHOOK_SECRET_TEST);
   }
 
-  // Il corpo vero e proprio è avvolto in un try/catch che rimanda indietro il messaggio
-  // d'errore reale (Stripe lo mostra in "Consegne di eventi"): senza questo, un'eccezione
-  // qui dentro produce solo un generico errore 1101 di Cloudflare, illeggibile.
-  try {
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object;
-      const email = session.customer_details?.email;
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object;
+    const email = session.customer_details?.email;
 
-      if (email) {
-        // Per ora un solo evento attivo (The Miseducation of GrowMi, 10 settembre): quando ce ne
-        // saranno altri in vendita insieme, va distinto leggendo i metadata del Payment Link.
-        const eventName = "The Miseducation of GrowMi";
-        const ticketCode = generateTicketCode();
+    if (email) {
+      // Per ora un solo evento attivo (The Miseducation of GrowMi, 10 settembre): quando ce ne
+      // saranno altri in vendita insieme, va distinto leggendo i metadata del Payment Link.
+      const eventName = "The Miseducation of GrowMi";
+      const ticketCode = generateTicketCode();
 
-        const qrDataUrl = await QRCode.toDataURL(ticketCode, { margin: 1, width: 400 });
-        const qrBase64 = qrDataUrl.split(",")[1];
+      const qrDataUrl = await QRCode.toDataURL(ticketCode, { margin: 1, width: 400 });
+      const qrBase64 = qrDataUrl.split(",")[1];
 
-        if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+      if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
 
-        await env.TICKETS.put(ticketCode, JSON.stringify({
-          email,
-          eventName,
-          amountTotal: session.amount_total,
-          currency: session.currency,
-          used: false,
-          createdAt: new Date().toISOString(),
-          stripeSessionId: session.id
-        }));
+      await env.TICKETS.put(ticketCode, JSON.stringify({
+        email,
+        eventName,
+        amountTotal: session.amount_total,
+        currency: session.currency,
+        used: false,
+        createdAt: new Date().toISOString(),
+        stripeSessionId: session.id
+      }));
 
-        if (env.RESEND_API_KEY) {
-          const resendRes = await fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${env.RESEND_API_KEY}`,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              from: "GrowMi <onboarding@resend.dev>",
-              to: email,
-              subject: `Il tuo biglietto — ${eventName}`,
-              html: `
-                <p>Grazie per il tuo acquisto! Ecco il tuo biglietto per <strong>${eventName}</strong>.</p>
-                <p>Mostra il QR in allegato allo staff all'ingresso.</p>
-                <p>Codice biglietto: <strong>${ticketCode}</strong></p>
-              `,
-              attachments: [{ filename: "biglietto-growmi.png", content: qrBase64 }]
-            })
-          });
-          if (!resendRes.ok) {
-            const resendErr = await resendRes.text();
-            console.log("Resend error:", resendRes.status, resendErr);
-          }
+      if (env.RESEND_API_KEY) {
+        const resendRes = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${env.RESEND_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            from: "GrowMi <onboarding@resend.dev>",
+            to: email,
+            subject: `Il tuo biglietto — ${eventName}`,
+            html: `
+              <p>Grazie per il tuo acquisto! Ecco il tuo biglietto per <strong>${eventName}</strong>.</p>
+              <p>Mostra il QR in allegato allo staff all'ingresso.</p>
+              <p>Codice biglietto: <strong>${ticketCode}</strong></p>
+            `,
+            attachments: [{ filename: "biglietto-growmi.png", content: qrBase64 }]
+          })
+        });
+        if (!resendRes.ok) {
+          console.log("Resend error:", resendRes.status, await resendRes.text());
         }
       }
     }
-  } catch (err) {
-    console.log("Errore elaborazione webhook:", err.stack || err.message);
-    return new Response(`Errore interno: ${err.message}`, { status: 500 });
   }
 
   return new Response("ok", { status: 200 });
