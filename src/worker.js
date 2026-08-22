@@ -27,6 +27,15 @@ export default {
       }), { headers: { "Content-Type": "application/json" } });
     }
 
+    // Debug temporaneo: elenca i codici biglietto piu' recenti (protetto da STAFF_KEY, nessun
+    // dato sensibile oltre a quello gia' visibile via /api/attendees). Da togliere dopo il test.
+    if (url.pathname === "/api/debug-tickets") {
+      const staffKey = request.headers.get("x-staff-key");
+      if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) return jsonResponse({ error: "unauthorized" }, 401);
+      const page = await env.TICKETS.list({ prefix: "ticket:" });
+      return jsonResponse({ codes: page.keys.map(function(k){ return k.name; }) });
+    }
+
     if (url.pathname === "/api/stripe-webhook" && request.method === "POST") {
       // Tutta la gestione del webhook è avvolta qui, dal primo all'ultimo rigo: senza questo,
       // un'eccezione qualsiasi (anche nella creazione del client Stripe) produce solo un
