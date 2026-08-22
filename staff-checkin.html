@@ -102,7 +102,7 @@
 
 <header>
   <h1>Check-in biglietti</h1>
-  <p>The Miseducation of GrowMi — 10 settembre</p>
+  <p>Scanner GrowMi — valido per qualsiasi evento</p>
 </header>
 
 <main>
@@ -192,7 +192,7 @@
       if (data.valid) {
         checkedInCount++;
         updateStats();
-        showResult(true, "Ingresso valido", [data.name, data.email, data.tierName].filter(Boolean).join(" — "));
+        showResult(true, data.eventName || "Ingresso valido", [data.name, data.email, data.tierName].filter(Boolean).join(" — "));
       } else if (data.reason === "already_used") {
         showResult(false, "Già usato", data.usedAt ? ("Usato il " + new Date(data.usedAt).toLocaleString("it-IT")) : "");
       } else {
