@@ -23,6 +23,7 @@ export default {
         STRIPE_SECRET_KEY: !!env.STRIPE_SECRET_KEY,
         STRIPE_WEBHOOK_SECRET: !!env.STRIPE_WEBHOOK_SECRET,
         STRIPE_WEBHOOK_SECRET_TEST: !!env.STRIPE_WEBHOOK_SECRET_TEST,
+        MAILERLITE_API_KEY: !!env.MAILERLITE_API_KEY,
         TICKETS_KV: !!env.TICKETS
       }), { headers: { "Content-Type": "application/json" } });
     }
@@ -680,6 +681,30 @@ async function handleEventTiers(request, env) {
   return jsonResponse({ eventName: event.name, tiers, allSoldOut: !activeAssigned });
 }
 
+// Iscrive alla newsletter MailerLite chi ha spuntato la relativa casella nel form di acquisto —
+// stessa lista usata dal popup newsletter del sito. Avvolta in try/catch e non awaitata dal
+// chiamante in modo bloccante sull'esito: se MailerLite non risponde o la chiave non è
+// configurata, la registrazione del biglietto deve comunque andare a buon fine.
+async function subscribeToMailerLite(env, email, name) {
+  if (!env.MAILERLITE_API_KEY) return;
+  try {
+    const body = { email, fields: { name: name || "" } };
+    if (env.MAILERLITE_GROUP_ID) body.groups = [env.MAILERLITE_GROUP_ID];
+    const res = await fetch("https://connect.mailerlite.com/api/subscribers", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${env.MAILERLITE_API_KEY}`,
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) console.log("MailerLite subscribe error:", res.status, await res.text());
+  } catch (e) {
+    console.log("Errore iscrizione MailerLite:", e.message);
+  }
+}
+
 // Salva i dati raccolti dal form "I tuoi dati" (nome/cognome/email/consensi) prima
 // dell'acquisto. Sostituisce Netlify Forms, oggi rotto e comunque scollegato dal pagamento
 // reale: qui i dati restano su KV e vengono ripresi dal webhook dopo il pagamento, cosi' il
@@ -704,6 +729,10 @@ async function handleRegister(request, env) {
   await env.TICKETS.put(`registration:${registrationId}`, JSON.stringify({
     eventSlug, name, email, termsAccepted, photoConsent, newsletterOptin, createdAt: new Date().toISOString()
   }));
+
+  if (newsletterOptin) {
+    await subscribeToMailerLite(env, email, name);
+  }
 
   return jsonResponse({ registrationId });
 }
