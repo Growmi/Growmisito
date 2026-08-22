@@ -76,6 +76,17 @@ export default {
     }
 
     return env.ASSETS.fetch(request);
+  },
+
+  // Cron giornaliero (vedi [triggers] in wrangler.toml): manda il feedback in automatico agli
+  // eventi finiti ieri. Avvolto in try/catch perché un'eccezione qui non ha nessuno a cui
+  // rispondere con un errore (non è una richiesta HTTP) — finirebbe solo nei log di Cloudflare.
+  async scheduled(event, env, ctx) {
+    try {
+      await runScheduledFeedback(env);
+    } catch (err) {
+      console.log("Errore cron feedback:", err.stack || err.message);
+    }
   }
 };
 
@@ -274,7 +285,8 @@ async function handleCheckin(request, env) {
   await env.TICKETS.put(kvKey, JSON.stringify(ticket), {
     metadata: {
       used: true, name: ticket.name, email: ticket.email, tierName: ticket.tierName,
-      usedAt: ticket.usedAt, eventName: ticket.eventName
+      usedAt: ticket.usedAt, eventName: ticket.eventName,
+      eventDateIso: ticket.eventDateIso, eventFeedbackUrl: ticket.eventFeedbackUrl
     }
   });
 
@@ -376,22 +388,9 @@ function buildFeedbackEmailHTML({ name, eventName, feedbackFormUrl }) {
   `;
 }
 
-// Manda l'email di feedback a tutti quelli che sono entrati davvero a un evento (mai a chi ha
-// solo comprato senza presentarsi). Va chiamato una volta dopo l'evento, non è automatico —
-// serve a Carlo indicare l'URL del form (Google Form) al momento della chiamata.
-async function handleSendFeedback(request, env) {
-  const staffKey = request.headers.get("x-staff-key");
-  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
-    return jsonResponse({ error: "unauthorized" }, 401);
-  }
-  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
-  if (!env.RESEND_API_KEY) throw new Error("RESEND_API_KEY non configurato");
-
-  const { feedbackFormUrl, eventName } = await request.json();
-  if (!feedbackFormUrl) {
-    return jsonResponse({ error: "manca feedbackFormUrl" }, 400);
-  }
-
+// Legge dalla metadata KV tutti gli attendee (used:true) di un evento, opzionalmente filtrando
+// per nome evento. Usata sia dall'invio manuale (pulsante) sia da quello automatico (cron).
+async function listAttendeesForEvent(env, eventName) {
   const attendees = [];
   let cursor = undefined;
   do {
@@ -404,7 +403,12 @@ async function handleSendFeedback(request, env) {
     }
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
+  return attendees;
+}
 
+// Manda l'email di feedback alla lista di attendee data, uno per uno via Resend. Usata sia
+// dall'invio manuale sia da quello automatico.
+async function sendFeedbackEmails(env, attendees, feedbackFormUrl) {
   let sent = 0;
   let failed = 0;
   for (const a of attendees) {
@@ -428,8 +432,66 @@ async function handleSendFeedback(request, env) {
       console.log("Errore invio feedback a", a.email, e.message);
     }
   }
+  return { sent, failed };
+}
+
+// Manda l'email di feedback a tutti quelli che sono entrati davvero a un evento (mai a chi ha
+// solo comprato senza presentarsi). Pulsante manuale su staff-attendees.html — resta utile
+// anche con l'invio automatico attivo, per rimandare o testare senza aspettare il cron.
+async function handleSendFeedback(request, env) {
+  const staffKey = request.headers.get("x-staff-key");
+  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
+    return jsonResponse({ error: "unauthorized" }, 401);
+  }
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  if (!env.RESEND_API_KEY) throw new Error("RESEND_API_KEY non configurato");
+
+  const { feedbackFormUrl, eventName } = await request.json();
+  if (!feedbackFormUrl) {
+    return jsonResponse({ error: "manca feedbackFormUrl" }, 400);
+  }
+
+  const attendees = await listAttendeesForEvent(env, eventName);
+  const { sent, failed } = await sendFeedbackEmails(env, attendees, feedbackFormUrl);
 
   return jsonResponse({ totalAttendees: attendees.length, sent, failed });
+}
+
+// Cron giornaliero (vedi [triggers] in wrangler.toml): controlla se qualche evento è finito
+// ieri e, se ha un link di feedback impostato (metadata event_feedback_url sul Payment Link),
+// manda l'email in automatico ai suoi attendee — una volta sola per evento, grazie al marcatore
+// "feedback_sent:<eventName>:<dataIso>" su KV che evita reinvii se il cron gira più volte.
+async function runScheduledFeedback(env) {
+  if (!env.TICKETS || !env.RESEND_API_KEY) return;
+
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  // Raggruppa gli attendee per evento, leggendo eventDateIso/eventFeedbackUrl dalla metadata.
+  const events = new Map(); // eventName -> { dateIso, feedbackUrl, attendees: [] }
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "ticket:", cursor });
+    for (const key of page.keys) {
+      const m = key.metadata;
+      if (!m?.used || !m.email || !m.eventName) continue;
+      if (!events.has(m.eventName)) {
+        events.set(m.eventName, { dateIso: m.eventDateIso, feedbackUrl: m.eventFeedbackUrl, attendees: [] });
+      }
+      events.get(m.eventName).attendees.push({ name: m.name, email: m.email, eventName: m.eventName });
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  for (const [eventName, info] of events) {
+    if (info.dateIso !== yesterday || !info.feedbackUrl) continue;
+
+    const sentMarkerKey = `feedback_sent:${eventName}:${info.dateIso}`;
+    if (await env.TICKETS.get(sentMarkerKey)) continue;
+
+    const result = await sendFeedbackEmails(env, info.attendees, info.feedbackUrl);
+    await env.TICKETS.put(sentMarkerKey, JSON.stringify({ ...result, sentAt: new Date().toISOString() }));
+    console.log(`Feedback automatico per "${eventName}": ${result.sent} inviate, ${result.failed} fallite`);
+  }
 }
 
 async function handleStripeWebhook(request, env) {
@@ -482,6 +544,12 @@ async function handleStripeWebhook(request, env) {
       const eventDate = session.metadata?.event_date || "Giovedì 10 settembre 2026 · Apertura 19:00";
       const eventLocation = session.metadata?.event_location || "Art Mall Milano, Milano";
       const eventTeaser = session.metadata?.event_teaser || "Una notte dedicata alla cultura hip-hop: graffiti dal vivo, musica e DJ set nel cuore di Milano.";
+      // Data in formato AAAA-MM-GG (non il testo leggibile eventDate sopra): serve al cron
+      // giornaliero per capire "questo evento è stato ieri?" e mandare il feedback da solo.
+      // Il link del form di feedback (Google Form o altro) si imposta qui una volta per evento,
+      // cosi' l'invio automatico sa dove mandare le persone senza bisogno del pulsante manuale.
+      const eventDateIso = session.metadata?.event_date_iso || "2026-09-10";
+      const eventFeedbackUrl = session.metadata?.event_feedback_url || null;
       const ticketCode = generateTicketCode();
 
       // Il nome della fascia/prodotto acquistato (es. "Prima fascia - Solo ingresso") si legge
@@ -507,7 +575,9 @@ async function handleStripeWebhook(request, env) {
         name: customerName,
         eventName,
         eventDate,
+        eventDateIso,
         eventLocation,
+        eventFeedbackUrl,
         tierName,
         amountTotal: session.amount_total,
         currency: session.currency,
