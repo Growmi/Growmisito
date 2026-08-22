@@ -120,8 +120,23 @@ async function handleStripeWebhook(request, env) {
   }
 
   if (event.type === "checkout.session.completed") {
+    if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+    // Stripe può rimandare lo stesso evento più di una volta (es. se la risposta precedente è
+    // arrivata in ritardo o si è persa in rete): senza questo controllo, un evento gia' gestito
+    // genererebbe un secondo biglietto duplicato per lo stesso acquisto.
+    const dedupeKey = `evt:${event.id}`;
+    const alreadyHandled = await env.TICKETS.get(dedupeKey);
+    if (alreadyHandled) {
+      return new Response("ok (già elaborato)", { status: 200 });
+    }
+
     const session = event.data.object;
     const email = session.customer_details?.email;
+
+    if (!email) {
+      console.log("checkout.session.completed senza email cliente, ignorato:", session.id);
+    }
 
     if (email) {
       // Per ora un solo evento attivo (The Miseducation of GrowMi, 10 settembre): quando ce ne
@@ -147,8 +162,6 @@ async function handleStripeWebhook(request, env) {
       const qrSvg = await QRCode.toString(ticketCode, { type: "svg", margin: 1, width: 400 });
       const qrBase64 = btoa(qrSvg);
 
-      if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
-
       await env.TICKETS.put(ticketCode, JSON.stringify({
         email,
         eventName,
@@ -159,6 +172,11 @@ async function handleStripeWebhook(request, env) {
         createdAt: new Date().toISOString(),
         stripeSessionId: session.id
       }));
+      // Segna l'evento Stripe come gestito solo ORA che il biglietto esiste davvero su KV:
+      // cosi' se il Worker si interrompe prima di questo punto, un eventuale nuovo tentativo di
+      // Stripe riesce comunque a creare il biglietto, invece di essere scartato come "già fatto"
+      // quando in realtà non è mai stato completato.
+      await env.TICKETS.put(dedupeKey, ticketCode);
 
       if (env.RESEND_API_KEY) {
         const resendRes = await fetch("https://api.resend.com/emails", {
