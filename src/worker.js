@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import QRCode from "qrcode";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
 // Punto d'ingresso del Worker: serve il sito statico (assets/*.html, css, js, immagini) e in più
 // gestisce le rotte /api/* per il backend biglietti/QR. Il binding ASSETS (vedi wrangler.toml)
@@ -84,35 +85,35 @@ function buildTicketEmailHTML({ name, eventName, eventDate, eventLocation, event
           <td style="padding:48px 44px; font-family:Arial, Helvetica, sans-serif;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 
-              <tr><td align="center" style="font-size:30px; font-weight:bold; color:#F86639; padding-bottom:22px; line-height:1.3;">&#127881; Biglietto confermato! &#127881;</td></tr>
+              <tr><td align="center" style="font-size:32px; font-weight:bold; color:#F86639; padding-bottom:22px; line-height:1.3;">&#127881; Biglietto confermato! &#127881;</td></tr>
 
-              <tr><td align="center" style="font-size:19px; color:#FBF6F0; padding-bottom:16px; line-height:1.5;">Ciao <strong>${firstName || "!"}</strong>${firstName ? "," : ""}<br>grazie per aver scelto di partecipare a:</td></tr>
+              <tr><td align="center" style="font-size:21px; color:#FBF6F0; padding-bottom:16px; line-height:1.5;">Ciao <strong>${firstName || "!"}</strong>${firstName ? "," : ""}<br>grazie per aver scelto di partecipare a:</td></tr>
 
-              <tr><td align="center" style="font-size:27px; font-weight:bold; color:#FDC631; padding-bottom:16px; line-height:1.3;">${eventName}</td></tr>
+              <tr><td align="center" style="font-size:29px; font-weight:bold; color:#FDC631; padding-bottom:16px; line-height:1.3;">${eventName}</td></tr>
 
-              <tr><td align="center" style="font-size:17px; color:#FBF6F0; padding-bottom:6px;">&#128205; ${eventLocation}</td></tr>
-              <tr><td align="center" style="font-size:17px; color:#FBF6F0; padding-bottom:22px;">&#128336; ${eventDate}</td></tr>
+              <tr><td align="center" style="font-size:19px; color:#FBF6F0; padding-bottom:6px;">&#128205; ${eventLocation}</td></tr>
+              <tr><td align="center" style="font-size:19px; color:#FBF6F0; padding-bottom:22px;">&#128336; ${eventDate}</td></tr>
 
-              ${eventTeaser ? `<tr><td align="center" style="font-size:16.5px; color:#FBF6F0; line-height:1.6; padding-bottom:24px;">${eventTeaser}</td></tr>` : ""}
+              ${eventTeaser ? `<tr><td align="center" style="font-size:18px; color:#FBF6F0; line-height:1.6; padding-bottom:24px;">${eventTeaser}</td></tr>` : ""}
 
               <tr><td style="border-top:1px solid #5C3E75; font-size:1px; line-height:1px;">&nbsp;</td></tr>
 
-              <tr><td style="font-size:17px; font-weight:bold; color:#FDC631; padding-top:24px; padding-bottom:12px;">&#128203; Dettagli biglietto:</td></tr>
-              <tr><td style="font-size:16.5px; color:#FBF6F0; padding-bottom:8px;">&bull; Nome: <strong>${name || "&mdash;"}</strong></td></tr>
-              ${tierName ? `<tr><td style="font-size:16.5px; color:#FBF6F0; padding-bottom:8px;">&bull; Tipo: <strong>${tierName}</strong></td></tr>` : ""}
-              <tr><td style="font-size:16.5px; color:#FBF6F0; padding-bottom:24px;">&bull; Codice biglietto: <strong>${ticketCode}</strong></td></tr>
+              <tr><td style="font-size:19px; font-weight:bold; color:#FDC631; padding-top:24px; padding-bottom:12px;">&#128203; Dettagli biglietto:</td></tr>
+              <tr><td style="font-size:18px; color:#FBF6F0; padding-bottom:8px;">&bull; Nome: <strong>${name || "&mdash;"}</strong></td></tr>
+              ${tierName ? `<tr><td style="font-size:18px; color:#FBF6F0; padding-bottom:8px;">&bull; Tipo: <strong>${tierName}</strong></td></tr>` : ""}
+              <tr><td style="font-size:18px; color:#FBF6F0; padding-bottom:24px;">&bull; Codice biglietto: <strong>${ticketCode}</strong></td></tr>
 
-              <tr><td align="center" style="font-size:16px; color:#FBF6F0; padding-bottom:14px;">Mostra questo QR allo staff all'ingresso (basta il telefono):</td></tr>
+              <tr><td align="center" style="font-size:18px; color:#FBF6F0; padding-bottom:14px;">Mostra questo QR allo staff all'ingresso (basta il telefono):</td></tr>
               <tr>
-                <td align="center" bgcolor="#FFFFFF" style="background:#FFFFFF; border-radius:14px; padding:22px;">
-                  <img src="data:image/svg+xml;base64,${qrBase64}" alt="QR biglietto" width="240" height="240" style="display:block; border:0; margin:0 auto;">
+                <td align="center" bgcolor="#FFFFFF" style="background:#FFFFFF; border-radius:14px; padding:20px;">
+                  <img src="data:image/svg+xml;base64,${qrBase64}" alt="QR biglietto" width="210" height="210" style="display:block; border:0; margin:0 auto;">
                 </td>
               </tr>
 
               <tr><td style="border-top:1px solid #5C3E75; font-size:1px; line-height:1px; padding-top:24px;">&nbsp;</td></tr>
-              <tr><td align="center" style="font-size:15px; color:#C9BCD6; padding-top:18px; line-height:1.6;">Ricordati di portare il biglietto (anche solo sul telefono) e un documento d'identit&agrave; all'ingresso.</td></tr>
-              <tr><td align="center" style="font-size:16px; color:#FBF6F0; padding-top:22px;">Keep growing &#127793;</td></tr>
-              <tr><td align="center" style="font-size:15px; color:#C9BCD6; padding-top:2px;">Il team GrowMi</td></tr>
+              <tr><td align="center" style="font-size:17px; color:#C9BCD6; padding-top:18px; line-height:1.6;">Ricordati di portare il biglietto (anche solo sul telefono) e un documento d'identit&agrave; all'ingresso.</td></tr>
+              <tr><td align="center" style="font-size:18px; color:#FBF6F0; padding-top:22px;">Keep growing &#127793;</td></tr>
+              <tr><td align="center" style="font-size:17px; color:#C9BCD6; padding-top:2px;">Il team GrowMi</td></tr>
             </table>
           </td>
         </tr>
@@ -121,6 +122,92 @@ function buildTicketEmailHTML({ name, eventName, eventDate, eventLocation, event
   </tr>
 </table>
   `;
+}
+
+// Biglietto in PDF, allegato in più oltre all'SVG/anteprima nell'email: utile a chi preferisce
+// un file "vero" da salvare o stampare invece di dover aprire l'email ogni volta.
+// Il QR è disegnato come una griglia di rettangoli (i "moduli" del QR, presi da
+// QRCode.create() — solo calcolo puro, nessun renderer/canvas coinvolto) invece che come
+// immagine incorporata: pdf-lib non converte SVG in PDF da solo, ma disegnare rettangoli è
+// una funzione base di qualunque libreria PDF, quindi funziona ovunque senza dipendenze extra.
+async function buildTicketPDF({ name, eventName, eventDate, eventLocation, tierName, ticketCode }) {
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([420, 620]);
+  const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  const purple = rgb(0.1725, 0.0353, 0.2627);
+  const yellow = rgb(0.9922, 0.7765, 0.1922);
+  const coral = rgb(0.9725, 0.4, 0.2235);
+  const cream = rgb(0.9843, 0.9647, 0.9412);
+
+  page.drawRectangle({ x: 0, y: 0, width: 420, height: 620, color: purple });
+
+  let y = 570;
+  page.drawText("GrowMi", { x: 40, y, size: 22, font: fontBold, color: yellow });
+  y -= 36;
+  page.drawText("Biglietto confermato", { x: 40, y, size: 16, font: fontRegular, color: coral });
+  y -= 34;
+
+  function wrapText(text, maxChars) {
+    const words = text.split(" ");
+    const lines = [];
+    let line = "";
+    for (const w of words) {
+      if ((line + " " + w).trim().length > maxChars) { lines.push(line.trim()); line = w; }
+      else { line += " " + w; }
+    }
+    if (line.trim()) lines.push(line.trim());
+    return lines;
+  }
+
+  for (const line of wrapText(eventName, 34)) {
+    page.drawText(line, { x: 40, y, size: 18, font: fontBold, color: cream });
+    y -= 24;
+  }
+  y -= 8;
+  page.drawText(eventLocation, { x: 40, y, size: 12.5, font: fontRegular, color: cream });
+  y -= 18;
+  page.drawText(eventDate, { x: 40, y, size: 12.5, font: fontRegular, color: cream });
+  y -= 34;
+
+  page.drawText(`Nome: ${name || "-"}`, { x: 40, y, size: 12, font: fontRegular, color: cream });
+  y -= 18;
+  if (tierName) {
+    page.drawText(`Tipo: ${tierName}`, { x: 40, y, size: 12, font: fontRegular, color: cream });
+    y -= 18;
+  }
+  page.drawText(`Codice: ${ticketCode}`, { x: 40, y, size: 12, font: fontBold, color: cream });
+  y -= 30;
+
+  // Griglia del QR: quadrato bianco di sfondo, poi un rettangolo nero per ogni modulo "acceso".
+  const qr = QRCode.create(ticketCode, { errorCorrectionLevel: "M" });
+  const qrSize = qr.modules.size;
+  const qrData = qr.modules.data;
+  const boxSize = 260;
+  const boxX = 40;
+  const boxY = y - boxSize;
+  const quietZone = 12;
+  const moduleSize = (boxSize - quietZone * 2) / qrSize;
+
+  page.drawRectangle({ x: boxX, y: boxY, width: boxSize, height: boxSize, color: cream });
+  for (let row = 0; row < qrSize; row++) {
+    for (let col = 0; col < qrSize; col++) {
+      if (qrData[row * qrSize + col]) {
+        page.drawRectangle({
+          x: boxX + quietZone + col * moduleSize,
+          y: boxY + boxSize - quietZone - (row + 1) * moduleSize,
+          width: moduleSize,
+          height: moduleSize,
+          color: purple
+        });
+      }
+    }
+  }
+
+  page.drawText("Mostra questo QR allo staff all'ingresso", { x: 40, y: boxY - 24, size: 11, font: fontRegular, color: cream });
+
+  return pdfDoc.save();
 }
 
 // Verifica il biglietto letto dallo scanner dello staff: valido/già usato/non trovato, e lo
@@ -248,6 +335,17 @@ async function handleStripeWebhook(request, env) {
       await env.TICKETS.put(dedupeKey, ticketCode);
 
       if (env.RESEND_API_KEY) {
+        let pdfBase64 = null;
+        try {
+          const pdfBytes = await buildTicketPDF({ name: customerName, eventName, eventDate, eventLocation, tierName, ticketCode });
+          pdfBase64 = Buffer.from(pdfBytes).toString("base64");
+        } catch (e) {
+          console.log("Errore generazione PDF biglietto:", e.message);
+        }
+
+        const attachments = [{ filename: "biglietto-growmi.svg", content: qrBase64 }];
+        if (pdfBase64) attachments.push({ filename: "biglietto-growmi.pdf", content: pdfBase64 });
+
         const resendRes = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -259,7 +357,7 @@ async function handleStripeWebhook(request, env) {
             to: email,
             subject: `Il tuo biglietto — ${eventName}`,
             html: buildTicketEmailHTML({ name: customerName, eventName, eventDate, eventLocation, eventTeaser, tierName, ticketCode, qrBase64 }),
-            attachments: [{ filename: "biglietto-growmi.svg", content: qrBase64 }]
+            attachments
           })
         });
         if (!resendRes.ok) {

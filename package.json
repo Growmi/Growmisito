@@ -1,9 +1,10 @@
 {
   "name": "growmisito",
   "private": true,
-  "description": "Sito GrowMi — dipendenze per le Cloudflare Pages Functions in functions/",
+  "description": "Sito GrowMi — dipendenze per il backend Cloudflare Workers in src/",
   "dependencies": {
     "stripe": "^17.0.0",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "pdf-lib": "^1.17.1"
   }
 }
