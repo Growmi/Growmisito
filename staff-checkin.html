@@ -141,6 +141,28 @@
     stats.textContent = checkedInCount + " check-in in questa sessione";
   }
 
+  // Suono generato al volo (nessun file audio da caricare): un bip alto e breve per un
+  // ingresso valido, due bip più bassi per un rifiuto — riconoscibili anche senza guardare
+  // lo schermo, utile in un ingresso buio/rumoroso.
+  var audioCtx = null;
+  function beep(frequencies, duration){
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      var t = audioCtx.currentTime;
+      frequencies.forEach(function(freq, i){
+        var osc = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.2, t + i * (duration + 0.06));
+        gain.gain.exponentialRampToValueAtTime(0.001, t + i * (duration + 0.06) + duration);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(t + i * (duration + 0.06));
+        osc.stop(t + i * (duration + 0.06) + duration);
+      });
+    } catch (e) { /* audio non disponibile, non blocca il check-in */ }
+  }
+
   function showResult(ok, title, detail){
     result.className = ok ? "valid" : "invalid";
     result.innerHTML =
@@ -148,6 +170,7 @@
       '<div class="title">' + title + '</div>' +
       '<div class="detail">' + (detail || "") + '</div>';
     if (navigator.vibrate) navigator.vibrate(ok ? 80 : [60, 60, 60]);
+    beep(ok ? [880] : [330, 330], ok ? 0.15 : 0.12);
   }
 
   async function checkCode(code){
@@ -169,7 +192,7 @@
       if (data.valid) {
         checkedInCount++;
         updateStats();
-        showResult(true, "Ingresso valido", [data.tierName, data.email].filter(Boolean).join(" — "));
+        showResult(true, "Ingresso valido", [data.name, data.email, data.tierName].filter(Boolean).join(" — "));
       } else if (data.reason === "already_used") {
         showResult(false, "Già usato", data.usedAt ? ("Usato il " + new Date(data.usedAt).toLocaleString("it-IT")) : "");
       } else {

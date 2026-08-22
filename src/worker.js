@@ -96,7 +96,7 @@ async function handleCheckin(request, env) {
   ticket.usedAt = new Date().toISOString();
   await env.TICKETS.put(ticketCode, JSON.stringify(ticket));
 
-  return jsonResponse({ valid: true, email: ticket.email, eventName: ticket.eventName, tierName: ticket.tierName });
+  return jsonResponse({ valid: true, email: ticket.email, name: ticket.name, eventName: ticket.eventName, tierName: ticket.tierName });
 }
 
 async function handleStripeWebhook(request, env) {
@@ -133,6 +133,7 @@ async function handleStripeWebhook(request, env) {
 
     const session = event.data.object;
     const email = session.customer_details?.email;
+    const customerName = session.customer_details?.name || null;
 
     if (!email) {
       console.log("checkout.session.completed senza email cliente, ignorato:", session.id);
@@ -167,6 +168,7 @@ async function handleStripeWebhook(request, env) {
 
       await env.TICKETS.put(ticketCode, JSON.stringify({
         email,
+        name: customerName,
         eventName,
         tierName,
         amountTotal: session.amount_total,
