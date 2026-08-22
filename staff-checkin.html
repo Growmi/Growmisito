@@ -67,6 +67,15 @@
 
   .stats{ text-align:center; font-size:12.5px; color:rgba(251,246,240,0.5); }
 
+  .stats-bar{
+    display:flex; gap:10px; padding:14px 20px; border-bottom:1px solid rgba(251,246,240,0.12);
+  }
+  .stats-box{
+    flex:1; text-align:center; background:rgba(251,246,240,0.06); border-radius:12px; padding:10px 8px;
+  }
+  .stats-box .n{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:22px; display:block; }
+  .stats-box .l{ font-size:11px; color:rgba(251,246,240,0.55); text-transform:uppercase; letter-spacing:0.04em; }
+
   .key-gate{
     position:fixed; inset:0; background:var(--ink); display:flex; align-items:center;
     justify-content:center; padding:24px; z-index:10;
@@ -105,6 +114,11 @@
   <p>Scanner GrowMi — valido per qualsiasi evento</p>
 </header>
 
+<div class="stats-bar">
+  <div class="stats-box"><span class="n" id="statTotal">—</span><span class="l">Venduti</span></div>
+  <div class="stats-box"><span class="n" id="statCheckedIn">—</span><span class="l">Entrati</span></div>
+</div>
+
 <main>
   <div id="reader"></div>
 
@@ -114,8 +128,6 @@
   </div>
 
   <div id="result"></div>
-
-  <p class="stats" id="stats"></p>
 </main>
 
 <button type="button" class="change-key" id="changeKey">Cambia chiave staff</button>
@@ -124,21 +136,29 @@
 <script>
 (function(){
   var KEY_STORAGE = "growmi_staff_key";
-  var checkedInCount = 0;
   var scanner = null;
   var busy = false;
 
   var keyGate = document.getElementById("keyGate");
   var keyInput = document.getElementById("keyInput");
   var result = document.getElementById("result");
-  var stats = document.getElementById("stats");
+  var statTotal = document.getElementById("statTotal");
+  var statCheckedIn = document.getElementById("statCheckedIn");
 
   function getStaffKey(){ return localStorage.getItem(KEY_STORAGE); }
   function setStaffKey(k){ localStorage.setItem(KEY_STORAGE, k); }
   function clearStaffKey(){ localStorage.removeItem(KEY_STORAGE); }
 
-  function updateStats(){
-    stats.textContent = checkedInCount + " check-in in questa sessione";
+  // Numeri veri (venduti/entrati), letti dal server ad ogni apertura e dopo ogni scansione
+  // riuscita — non un conteggio locale che si azzera cambiando dispositivo o ricaricando.
+  async function refreshStats(){
+    try {
+      var res = await fetch("/api/stats", { headers: { "X-Staff-Key": getStaffKey() } });
+      if (!res.ok) return;
+      var data = await res.json();
+      statTotal.textContent = data.total;
+      statCheckedIn.textContent = data.checkedIn;
+    } catch (e) { /* connessione assente: lascia i numeri come sono */ }
   }
 
   // Suono generato al volo (nessun file audio da caricare): un bip alto e breve per un
@@ -190,8 +210,7 @@
       }
       var data = await res.json();
       if (data.valid) {
-        checkedInCount++;
-        updateStats();
+        refreshStats();
         showResult(true, data.eventName || "Ingresso valido", [data.name, data.email, data.tierName].filter(Boolean).join(" — "));
       } else if (data.reason === "already_used") {
         showResult(false, "Già usato", data.usedAt ? ("Usato il " + new Date(data.usedAt).toLocaleString("it-IT")) : "");
@@ -219,6 +238,7 @@
     setStaffKey(k);
     keyGate.classList.add("hidden");
     startScanner();
+    refreshStats();
   });
   keyInput.addEventListener("keydown", function(e){
     if (e.key === "Enter") { document.getElementById("keySubmit").click(); }
@@ -245,13 +265,14 @@
     });
   }
 
-  updateStats();
   if (getStaffKey()) {
     keyGate.classList.add("hidden");
     startScanner();
+    refreshStats();
   } else {
     keyInput.focus();
   }
+  setInterval(function(){ if (getStaffKey()) refreshStats(); }, 30000);
 })();
 </script>
 

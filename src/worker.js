@@ -48,6 +48,15 @@ export default {
       }
     }
 
+    if (url.pathname === "/api/stats" && request.method === "GET") {
+      try {
+        return await handleStats(request, env);
+      } catch (err) {
+        console.log("Errore stats:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     return env.ASSETS.fetch(request);
   }
 };
@@ -228,7 +237,8 @@ async function handleCheckin(request, env) {
     return jsonResponse({ error: "missing code" }, 400);
   }
 
-  const raw = await env.TICKETS.get(ticketCode);
+  const kvKey = `ticket:${ticketCode}`;
+  const raw = await env.TICKETS.get(kvKey);
   if (!raw) {
     return jsonResponse({ valid: false, reason: "not_found" });
   }
@@ -240,9 +250,38 @@ async function handleCheckin(request, env) {
 
   ticket.used = true;
   ticket.usedAt = new Date().toISOString();
-  await env.TICKETS.put(ticketCode, JSON.stringify(ticket));
+  // La metadata "used" (oltre al campo dentro il JSON) permette a /api/stats di contare
+  // biglietti venduti/entrati con un solo elenco delle chiavi, senza dover leggere per intero
+  // ogni singolo biglietto uno per uno.
+  await env.TICKETS.put(kvKey, JSON.stringify(ticket), { metadata: { used: true } });
 
   return jsonResponse({ valid: true, email: ticket.email, name: ticket.name, eventName: ticket.eventName, tierName: ticket.tierName });
+}
+
+// Riepilogo per la dashboard staff: quanti biglietti venduti in totale e quanti già entrati,
+// contando i moduli/chiavi elencate (con la loro metadata) invece di leggere ogni biglietto —
+// molto più veloce quando i biglietti sono centinaia. Protetto dalla stessa chiave staff dello
+// scanner, non un dato pubblico.
+async function handleStats(request, env) {
+  const staffKey = request.headers.get("x-staff-key");
+  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
+    return jsonResponse({ error: "unauthorized" }, 401);
+  }
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  let total = 0;
+  let checkedIn = 0;
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "ticket:", cursor });
+    for (const key of page.keys) {
+      total++;
+      if (key.metadata?.used) checkedIn++;
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  return jsonResponse({ total, checkedIn });
 }
 
 async function handleStripeWebhook(request, env) {
@@ -315,7 +354,7 @@ async function handleStripeWebhook(request, env) {
       const qrSvg = await QRCode.toString(ticketCode, { type: "svg", margin: 1, width: 400 });
       const qrBase64 = btoa(qrSvg);
 
-      await env.TICKETS.put(ticketCode, JSON.stringify({
+      await env.TICKETS.put(`ticket:${ticketCode}`, JSON.stringify({
         email,
         name: customerName,
         eventName,
@@ -327,7 +366,7 @@ async function handleStripeWebhook(request, env) {
         used: false,
         createdAt: new Date().toISOString(),
         stripeSessionId: session.id
-      }));
+      }), { metadata: { used: false } });
       // Segna l'evento Stripe come gestito solo ORA che il biglietto esiste davvero su KV:
       // cosi' se il Worker si interrompe prima di questo punto, un eventuale nuovo tentativo di
       // Stripe riesce comunque a creare il biglietto, invece di essere scartato come "già fatto"
