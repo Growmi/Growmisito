@@ -66,7 +66,8 @@
         } else {
           row.className = "et-tier-row";
           optionsHtml = tier.options.map(function(o){
-            return '<button type="button" class="et-tier-btn" data-tier="' + tier.id + '" data-option="' + o.id + '">' +
+            return '<button type="button" class="et-tier-btn" data-tier="' + tier.id + '" data-option="' + o.id + '" data-selection-label="' +
+              (tier.name + " — " + o.label).replace(/"/g, "&quot;") + '">' +
               '<span class="et-tier-btn-label">' + o.label + '</span><span class="et-tier-btn-price">' + euro(o.priceCents) + '</span>' +
             '</button>';
           }).join("");
@@ -78,9 +79,7 @@
       });
       tierList.querySelectorAll(".et-tier-btn:not(:disabled)").forEach(function(btn){
         btn.addEventListener("click", function(){
-          var label = btn.closest(".et-tier-row").querySelector(".et-tier-name").textContent.trim() +
-            " — " + btn.querySelector(".et-tier-btn-label").textContent;
-          selectTier(btn.dataset.tier, btn.dataset.option, label);
+          selectTier(btn.dataset.tier, btn.dataset.option, btn.dataset.selectionLabel);
         });
       });
     }
