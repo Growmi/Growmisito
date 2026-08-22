@@ -691,17 +691,18 @@ async function handleRegister(request, env) {
   const eventSlug = String(body.eventSlug || "");
   const name = String(body.name || "").trim().slice(0, 200);
   const email = String(body.email || "").trim().slice(0, 200);
+  const termsAccepted = body.termsAccepted === true;
   const photoConsent = body.photoConsent === true;
   const newsletterOptin = body.newsletterOptin === true;
 
   if (!EVENTS[eventSlug]) return jsonResponse({ error: "evento non valido" }, 400);
-  if (!name || !email || !photoConsent) {
-    return jsonResponse({ error: "nome, email e consenso foto/video sono obbligatori" }, 400);
+  if (!name || !email || !termsAccepted || !photoConsent) {
+    return jsonResponse({ error: "nome, email, termini e condizioni e consenso foto/video sono obbligatori" }, 400);
   }
 
   const registrationId = crypto.randomUUID();
   await env.TICKETS.put(`registration:${registrationId}`, JSON.stringify({
-    eventSlug, name, email, photoConsent, newsletterOptin, createdAt: new Date().toISOString()
+    eventSlug, name, email, termsAccepted, photoConsent, newsletterOptin, createdAt: new Date().toISOString()
   }));
 
   return jsonResponse({ registrationId });
@@ -849,6 +850,7 @@ async function handleStripeWebhook(request, env) {
         eventSlug,
         tierId,
         optionId,
+        termsAccepted: registration.termsAccepted,
         photoConsent: registration.photoConsent,
         newsletterOptin: registration.newsletterOptin,
         amountTotal: session.amount_total,

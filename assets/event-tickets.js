@@ -138,6 +138,7 @@
             eventSlug: slug,
             name: form.querySelector("[data-et-name]").value.trim(),
             email: form.querySelector("[data-et-email]").value.trim(),
+            termsAccepted: form.querySelector("[data-et-terms]") ? form.querySelector("[data-et-terms]").checked : false,
             photoConsent: form.querySelector("[data-et-photo-consent]").checked,
             newsletterOptin: form.querySelector("[data-et-newsletter]") ? form.querySelector("[data-et-newsletter]").checked : false
           })
