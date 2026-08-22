@@ -96,7 +96,7 @@ async function handleCheckin(request, env) {
   ticket.usedAt = new Date().toISOString();
   await env.TICKETS.put(ticketCode, JSON.stringify(ticket));
 
-  return jsonResponse({ valid: true, email: ticket.email, eventName: ticket.eventName });
+  return jsonResponse({ valid: true, email: ticket.email, eventName: ticket.eventName, tierName: ticket.tierName });
 }
 
 async function handleStripeWebhook(request, env) {
@@ -129,6 +129,18 @@ async function handleStripeWebhook(request, env) {
       const eventName = "The Miseducation of GrowMi";
       const ticketCode = generateTicketCode();
 
+      // Il nome della fascia/prodotto acquistato (es. "Prima fascia - Solo ingresso") si legge
+      // dalla riga d'acquisto vera su Stripe, non va assunto: cosi' il biglietto e l'email
+      // mostrano sempre cosa è stato comprato davvero, qualunque dei 6 Payment Link sia stato
+      // usato, senza doverli distinguere a mano nel codice.
+      let tierName = null;
+      try {
+        const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 });
+        tierName = lineItems.data[0]?.description || null;
+      } catch (e) {
+        console.log("Impossibile leggere i line item:", e.message);
+      }
+
       // SVG invece di PNG: su Cloudflare Workers la libreria carica la sua versione "da
       // browser" (punta a un <canvas> che qui non esiste, e in quella versione manca anche
       // toBuffer). toString con type "svg" è testo puro, funziona in qualsiasi ambiente.
@@ -140,6 +152,7 @@ async function handleStripeWebhook(request, env) {
       await env.TICKETS.put(ticketCode, JSON.stringify({
         email,
         eventName,
+        tierName,
         amountTotal: session.amount_total,
         currency: session.currency,
         used: false,
@@ -160,6 +173,7 @@ async function handleStripeWebhook(request, env) {
             subject: `Il tuo biglietto — ${eventName}`,
             html: `
               <p>Grazie per il tuo acquisto! Ecco il tuo biglietto per <strong>${eventName}</strong>.</p>
+              ${tierName ? `<p>Tipo di biglietto: <strong>${tierName}</strong></p>` : ""}
               <p>Mostra questo QR allo staff all'ingresso (anche solo dal telefono):</p>
               <img src="data:image/svg+xml;base64,${qrBase64}" alt="QR biglietto" width="220" height="220">
               <p>Codice biglietto: <strong>${ticketCode}</strong></p>

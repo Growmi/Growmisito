@@ -162,7 +162,7 @@
       if (data.valid) {
         checkedInCount++;
         updateStats();
-        showResult(true, "Ingresso valido", data.email || "");
+        showResult(true, "Ingresso valido", [data.tierName, data.email].filter(Boolean).join(" — "));
       } else if (data.reason === "already_used") {
         showResult(false, "Già usato", data.usedAt ? ("Usato il " + new Date(data.usedAt).toLocaleString("it-IT")) : "");
       } else {
