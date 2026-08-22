@@ -79,40 +79,40 @@ function buildTicketEmailHTML({ name, eventName, eventDate, eventLocation, event
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FBF6F0" style="background:#FBF6F0;">
   <tr>
     <td align="center" style="padding:32px 16px;">
-      <table role="presentation" width="480" cellpadding="0" cellspacing="0" border="0" bgcolor="#2C0943" style="background:#2C0943; border-radius:20px; max-width:480px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#2C0943" style="background:#2C0943; border-radius:24px; max-width:600px;">
         <tr>
-          <td style="padding:32px 28px; font-family:Arial, Helvetica, sans-serif;">
+          <td style="padding:48px 44px; font-family:Arial, Helvetica, sans-serif;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 
-              <tr><td align="center" style="font-size:24px; font-weight:bold; color:#F86639; padding-bottom:18px; line-height:1.3;">&#127881; Biglietto confermato! &#127881;</td></tr>
+              <tr><td align="center" style="font-size:30px; font-weight:bold; color:#F86639; padding-bottom:22px; line-height:1.3;">&#127881; Biglietto confermato! &#127881;</td></tr>
 
-              <tr><td align="center" style="font-size:16px; color:#FBF6F0; padding-bottom:14px;">Ciao <strong>${firstName || "!"}</strong>${firstName ? "," : ""}<br>grazie per aver scelto di partecipare a:</td></tr>
+              <tr><td align="center" style="font-size:19px; color:#FBF6F0; padding-bottom:16px; line-height:1.5;">Ciao <strong>${firstName || "!"}</strong>${firstName ? "," : ""}<br>grazie per aver scelto di partecipare a:</td></tr>
 
-              <tr><td align="center" style="font-size:21px; font-weight:bold; color:#FDC631; padding-bottom:14px; line-height:1.3;">${eventName}</td></tr>
+              <tr><td align="center" style="font-size:27px; font-weight:bold; color:#FDC631; padding-bottom:16px; line-height:1.3;">${eventName}</td></tr>
 
-              <tr><td align="center" style="font-size:14.5px; color:#FBF6F0; padding-bottom:4px;">&#128205; ${eventLocation}</td></tr>
-              <tr><td align="center" style="font-size:14.5px; color:#FBF6F0; padding-bottom:18px;">&#128336; ${eventDate}</td></tr>
+              <tr><td align="center" style="font-size:17px; color:#FBF6F0; padding-bottom:6px;">&#128205; ${eventLocation}</td></tr>
+              <tr><td align="center" style="font-size:17px; color:#FBF6F0; padding-bottom:22px;">&#128336; ${eventDate}</td></tr>
 
-              ${eventTeaser ? `<tr><td align="center" style="font-size:14.5px; color:#FBF6F0; line-height:1.5; padding-bottom:20px;">${eventTeaser}</td></tr>` : ""}
+              ${eventTeaser ? `<tr><td align="center" style="font-size:16.5px; color:#FBF6F0; line-height:1.6; padding-bottom:24px;">${eventTeaser}</td></tr>` : ""}
 
               <tr><td style="border-top:1px solid #5C3E75; font-size:1px; line-height:1px;">&nbsp;</td></tr>
 
-              <tr><td style="font-size:14px; font-weight:bold; color:#FDC631; padding-top:20px; padding-bottom:10px;">&#128203; Dettagli biglietto:</td></tr>
-              <tr><td style="font-size:14.5px; color:#FBF6F0; padding-bottom:6px;">&bull; Nome: <strong>${name || "&mdash;"}</strong></td></tr>
-              ${tierName ? `<tr><td style="font-size:14.5px; color:#FBF6F0; padding-bottom:6px;">&bull; Tipo: <strong>${tierName}</strong></td></tr>` : ""}
-              <tr><td style="font-size:14.5px; color:#FBF6F0; padding-bottom:20px;">&bull; Codice biglietto: <strong>${ticketCode}</strong></td></tr>
+              <tr><td style="font-size:17px; font-weight:bold; color:#FDC631; padding-top:24px; padding-bottom:12px;">&#128203; Dettagli biglietto:</td></tr>
+              <tr><td style="font-size:16.5px; color:#FBF6F0; padding-bottom:8px;">&bull; Nome: <strong>${name || "&mdash;"}</strong></td></tr>
+              ${tierName ? `<tr><td style="font-size:16.5px; color:#FBF6F0; padding-bottom:8px;">&bull; Tipo: <strong>${tierName}</strong></td></tr>` : ""}
+              <tr><td style="font-size:16.5px; color:#FBF6F0; padding-bottom:24px;">&bull; Codice biglietto: <strong>${ticketCode}</strong></td></tr>
 
-              <tr><td align="center" style="font-size:14px; color:#FBF6F0; padding-bottom:12px;">Mostra questo QR allo staff all'ingresso (basta il telefono):</td></tr>
+              <tr><td align="center" style="font-size:16px; color:#FBF6F0; padding-bottom:14px;">Mostra questo QR allo staff all'ingresso (basta il telefono):</td></tr>
               <tr>
-                <td align="center" bgcolor="#FFFFFF" style="background:#FFFFFF; border-radius:12px; padding:16px;">
-                  <img src="data:image/svg+xml;base64,${qrBase64}" alt="QR biglietto" width="200" height="200" style="display:block; border:0; margin:0 auto;">
+                <td align="center" bgcolor="#FFFFFF" style="background:#FFFFFF; border-radius:14px; padding:22px;">
+                  <img src="data:image/svg+xml;base64,${qrBase64}" alt="QR biglietto" width="240" height="240" style="display:block; border:0; margin:0 auto;">
                 </td>
               </tr>
 
-              <tr><td style="border-top:1px solid #5C3E75; font-size:1px; line-height:1px; padding-top:20px;">&nbsp;</td></tr>
-              <tr><td align="center" style="font-size:13px; color:#C9BCD6; padding-top:16px; line-height:1.5;">Ricordati di portare il biglietto (anche solo sul telefono) e un documento d'identit&agrave; all'ingresso.</td></tr>
-              <tr><td align="center" style="font-size:14px; color:#FBF6F0; padding-top:20px;">Keep growing &#127793;</td></tr>
-              <tr><td align="center" style="font-size:13px; color:#C9BCD6; padding-top:2px;">Il team GrowMi</td></tr>
+              <tr><td style="border-top:1px solid #5C3E75; font-size:1px; line-height:1px; padding-top:24px;">&nbsp;</td></tr>
+              <tr><td align="center" style="font-size:15px; color:#C9BCD6; padding-top:18px; line-height:1.6;">Ricordati di portare il biglietto (anche solo sul telefono) e un documento d'identit&agrave; all'ingresso.</td></tr>
+              <tr><td align="center" style="font-size:16px; color:#FBF6F0; padding-top:22px;">Keep growing &#127793;</td></tr>
+              <tr><td align="center" style="font-size:15px; color:#C9BCD6; padding-top:2px;">Il team GrowMi</td></tr>
             </table>
           </td>
         </tr>
