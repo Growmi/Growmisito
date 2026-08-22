@@ -68,35 +68,45 @@ function jsonResponse(data, status = 200) {
 // corallo, giallo), stessa impostazione grafica delle altre email automatiche già in uso
 // (intestazione con emoji, elenco puntato con i dati in grassetto). È un template vero e
 // proprio — cambiano solo i dati passati (evento, fascia, nome, codice), non va toccato per
-// ogni evento nuovo. Stili tutti inline: molti client email ignorano i tag <style>.
+// ogni evento nuovo.
+// Costruito con tabelle (non <div>) e attributo bgcolor oltre allo style: Outlook (desktop e
+// molte caselle @outlook.it/@hotmail) usa il motore di rendering di Word, che ignora quasi
+// tutto il CSS moderno sui <div> ma capisce bene le tabelle HTML — è lo standard per le email
+// che devono restare leggibili ovunque, non solo su Gmail/Apple Mail.
 function buildTicketEmailHTML({ name, eventName, tierName, ticketCode, qrBase64 }) {
   const greeting = name ? `Ciao ${name.split(" ")[0]},` : "Ciao,";
   return `
-    <div style="background:#FBF6F0; padding:32px 16px; font-family:Arial, sans-serif;">
-      <div style="max-width:480px; margin:0 auto; background:#2C0943; border-radius:20px; padding:32px 28px; color:#FBF6F0;">
-        <p style="margin:0 0 4px 0; font-size:22px; font-weight:bold; color:#FDC631;">🎟️ Il tuo biglietto è confermato!</p>
-        <p style="margin:16px 0 0 0; font-size:15px; color:#FBF6F0;">${greeting}</p>
-        <p style="margin:8px 0 20px 0; font-size:15px; line-height:1.5; color:#FBF6F0;">
-          Grazie per il tuo acquisto! Sei dentro per:
-        </p>
-        <p style="margin:0 0 20px 0; font-size:20px; font-weight:bold; color:#FBF6F0;">${eventName}</p>
-
-        <hr style="border:none; border-top:1px solid rgba(251,246,240,0.2); margin:20px 0;">
-
-        <p style="margin:0 0 10px 0; font-size:14px; font-weight:bold; color:#FDC631;">📋 Dettagli biglietto:</p>
-        <p style="margin:0 0 6px 0; font-size:14.5px; color:#FBF6F0;">• Nome: <strong>${name || "—"}</strong></p>
-        ${tierName ? `<p style="margin:0 0 6px 0; font-size:14.5px; color:#FBF6F0;">• Tipo: <strong>${tierName}</strong></p>` : ""}
-        <p style="margin:0 0 20px 0; font-size:14.5px; color:#FBF6F0;">• Codice biglietto: <strong>${ticketCode}</strong></p>
-
-        <p style="margin:0 0 12px 0; font-size:14px; color:#FBF6F0;">Mostra questo QR allo staff all'ingresso (basta il telefono):</p>
-        <div style="background:#FFFFFF; border-radius:12px; padding:16px; text-align:center; margin-bottom:8px;">
-          <img src="data:image/svg+xml;base64,${qrBase64}" alt="QR biglietto" width="200" height="200" style="display:block; margin:0 auto;">
-        </div>
-
-        <p style="margin:24px 0 0 0; font-size:14px; color:#FBF6F0;">Keep growing 🌱</p>
-        <p style="margin:2px 0 0 0; font-size:13px; color:rgba(251,246,240,0.6);">Il team GrowMi</p>
-      </div>
-    </div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FBF6F0" style="background:#FBF6F0;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0" border="0" bgcolor="#2C0943" style="background:#2C0943; border-radius:20px; max-width:480px;">
+        <tr>
+          <td style="padding:32px 28px; font-family:Arial, Helvetica, sans-serif;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr><td style="font-size:22px; font-weight:bold; color:#FDC631; padding-bottom:4px;">&#127915; Il tuo biglietto &egrave; confermato!</td></tr>
+              <tr><td style="font-size:15px; color:#FBF6F0; padding-top:16px;">${greeting}</td></tr>
+              <tr><td style="font-size:15px; line-height:1.5; color:#FBF6F0; padding-top:8px; padding-bottom:20px;">Grazie per il tuo acquisto! Sei dentro per:</td></tr>
+              <tr><td style="font-size:20px; font-weight:bold; color:#FBF6F0; padding-bottom:20px;">${eventName}</td></tr>
+              <tr><td style="border-top:1px solid #5C3E75; font-size:1px; line-height:1px;">&nbsp;</td></tr>
+              <tr><td style="font-size:14px; font-weight:bold; color:#FDC631; padding-top:20px; padding-bottom:10px;">&#128203; Dettagli biglietto:</td></tr>
+              <tr><td style="font-size:14.5px; color:#FBF6F0; padding-bottom:6px;">&bull; Nome: <strong>${name || "&mdash;"}</strong></td></tr>
+              ${tierName ? `<tr><td style="font-size:14.5px; color:#FBF6F0; padding-bottom:6px;">&bull; Tipo: <strong>${tierName}</strong></td></tr>` : ""}
+              <tr><td style="font-size:14.5px; color:#FBF6F0; padding-bottom:20px;">&bull; Codice biglietto: <strong>${ticketCode}</strong></td></tr>
+              <tr><td style="font-size:14px; color:#FBF6F0; padding-bottom:12px;">Mostra questo QR allo staff all'ingresso (basta il telefono):</td></tr>
+              <tr>
+                <td align="center" bgcolor="#FFFFFF" style="background:#FFFFFF; border-radius:12px; padding:16px;">
+                  <img src="data:image/svg+xml;base64,${qrBase64}" alt="QR biglietto" width="200" height="200" style="display:block; border:0;">
+                </td>
+              </tr>
+              <tr><td style="font-size:14px; color:#FBF6F0; padding-top:24px;">Keep growing &#127793;</td></tr>
+              <tr><td style="font-size:13px; color:#C9BCD6; padding-top:2px;">Il team GrowMi</td></tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
   `;
 }
 
