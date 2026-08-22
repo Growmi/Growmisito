@@ -424,9 +424,16 @@ async function listAttendeesForEvent(env, eventName) {
   return attendees;
 }
 
+// Costruisce il link al form di feedback nativo del sito (feedback.html), con l'evento già
+// precompilato nell'URL — non serve più che qualcuno crei/incolli un Google Form a mano.
+function buildFeedbackUrl(env, eventName) {
+  const base = env.SITE_URL || "https://growmisito.grow-mi.workers.dev";
+  return `${base}/feedback?event=${encodeURIComponent(eventName || "GrowMi")}`;
+}
+
 // Manda l'email di feedback alla lista di attendee data, uno per uno via Resend. Usata sia
-// dall'invio manuale sia da quello automatico.
-async function sendFeedbackEmails(env, attendees, feedbackFormUrl) {
+// dall'invio manuale sia da quello automatico. Il link punta sempre al form nativo del sito.
+async function sendFeedbackEmails(env, attendees) {
   let sent = 0;
   let failed = 0;
   for (const a of attendees) {
@@ -441,7 +448,7 @@ async function sendFeedbackEmails(env, attendees, feedbackFormUrl) {
           from: "GrowMi <onboarding@resend.dev>",
           to: a.email,
           subject: `Com'è andata a ${a.eventName || "GrowMi"}?`,
-          html: buildFeedbackEmailHTML({ name: a.name, eventName: a.eventName || "GrowMi", feedbackFormUrl })
+          html: buildFeedbackEmailHTML({ name: a.name, eventName: a.eventName || "GrowMi", feedbackFormUrl: buildFeedbackUrl(env, a.eventName) })
         })
       });
       if (res.ok) sent++; else { failed++; console.log("Resend feedback error:", res.status, await res.text()); }
@@ -455,7 +462,8 @@ async function sendFeedbackEmails(env, attendees, feedbackFormUrl) {
 
 // Manda l'email di feedback a tutti quelli che sono entrati davvero a un evento (mai a chi ha
 // solo comprato senza presentarsi). Pulsante manuale su staff-attendees.html — resta utile
-// anche con l'invio automatico attivo, per rimandare o testare senza aspettare il cron.
+// anche con l'invio automatico attivo, per rimandare o testare senza aspettare il cron. Il link
+// nell'email punta sempre al form nativo del sito (feedback.html), niente più Google Form.
 async function handleSendFeedback(request, env) {
   const staffKey = request.headers.get("x-staff-key");
   if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
@@ -464,13 +472,10 @@ async function handleSendFeedback(request, env) {
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
   if (!env.RESEND_API_KEY) throw new Error("RESEND_API_KEY non configurato");
 
-  const { feedbackFormUrl, eventName } = await request.json();
-  if (!feedbackFormUrl) {
-    return jsonResponse({ error: "manca feedbackFormUrl" }, 400);
-  }
+  const { eventName } = await request.json().catch(function(){ return {}; });
 
   const attendees = await listAttendeesForEvent(env, eventName);
-  const { sent, failed } = await sendFeedbackEmails(env, attendees, feedbackFormUrl);
+  const { sent, failed } = await sendFeedbackEmails(env, attendees);
 
   return jsonResponse({ totalAttendees: attendees.length, sent, failed });
 }
@@ -528,16 +533,16 @@ async function handleFeedbackList(request, env) {
 }
 
 // Cron giornaliero (vedi [triggers] in wrangler.toml): controlla se qualche evento è finito
-// ieri e, se ha un link di feedback impostato (metadata event_feedback_url sul Payment Link),
-// manda l'email in automatico ai suoi attendee — una volta sola per evento, grazie al marcatore
+// ieri e, se sì, manda in automatico l'email di feedback (che punta al form nativo del sito) ai
+// suoi attendee — una volta sola per evento, grazie al marcatore
 // "feedback_sent:<eventName>:<dataIso>" su KV che evita reinvii se il cron gira più volte.
 async function runScheduledFeedback(env) {
   if (!env.TICKETS || !env.RESEND_API_KEY) return;
 
   const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-  // Raggruppa gli attendee per evento, leggendo eventDateIso/eventFeedbackUrl dalla metadata.
-  const events = new Map(); // eventName -> { dateIso, feedbackUrl, attendees: [] }
+  // Raggruppa gli attendee per evento, leggendo eventDateIso dalla metadata.
+  const events = new Map(); // eventName -> { dateIso, attendees: [] }
   let cursor = undefined;
   do {
     const page = await env.TICKETS.list({ prefix: "ticket:", cursor });
@@ -545,7 +550,7 @@ async function runScheduledFeedback(env) {
       const m = key.metadata;
       if (!m?.used || !m.email || !m.eventName) continue;
       if (!events.has(m.eventName)) {
-        events.set(m.eventName, { dateIso: m.eventDateIso, feedbackUrl: m.eventFeedbackUrl, attendees: [] });
+        events.set(m.eventName, { dateIso: m.eventDateIso, attendees: [] });
       }
       events.get(m.eventName).attendees.push({ name: m.name, email: m.email, eventName: m.eventName });
     }
@@ -553,12 +558,12 @@ async function runScheduledFeedback(env) {
   } while (cursor);
 
   for (const [eventName, info] of events) {
-    if (info.dateIso !== yesterday || !info.feedbackUrl) continue;
+    if (info.dateIso !== yesterday) continue;
 
     const sentMarkerKey = `feedback_sent:${eventName}:${info.dateIso}`;
     if (await env.TICKETS.get(sentMarkerKey)) continue;
 
-    const result = await sendFeedbackEmails(env, info.attendees, info.feedbackUrl);
+    const result = await sendFeedbackEmails(env, info.attendees);
     await env.TICKETS.put(sentMarkerKey, JSON.stringify({ ...result, sentAt: new Date().toISOString() }));
     console.log(`Feedback automatico per "${eventName}": ${result.sent} inviate, ${result.failed} fallite`);
   }

@@ -166,9 +166,7 @@
 
   document.getElementById("sendFeedbackBtn").addEventListener("click", async function(){
     if (!allAttendees.length) { alert("Nessun presente a cui mandare il feedback."); return; }
-    var url = prompt("Incolla il link del form di feedback (Google Form o simile):");
-    if (!url) return;
-    if (!confirm("Mandare l'email di feedback a " + allAttendees.length + " persone entrate? Non si può annullare.")) return;
+    if (!confirm("Mandare l'email di feedback (con il link al form del sito) a " + allAttendees.length + " persone entrate? Non si può annullare.")) return;
     var btn = this;
     btn.disabled = true;
     btn.textContent = "Invio in corso...";
@@ -176,7 +174,7 @@
       var res = await fetch("/api/send-feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Staff-Key": getStaffKey() },
-        body: JSON.stringify({ feedbackFormUrl: url })
+        body: JSON.stringify({})
       });
       var data = await res.json();
       if (res.ok) {

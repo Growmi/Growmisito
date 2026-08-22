@@ -11,6 +11,11 @@ binding = "ASSETS"
 binding = "TICKETS"
 id = "4b1c2c4b5d624f20ac9973b80a8a5430"
 
+# Base URL del sito, usata per costruire il link al form di feedback nativo (feedback.html)
+# nelle email — da aggiornare qui quando Carlo collega un dominio vero, un solo posto da toccare.
+[vars]
+SITE_URL = "https://growmisito.grow-mi.workers.dev"
+
 # Gira ogni giorno alle 10:00 UTC = mezzogiorno in Italia (ora legale, valida per l'evento del
 # 10 settembre) - controlla se un evento è finito ieri e, se sì, manda il feedback in automatico.
 [triggers]
