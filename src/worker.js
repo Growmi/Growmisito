@@ -64,6 +64,42 @@ function jsonResponse(data, status = 200) {
   });
 }
 
+// Template dell'email di conferma acquisto: stile a "card" scura sui colori GrowMi (viola,
+// corallo, giallo), stessa impostazione grafica delle altre email automatiche già in uso
+// (intestazione con emoji, elenco puntato con i dati in grassetto). È un template vero e
+// proprio — cambiano solo i dati passati (evento, fascia, nome, codice), non va toccato per
+// ogni evento nuovo. Stili tutti inline: molti client email ignorano i tag <style>.
+function buildTicketEmailHTML({ name, eventName, tierName, ticketCode, qrBase64 }) {
+  const greeting = name ? `Ciao ${name.split(" ")[0]},` : "Ciao,";
+  return `
+    <div style="background:#FBF6F0; padding:32px 16px; font-family:Arial, sans-serif;">
+      <div style="max-width:480px; margin:0 auto; background:#2C0943; border-radius:20px; padding:32px 28px; color:#FBF6F0;">
+        <p style="margin:0 0 4px 0; font-size:22px; font-weight:bold; color:#FDC631;">🎟️ Il tuo biglietto è confermato!</p>
+        <p style="margin:16px 0 0 0; font-size:15px; color:#FBF6F0;">${greeting}</p>
+        <p style="margin:8px 0 20px 0; font-size:15px; line-height:1.5; color:#FBF6F0;">
+          Grazie per il tuo acquisto! Sei dentro per:
+        </p>
+        <p style="margin:0 0 20px 0; font-size:20px; font-weight:bold; color:#FBF6F0;">${eventName}</p>
+
+        <hr style="border:none; border-top:1px solid rgba(251,246,240,0.2); margin:20px 0;">
+
+        <p style="margin:0 0 10px 0; font-size:14px; font-weight:bold; color:#FDC631;">📋 Dettagli biglietto:</p>
+        <p style="margin:0 0 6px 0; font-size:14.5px; color:#FBF6F0;">• Nome: <strong>${name || "—"}</strong></p>
+        ${tierName ? `<p style="margin:0 0 6px 0; font-size:14.5px; color:#FBF6F0;">• Tipo: <strong>${tierName}</strong></p>` : ""}
+        <p style="margin:0 0 20px 0; font-size:14.5px; color:#FBF6F0;">• Codice biglietto: <strong>${ticketCode}</strong></p>
+
+        <p style="margin:0 0 12px 0; font-size:14px; color:#FBF6F0;">Mostra questo QR allo staff all'ingresso (basta il telefono):</p>
+        <div style="background:#FFFFFF; border-radius:12px; padding:16px; text-align:center; margin-bottom:8px;">
+          <img src="data:image/svg+xml;base64,${qrBase64}" alt="QR biglietto" width="200" height="200" style="display:block; margin:0 auto;">
+        </div>
+
+        <p style="margin:24px 0 0 0; font-size:14px; color:#FBF6F0;">Keep growing 🌱</p>
+        <p style="margin:2px 0 0 0; font-size:13px; color:rgba(251,246,240,0.6);">Il team GrowMi</p>
+      </div>
+    </div>
+  `;
+}
+
 // Verifica il biglietto letto dallo scanner dello staff: valido/già usato/non trovato, e lo
 // marca come usato al primo check-in valido, cosi' non si può rientrare due volte con lo
 // stesso QR. Protetto da una chiave condivisa (STAFF_KEY) invece che da un vero login, dato
@@ -194,13 +230,7 @@ async function handleStripeWebhook(request, env) {
             from: "GrowMi <onboarding@resend.dev>",
             to: email,
             subject: `Il tuo biglietto — ${eventName}`,
-            html: `
-              <p>Grazie per il tuo acquisto! Ecco il tuo biglietto per <strong>${eventName}</strong>.</p>
-              ${tierName ? `<p>Tipo di biglietto: <strong>${tierName}</strong></p>` : ""}
-              <p>Mostra questo QR allo staff all'ingresso (anche solo dal telefono):</p>
-              <img src="data:image/svg+xml;base64,${qrBase64}" alt="QR biglietto" width="220" height="220">
-              <p>Codice biglietto: <strong>${ticketCode}</strong></p>
-            `,
+            html: buildTicketEmailHTML({ name: customerName, eventName, tierName, ticketCode, qrBase64 }),
             attachments: [{ filename: "biglietto-growmi.svg", content: qrBase64 }]
           })
         });
