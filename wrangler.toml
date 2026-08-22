@@ -1,7 +1,12 @@
 name = "growmisito"
 main = "src/worker.js"
 compatibility_date = "2026-08-22"
+compatibility_flags = ["nodejs_compat"]
 
 [assets]
 directory = "./"
 binding = "ASSETS"
+
+[[kv_namespaces]]
+binding = "TICKETS"
+id = "4b1c2c4b5d624f20ac9973b80a8a5430"
