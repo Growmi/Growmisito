@@ -73,7 +73,7 @@ function jsonResponse(data, status = 200) {
 // molte caselle @outlook.it/@hotmail) usa il motore di rendering di Word, che ignora quasi
 // tutto il CSS moderno sui <div> ma capisce bene le tabelle HTML — è lo standard per le email
 // che devono restare leggibili ovunque, non solo su Gmail/Apple Mail.
-function buildTicketEmailHTML({ name, eventName, tierName, ticketCode, qrBase64 }) {
+function buildTicketEmailHTML({ name, eventName, eventDate, eventLocation, tierName, ticketCode, qrBase64 }) {
   const greeting = name ? `Ciao ${name.split(" ")[0]},` : "Ciao,";
   return `
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FBF6F0" style="background:#FBF6F0;">
@@ -85,8 +85,10 @@ function buildTicketEmailHTML({ name, eventName, tierName, ticketCode, qrBase64 
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr><td style="font-size:22px; font-weight:bold; color:#FDC631; padding-bottom:4px;">&#127915; Il tuo biglietto &egrave; confermato!</td></tr>
               <tr><td style="font-size:15px; color:#FBF6F0; padding-top:16px;">${greeting}</td></tr>
-              <tr><td style="font-size:15px; line-height:1.5; color:#FBF6F0; padding-top:8px; padding-bottom:20px;">Grazie per il tuo acquisto! Sei dentro per:</td></tr>
-              <tr><td style="font-size:20px; font-weight:bold; color:#FBF6F0; padding-bottom:20px;">${eventName}</td></tr>
+              <tr><td style="font-size:15px; line-height:1.5; color:#FBF6F0; padding-top:8px; padding-bottom:16px;">Grazie per il tuo acquisto! Sei dentro per:</td></tr>
+              <tr><td style="font-size:20px; font-weight:bold; color:#FBF6F0; padding-bottom:10px;">${eventName}</td></tr>
+              <tr><td style="font-size:14.5px; color:#FBF6F0; padding-bottom:4px;">&#128205; ${eventLocation}</td></tr>
+              <tr><td style="font-size:14.5px; color:#FBF6F0; padding-bottom:20px;">&#128336; ${eventDate}</td></tr>
               <tr><td style="border-top:1px solid #5C3E75; font-size:1px; line-height:1px;">&nbsp;</td></tr>
               <tr><td style="font-size:14px; font-weight:bold; color:#FDC631; padding-top:20px; padding-bottom:10px;">&#128203; Dettagli biglietto:</td></tr>
               <tr><td style="font-size:14.5px; color:#FBF6F0; padding-bottom:6px;">&bull; Nome: <strong>${name || "&mdash;"}</strong></td></tr>
@@ -98,7 +100,9 @@ function buildTicketEmailHTML({ name, eventName, tierName, ticketCode, qrBase64 
                   <img src="data:image/svg+xml;base64,${qrBase64}" alt="QR biglietto" width="200" height="200" style="display:block; border:0;">
                 </td>
               </tr>
-              <tr><td style="font-size:14px; color:#FBF6F0; padding-top:24px;">Keep growing &#127793;</td></tr>
+              <tr><td style="border-top:1px solid #5C3E75; font-size:1px; line-height:1px; padding-top:20px;">&nbsp;</td></tr>
+              <tr><td style="font-size:13px; color:#C9BCD6; padding-top:16px; line-height:1.5;">Ricordati di portare il biglietto (anche solo sul telefono) e un documento d'identit&agrave; all'ingresso.</td></tr>
+              <tr><td style="font-size:14px; color:#FBF6F0; padding-top:20px;">Keep growing &#127793;</td></tr>
               <tr><td style="font-size:13px; color:#C9BCD6; padding-top:2px;">Il team GrowMi</td></tr>
             </table>
           </td>
@@ -186,12 +190,14 @@ async function handleStripeWebhook(request, env) {
     }
 
     if (email) {
-      // Il nome evento si legge dai metadata del Payment Link Stripe usato per l'acquisto
-      // (chiave "event", da impostare quando si crea il Payment Link per un nuovo evento —
-      // Stripe → Payment Links → il link → Advanced → Metadata). Se non è impostato (es. i
-      // Payment Link già esistenti del 10 settembre, creati prima di questa modifica), resta
-      // sull'evento attuale come prima: nessuna rottura per quelli già in vendita.
+      // Nome evento, data e location si leggono dai metadata del Payment Link Stripe usato per
+      // l'acquisto (chiavi "event", "event_date", "event_location" — da impostare quando si crea
+      // il Payment Link per un nuovo evento, in Advanced → Metadata). Se mancano (come sui
+      // Payment Link già esistenti del 10 settembre, creati prima di questa modifica), restano
+      // sui valori di quell'evento come default: nessuna rottura per quelli già in vendita.
       const eventName = session.metadata?.event || "The Miseducation of GrowMi";
+      const eventDate = session.metadata?.event_date || "Giovedì 10 settembre 2026 · Apertura 19:00";
+      const eventLocation = session.metadata?.event_location || "Art Mall Milano, Milano";
       const ticketCode = generateTicketCode();
 
       // Il nome della fascia/prodotto acquistato (es. "Prima fascia - Solo ingresso") si legge
@@ -216,6 +222,8 @@ async function handleStripeWebhook(request, env) {
         email,
         name: customerName,
         eventName,
+        eventDate,
+        eventLocation,
         tierName,
         amountTotal: session.amount_total,
         currency: session.currency,
@@ -240,7 +248,7 @@ async function handleStripeWebhook(request, env) {
             from: "GrowMi <onboarding@resend.dev>",
             to: email,
             subject: `Il tuo biglietto — ${eventName}`,
-            html: buildTicketEmailHTML({ name: customerName, eventName, tierName, ticketCode, qrBase64 }),
+            html: buildTicketEmailHTML({ name: customerName, eventName, eventDate, eventLocation, tierName, ticketCode, qrBase64 }),
             attachments: [{ filename: "biglietto-growmi.svg", content: qrBase64 }]
           })
         });
