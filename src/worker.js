@@ -480,6 +480,8 @@ async function handleFeedbackSubmit(request, env) {
   const id = crypto.randomUUID();
   await env.TICKETS.put(`feedback:${id}`, JSON.stringify({
     eventName: String(body.eventName || "").slice(0, 200) || null,
+    name: String(body.name || "").slice(0, 200) || null,
+    email: String(body.email || "").slice(0, 200) || null,
     rating,
     liked: String(body.liked || "").slice(0, 2000),
     improve: String(body.improve || "").slice(0, 2000),

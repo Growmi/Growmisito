@@ -34,11 +34,14 @@
 
   .field{ margin-bottom:24px; }
   .field label{ display:block; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:14px; margin-bottom:10px; }
-  .field textarea{
+  .field textarea, .field input[type="text"], .field input[type="email"]{
     width:100%; padding:13px 15px; border:1.5px solid var(--line); border-radius:12px;
-    font-family:'Inter', sans-serif; font-size:14.5px; resize:vertical; min-height:80px;
+    font-family:'Inter', sans-serif; font-size:14.5px;
   }
-  .field textarea:focus{ outline:none; border-color:var(--coral); }
+  .field textarea{ resize:vertical; min-height:80px; }
+  .field textarea:focus, .field input:focus{ outline:none; border-color:var(--coral); }
+  .field-row{ display:flex; gap:12px; }
+  .field-row .field{ flex:1; }
 
   .stars{ display:flex; gap:8px; }
   .stars button{
@@ -81,6 +84,17 @@
     <h1>Com'è andata?</h1>
     <p class="lead">Ci vuole meno di un minuto, e ci aiuti tantissimo a migliorare i prossimi eventi.</p>
 
+    <div class="field-row">
+      <div class="field">
+        <label>Nome e cognome</label>
+        <input type="text" id="fbName" placeholder="Il tuo nome">
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="fbEmail" placeholder="La tua email">
+      </div>
+    </div>
+
     <div class="field">
       <label>Come valuti l'evento nel complesso?</label>
       <div class="stars" id="stars">
@@ -120,9 +134,10 @@
   </div>
 
   <div id="thanks">
-    <div class="big">&#127881;</div>
-    <h2>Grazie mille!</h2>
-    <p>Il tuo feedback ci aiuta a crescere. Keep growing 🌱</p>
+    <div class="big">&#9989;</div>
+    <h2 id="thanksTitle">Grazie mille!</h2>
+    <p>Il tuo feedback è stato inviato ed è già nelle nostre mani. Ci aiuta tantissimo a rendere il prossimo evento ancora migliore.</p>
+    <p style="margin-top:18px; font-family:'Space Grotesk',sans-serif; font-weight:700;">Keep growing &#127793;</p>
   </div>
 </div>
 
@@ -163,11 +178,14 @@
     submitBtn.disabled = true;
     submitBtn.textContent = "Invio...";
     try {
+      var name = document.getElementById("fbName").value.trim();
       var res = await fetch("/api/feedback-submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           eventName: eventName,
+          name: name,
+          email: document.getElementById("fbEmail").value.trim(),
           rating: rating,
           liked: document.getElementById("liked").value,
           improve: document.getElementById("improve").value,
@@ -176,6 +194,9 @@
         })
       });
       if (res.ok) {
+        if (name) {
+          document.getElementById("thanksTitle").textContent = "Grazie, " + name.split(" ")[0] + "!";
+        }
         document.getElementById("formWrap").style.display = "none";
         document.getElementById("thanks").style.display = "block";
       } else {
