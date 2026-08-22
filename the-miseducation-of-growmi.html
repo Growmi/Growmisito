@@ -120,39 +120,42 @@
 
     <!-- Blocco acquisto standard (vedi assets/event-tickets.js): stessa struttura per ogni
          evento futuro, cambia solo data-event con lo slug dell'evento nel registro EVENTS in
-         src/worker.js. Pagamento incorporato via Stripe Embedded Checkout, niente redirect. -->
+         src/worker.js. Pagamento incorporato via Stripe Embedded Checkout, niente redirect.
+         Ordine: 1) scegli la fascia (sempre visibili tutte e tre, solo quella attiva è
+         selezionabile) 2) i tuoi dati 3) pagamento. -->
     <div class="event-tickets" data-event="miseducation-2026-09-10">
-      <div class="section-head" style="margin-top:0;">
-        <p class="eyebrow">Prima di acquistare</p>
-        <h3 style="font-family:'Space Grotesk',sans-serif; color:#fff;">I tuoi dati</h3>
-        <p>Compila questo modulo prima di scegliere il biglietto: ci servono i tuoi dati per l'ingresso e per le comunicazioni sull'evento.</p>
-      </div>
-      <form class="et-reg-form" data-et-reg-form>
-        <div class="et-reg-row">
-          <div class="et-reg-field">
-            <label for="et-reg-nome">Nome e cognome</label>
-            <input type="text" id="et-reg-nome" data-et-name required>
-          </div>
-          <div class="et-reg-field">
-            <label for="et-reg-email">Email</label>
-            <input type="email" id="et-reg-email" data-et-email required>
-          </div>
-        </div>
-        <label class="et-reg-checkbox">
-          <input type="checkbox" data-et-photo-consent required>
-          <span>Accetto che GrowMi possa scattare foto e video durante l'evento e utilizzarle sui propri canali media (social, sito, newsletter, articoli e magazine). <strong>Obbligatorio per partecipare.</strong></span>
-        </label>
-        <label class="et-reg-checkbox">
-          <input type="checkbox" data-et-newsletter>
-          <span>Voglio iscrivermi alla newsletter GrowMi per restare aggiornato sui prossimi eventi.</span>
-        </label>
-        <button type="submit" class="btn coral" data-et-reg-submit>Continua all'acquisto</button>
-        <p class="et-reg-status" data-et-reg-status hidden></p>
-      </form>
-
-      <p class="et-locked-note" data-et-locked-note>Compila prima il modulo qui sopra per sbloccare l'acquisto dei biglietti.</p>
-      <div class="et-tier-list et-locked" data-et-tier-list></div>
+      <div class="et-tier-list" data-et-tier-list></div>
       <p class="et-tickets-note">Il pagamento avviene qui sul sito, in sicurezza con Stripe. Riceverai il biglietto via email.</p>
+
+      <div class="et-reg-step" data-et-reg-step hidden>
+        <div class="section-head" style="margin-top:0;">
+          <p class="eyebrow">Prima di pagare</p>
+          <h3 style="font-family:'Space Grotesk',sans-serif; color:#fff;">I tuoi dati</h3>
+        </div>
+        <p class="et-reg-step-selection">Hai scelto: <strong data-et-selection-label></strong></p>
+        <form class="et-reg-form" data-et-reg-form>
+          <div class="et-reg-row">
+            <div class="et-reg-field">
+              <label for="et-reg-nome">Nome e cognome</label>
+              <input type="text" id="et-reg-nome" data-et-name required>
+            </div>
+            <div class="et-reg-field">
+              <label for="et-reg-email">Email</label>
+              <input type="email" id="et-reg-email" data-et-email required>
+            </div>
+          </div>
+          <label class="et-reg-checkbox">
+            <input type="checkbox" data-et-photo-consent required>
+            <span>Accetto che GrowMi possa scattare foto e video durante l'evento e utilizzarle sui propri canali media (social, sito, newsletter, articoli e magazine). <strong>Obbligatorio per partecipare.</strong></span>
+          </label>
+          <label class="et-reg-checkbox">
+            <input type="checkbox" data-et-newsletter>
+            <span>Voglio iscrivermi alla newsletter GrowMi per restare aggiornato sui prossimi eventi.</span>
+          </label>
+          <button type="submit" class="btn coral" data-et-reg-submit>Vai al pagamento</button>
+          <p class="et-reg-status" data-et-reg-status hidden></p>
+        </form>
+      </div>
 
       <div class="et-checkout-wrap" data-et-checkout-wrap hidden>
         <div data-et-checkout-container></div>
