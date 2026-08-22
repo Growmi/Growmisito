@@ -38,6 +38,15 @@ export default {
       }
     }
 
+    if (url.pathname === "/api/checkin" && request.method === "POST") {
+      try {
+        return await handleCheckin(request, env);
+      } catch (err) {
+        console.log("Errore checkin:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     return env.ASSETS.fetch(request);
   }
 };
@@ -46,6 +55,48 @@ export default {
 // (es. se il QR non si legge bene), oltre che come contenuto del QR stesso.
 function generateTicketCode() {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase();
+}
+
+function jsonResponse(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" }
+  });
+}
+
+// Verifica il biglietto letto dallo scanner dello staff: valido/già usato/non trovato, e lo
+// marca come usato al primo check-in valido, cosi' non si può rientrare due volte con lo
+// stesso QR. Protetto da una chiave condivisa (STAFF_KEY) invece che da un vero login, dato
+// che è uno strumento interno per il personale all'ingresso, non per i clienti.
+async function handleCheckin(request, env) {
+  const staffKey = request.headers.get("x-staff-key");
+  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
+    return jsonResponse({ error: "unauthorized" }, 401);
+  }
+
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const { code } = await request.json();
+  const ticketCode = String(code || "").trim().toUpperCase();
+  if (!ticketCode) {
+    return jsonResponse({ error: "missing code" }, 400);
+  }
+
+  const raw = await env.TICKETS.get(ticketCode);
+  if (!raw) {
+    return jsonResponse({ valid: false, reason: "not_found" });
+  }
+
+  const ticket = JSON.parse(raw);
+  if (ticket.used) {
+    return jsonResponse({ valid: false, reason: "already_used", usedAt: ticket.usedAt, email: ticket.email });
+  }
+
+  ticket.used = true;
+  ticket.usedAt = new Date().toISOString();
+  await env.TICKETS.put(ticketCode, JSON.stringify(ticket));
+
+  return jsonResponse({ valid: true, email: ticket.email, eventName: ticket.eventName });
 }
 
 async function handleStripeWebhook(request, env) {
