@@ -1,0 +1,11 @@
+node_modules
+.git
+.claude
+src
+functions
+package.json
+package-lock.json
+wrangler.toml
+wrangler.jsonc
+CLAUDE_1.md
+.assetsignore
