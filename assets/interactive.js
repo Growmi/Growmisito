@@ -302,9 +302,10 @@
     }
     function memberHTML(m){
       return (
-        '<div class="team-menu-row">' +
-          '<div class="name">' + escapeHTML(m.name) + '</div>' +
-          '<div class="role">' + escapeHTML(m.role) + '</div>' +
+        '<div class="team-card">' +
+          '<div class="team-photo"></div>' +
+          '<h3>' + escapeHTML(m.name) + '</h3>' +
+          '<p class="role">' + escapeHTML(m.role) + '</p>' +
         '</div>'
       );
     }
@@ -313,7 +314,7 @@
         '<button type="button" class="team-area-close" aria-label="Chiudi">&times;</button>' +
         '<p class="eyebrow">' + escapeHTML(area.name) + '</p>' +
         '<p class="lead">' + escapeHTML(area.lead || '') + '</p>' +
-        '<div class="team-menu-list">' + area.members.map(memberHTML).join('') + '</div>'
+        '<div class="team-grid">' + area.members.map(memberHTML).join('') + '</div>'
       );
     }
 
