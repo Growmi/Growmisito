@@ -14,6 +14,18 @@ export default {
       });
     }
 
+    // Diagnostica: dice solo se ogni variabile/secret è presente o no, mai il valore vero.
+    // Serve solo per debug in questa fase, si può togliere una volta che tutto funziona.
+    if (url.pathname === "/api/env-check") {
+      return new Response(JSON.stringify({
+        RESEND_API_KEY: !!env.RESEND_API_KEY,
+        STRIPE_SECRET_KEY: !!env.STRIPE_SECRET_KEY,
+        STRIPE_WEBHOOK_SECRET: !!env.STRIPE_WEBHOOK_SECRET,
+        STRIPE_WEBHOOK_SECRET_TEST: !!env.STRIPE_WEBHOOK_SECRET_TEST,
+        TICKETS_KV: !!env.TICKETS
+      }), { headers: { "Content-Type": "application/json" } });
+    }
+
     if (url.pathname === "/api/stripe-webhook" && request.method === "POST") {
       // Tutta la gestione del webhook è avvolta qui, dal primo all'ultimo rigo: senza questo,
       // un'eccezione qualsiasi (anche nella creazione del client Stripe) produce solo un
