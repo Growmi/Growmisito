@@ -78,8 +78,10 @@ async function handleStripeWebhook(request, env) {
       const eventName = "The Miseducation of GrowMi";
       const ticketCode = generateTicketCode();
 
-      const qrDataUrl = await QRCode.toDataURL(ticketCode, { margin: 1, width: 400 });
-      const qrBase64 = qrDataUrl.split(",")[1];
+      // toBuffer (non toDataURL) perché genera il PNG lato server senza bisogno di un
+      // elemento <canvas> del browser, che su Cloudflare Workers non esiste.
+      const qrBuffer = await QRCode.toBuffer(ticketCode, { margin: 1, width: 400 });
+      const qrBase64 = Buffer.from(qrBuffer).toString("base64");
 
       if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
 
