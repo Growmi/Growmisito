@@ -84,6 +84,15 @@ export default {
       }
     }
 
+    if (url.pathname === "/api/feedback-list" && request.method === "GET") {
+      try {
+        return await handleFeedbackList(request, env);
+      } catch (err) {
+        console.log("Errore feedback-list:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     return env.ASSETS.fetch(request);
   },
 
@@ -491,6 +500,31 @@ async function handleFeedbackSubmit(request, env) {
   }));
 
   return jsonResponse({ ok: true });
+}
+
+// Legge tutte le risposte al form di feedback da KV (prefisso "feedback:"), più recenti prima.
+// Protetta da STAFF_KEY come le altre rotte staff — vista di sola lettura per lo staff.
+async function handleFeedbackList(request, env) {
+  const staffKey = request.headers.get("x-staff-key");
+  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
+    return jsonResponse({ error: "unauthorized" }, 401);
+  }
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const responses = [];
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "feedback:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      if (raw) responses.push(JSON.parse(raw));
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  responses.sort(function(a, b){ return (b.submittedAt || "").localeCompare(a.submittedAt || ""); });
+
+  return jsonResponse({ responses });
 }
 
 // Cron giornaliero (vedi [triggers] in wrangler.toml): controlla se qualche evento è finito
