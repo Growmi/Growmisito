@@ -12,6 +12,15 @@
 <link rel="stylesheet" href="assets/mailerlite-form.css">
 <link rel="stylesheet" href="assets/redesign.css">
 <link rel="stylesheet" href="assets/interactive.css">
+<style>
+  /* le card area team diventano bottoni (aprono il menu team invece di navigare): stesso
+     aspetto delle .ed-card ad <a>, azzerato solo il chrome di default del <button>. */
+  .team-area-trigger{
+    background:none; border:none; padding:0; margin:0; font:inherit; text-align:left;
+    cursor:pointer; width:100%; color:inherit;
+  }
+  .tickets-overlay-grid .team-card{ width:170px; flex:0 0 auto; }
+</style>
 </head>
 <body>
 
@@ -162,31 +171,31 @@
       <h2 data-i18n="staff_title">Il team GrowMi</h2>
     </div>
     <div class="ed-grid">
-      <a class="ed-card" href="team-amministrazione-finance.html">
+      <button type="button" class="ed-card team-area-trigger" data-team-area="amm">
         <div class="ed-card-media"></div>
         <span class="tag" data-i18n="team_amm_count">3 persone</span>
         <h3 data-i18n="team_amm_name">Amministrazione e Finanza</h3>
-      </a>
-      <a class="ed-card" href="team-artisti-venue.html">
+      </button>
+      <button type="button" class="ed-card team-area-trigger" data-team-area="artvenue">
         <div class="ed-card-media"></div>
         <span class="tag" data-i18n="team_artvenue_count">2 persone</span>
         <h3 data-i18n="team_artvenue_name">Artisti &amp; Locali</h3>
-      </a>
-      <a class="ed-card" href="team-comunicazione-marketing.html">
+      </button>
+      <button type="button" class="ed-card team-area-trigger" data-team-area="comms">
         <div class="ed-card-media"></div>
         <span class="tag" data-i18n="team_comms_count">4 persone</span>
         <h3 data-i18n="team_comms_name">Comunicazione &amp; Marketing</h3>
-      </a>
-      <a class="ed-card" href="team-commerciale.html">
+      </button>
+      <button type="button" class="ed-card team-area-trigger" data-team-area="comm">
         <div class="ed-card-media"></div>
         <span class="tag" data-i18n="team_comm_count">2 persone</span>
         <h3 data-i18n="team_comm_name">Commerciale</h3>
-      </a>
-      <a class="ed-card" href="team-software-piattaforme.html">
+      </button>
+      <button type="button" class="ed-card team-area-trigger" data-team-area="sw">
         <div class="ed-card-media"></div>
         <span class="tag" data-i18n="team_sw_count">In crescita</span>
         <h3 data-i18n="team_sw_name">Software e Piattaforme</h3>
-      </a>
+      </button>
     </div>
   </div>
 </section>
@@ -285,6 +294,16 @@
     <div class="ed-grid tickets-overlay-grid" id="tickets-overlay-grid"></div>
   </div>
 </div>
+<div class="tickets-overlay" id="team-overlay" hidden>
+  <div class="tickets-overlay-backdrop" data-team-close></div>
+  <div class="tickets-overlay-panel">
+    <button type="button" class="tickets-overlay-close" data-team-close aria-label="Chiudi">&times;</button>
+    <p class="eyebrow">Team</p>
+    <h2 id="team-overlay-title"></h2>
+    <p id="team-overlay-lead" style="color:var(--grey); font-size:14.5px; margin-top:6px; max-width:520px;"></p>
+    <div class="tickets-overlay-grid" id="team-overlay-grid"></div>
+  </div>
+</div>
 <div class="nl-popup" id="nl-popup" hidden>
   <div class="nl-popup-backdrop" data-nl-close></div>
   <div class="nl-popup-card" role="dialog" aria-modal="true" aria-labelledby="mlb2-45022886">
@@ -370,6 +389,7 @@
 </script>
 
 <script src="assets/events-data.js"></script>
+<script src="assets/team-data.js"></script>
 <script src="assets/i18n.js"></script>
 <script src="assets/newsletter.js"></script>
 <script src="assets/interactive.js"></script>

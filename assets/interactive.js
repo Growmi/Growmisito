@@ -287,6 +287,65 @@
     });
   }
 
+  // Menu che si apre cliccando una card area del team (chi-siamo.html), stesso identico
+  // meccanismo di apertura/chiusura di initTicketsOverlay qui sopra — cambia solo il contenuto
+  // (persone dell'area invece di eventi) e il fatto che ci sono più bottoni che aprono lo
+  // stesso overlay, uno per area. Sostituisce le pagine team-*.html separate: aggiungere o
+  // togliere una persona significa modificare solo assets/team-data.js.
+  function initTeamOverlay(){
+    var triggers = document.querySelectorAll('[data-team-area]');
+    var overlay = document.getElementById('team-overlay');
+    var grid = document.getElementById('team-overlay-grid');
+    var titleEl = document.getElementById('team-overlay-title');
+    var leadEl = document.getElementById('team-overlay-lead');
+    if(!triggers.length || !overlay || !grid || typeof GROWMI_TEAM === 'undefined') return;
+
+    function escapeHTML(s){
+      return String(s).replace(/[&<>"]/g, function(c){
+        return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c];
+      });
+    }
+    function memberHTML(m){
+      return (
+        '<div class="team-card">' +
+          '<div class="team-photo"></div>' +
+          '<h3>' + escapeHTML(m.name) + '</h3>' +
+          '<p class="role">' + escapeHTML(m.role) + '</p>' +
+        '</div>'
+      );
+    }
+
+    function open(areaKey){
+      var area = GROWMI_TEAM[areaKey];
+      if(!area) return;
+      titleEl.textContent = area.name;
+      leadEl.textContent = area.lead || '';
+      grid.innerHTML = area.members.map(memberHTML).join('');
+      overlay.hidden = false;
+      triggers.forEach(function(t){ t.setAttribute('aria-expanded', t.getAttribute('data-team-area') === areaKey ? 'true' : 'false'); });
+    }
+    function close(){
+      if(overlay.hidden) return;
+      var panel = overlay.querySelector('.tickets-overlay-panel');
+      triggers.forEach(function(t){ t.setAttribute('aria-expanded', 'false'); });
+      panel.classList.add('is-closing');
+      setTimeout(function(){
+        panel.classList.remove('is-closing');
+        overlay.hidden = true;
+      }, 280);
+    }
+
+    triggers.forEach(function(trigger){
+      trigger.addEventListener('click', function(){ open(trigger.getAttribute('data-team-area')); });
+    });
+    overlay.querySelectorAll('[data-team-close]').forEach(function(el){
+      el.addEventListener('click', close);
+    });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape' && !overlay.hidden) close();
+    });
+  }
+
   // dissolvenza in uscita quando si clicca un link interno verso un'altra pagina del sito,
   // cosi' il passaggio da una pagina all'altra non è un cambio secco. Va in fondo al bootstrap
   // cosi' il suo listener sul click gira per ultimo: se un altro handler ha già gestito il click
@@ -321,5 +380,6 @@
   });
 
   initTicketsOverlay();
+  initTeamOverlay();
   initPageTransitions();
 })();
