@@ -328,8 +328,9 @@
         panel.hidden = true;
         panel.innerHTML = '';
         item.classList.remove('is-open');
+        item.style.maxWidth = '';
         if(callback) callback();
-      }, 200);
+      }, 320);
     }
 
     function closeAll(){
@@ -339,24 +340,29 @@
       });
     }
 
+    function reveal(item, area){
+      // La griglia usa colonne "1fr": appena le altre card spariscono, quella rimasta si
+      // allargherebbe da sola per riempire lo spazio libero. Le blocco alla sua larghezza
+      // reale MISURATA ORA (prima di nascondere le altre), cosi' resta identica.
+      var lockedWidth = item.getBoundingClientRect().width;
+      items.forEach(function(other){ other.classList.toggle('is-hidden', other !== item); });
+      item.style.maxWidth = lockedWidth + 'px';
+      item.classList.add('is-open');
+      var panel = item.querySelector('.team-area-panel');
+      panel.innerHTML = panelHTML(area);
+      panel.hidden = false;
+      item.querySelector('.team-area-trigger').setAttribute('aria-expanded', 'true');
+      panel.querySelector('.team-area-close').addEventListener('click', closeAll);
+    }
+
     function open(item){
       var areaKey = item.getAttribute('data-team-area');
       var area = GROWMI_TEAM[areaKey];
       if(!area) return;
       var currentOpen = document.querySelector('.team-area-item.is-open');
 
-      function reveal(){
-        items.forEach(function(other){ other.classList.toggle('is-hidden', other !== item); });
-        item.classList.add('is-open');
-        var panel = item.querySelector('.team-area-panel');
-        panel.innerHTML = panelHTML(area);
-        panel.hidden = false;
-        item.querySelector('.team-area-trigger').setAttribute('aria-expanded', 'true');
-        panel.querySelector('.team-area-close').addEventListener('click', closeAll);
-      }
-
-      if(currentOpen && currentOpen !== item) closePanel(currentOpen, reveal);
-      else reveal();
+      if(currentOpen && currentOpen !== item) closePanel(currentOpen, function(){ reveal(item, area); });
+      else reveal(item, area);
     }
 
     items.forEach(function(item){
