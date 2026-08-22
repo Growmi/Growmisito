@@ -37,6 +37,18 @@ const GROWMI_I18N = {
     art_book_p:"Locali, aziende, festival: richiedi uno dei nostri artisti per un evento fuori dal calendario GrowMi.",
     art_book_btn:"Richiedi un artista",
 
+    art_lucevera_p1:"Batterista per oltre quattro anni e polistrumentista con una solida formazione al pianoforte. Il suo percorso prende una nuova direzione nell'estate del 2023 quando, quasi per gioco, inizia a collaborare con Amez: un'intesa creativa che nel giro di pochi mesi si trasforma in una produzione continuativa, culminata con l'esordio ufficiale a marzo 2026.",
+    art_lucevera_p2:"Da quella prima release nasce la spinta per &laquo;GONFIE VELE&raquo;, l'EP che segna il suo ingresso definitivo nella scena. Il progetto fonde influenze differenti e generi diversi, sorretto da un'attitudine 100% indipendente: una produzione interamente autogestita e realizzata con il supporto fondamentale di una rete di amici e colleghi musicisti.",
+    art_lucevera_p3:"I prossimi progetti vedono all'orizzonte l'uscita di nuovi singoli e l'avvio di inedite collaborazioni.",
+
+    art_cianci_p1:"CIANCI affonda le sue radici musicali nello studio del pianoforte, con un importante background in conservatorio che ne definisce la sensibilità armonica. Farsi notare sui social con un'attitudine hip hop e una spiccata fluidità di barre è solo il primo passo: nel 2021 esordisce con &laquo;8:30&raquo;, ballad indie da oltre 80.000 ascolti su Spotify che intercetta subito le insicurezze della sua generazione.",
+    art_cianci_p2:"Da lì, la sua cifra stilistica evolve verso un rap cantautorale: il 2026 segna la sua piena maturità artistica attraverso una trilogia di singoli speculari &mdash; Fortunata, L'ultima Parola e Musica Mia.",
+    art_cianci_p3:"Il 4 giugno ha confermato tutto il suo talento portando sul palco di GrowMi, insieme alla sua band, un live potente e travolgente che ha conquistato il nostro pubblico.",
+
+    art_arbues_p1:"Arbues è un Disk Jockey appassionato di club culture. Il suo sound è profondamente influenzato dalle sonorità New Wave anni '80, dalla prima disco, dai ritmi black e funky, oltre che dal suono minimal e deep house dei primi anni 2000. Un tipico DJ set di Arbues può passare da ritmiche groovy e funky a una house ipnotica, grezza ed emotiva da &laquo;sunrise&raquo;.",
+    art_arbues_p2:"Scopre la musica elettronica a 13 anni, grazie a maestri della New Wave come New Order e Depeche Mode, per poi spostarsi verso sonorità più &laquo;dancy&raquo;, scoprendo la house music. Spinto dal bisogno di scavare e condividere brani fuori dal comune, inizia a suonare in varie feste e club nella sua città natale, Bari.",
+    art_arbues_p3:"A 19 anni si trasferisce a Milano, approfondendo la conoscenza della cultura house attraverso la scena cittadina, suonando anche in alcuni dei club più rinomati di Milano, come Apophis, SuperLove e Spazio Diaz.",
+
     cs_eyebrow:"Chi siamo", cs_title:"Coltivare il talento e trasformarlo in realtà",
     cs_p1:"GrowMI è un progetto che nasce dalla volontà di dare la possibilità ai piccoli artisti ed emergenti, con un talento più che unico, di poter crescere e mostrarsi presenti nel mondo. Sosteniamo artisti emergenti – cantautori, produttori, DJ, creativi visivi – che vogliono proporre qualcosa di nuovo, rompendo le regole delle tendenze attuali. Perché spesso è proprio chi non è ancora sotto i riflettori a portare l'innovazione più autentica. I grandi di oggi erano una scommessa ieri. È tempo quindi che le nuove idee trovino il loro posto.",
     cs_p2:"Attraverso supporto mediatico, storytelling e l'organizzazione di eventi dal vivo, aiutiamo questi artisti a farsi vedere, sentire e riconoscere. GrowMI è qui per questo: per coltivare talento e trasformarlo in realtà.",
@@ -165,6 +177,18 @@ const GROWMI_I18N = {
     art_book_title:"Want a GrowMi artist for your event?",
     art_book_p:"Venues, companies, festivals: request one of our artists for an event outside the GrowMi calendar.",
     art_book_btn:"Request an artist",
+
+    art_lucevera_p1:"A drummer for over four years and a multi-instrumentalist with a solid piano background. His path took a new direction in the summer of 2023 when, almost as a game, he started collaborating with Amez: a creative connection that within a few months turned into an ongoing production, culminating in his official debut in March 2026.",
+    art_lucevera_p2:"That first release sparked the drive for &laquo;GONFIE VELE&raquo;, the EP that marks his definitive entrance onto the scene. The project blends different influences and genres, carried by a 100% independent attitude: a production entirely self-managed and made possible with the essential support of a network of friends and fellow musicians.",
+    art_lucevera_p3:"On the horizon, upcoming projects include new singles and the start of unreleased collaborations.",
+
+    art_cianci_p1:"CIANCI's musical roots lie in piano studies, with a significant conservatory background that shapes her harmonic sensibility. Getting noticed on social media with a hip hop attitude and a striking flow is just the first step: in 2021 she debuted with &laquo;8:30&raquo;, an indie ballad with over 80,000 streams on Spotify that immediately captured the insecurities of her generation.",
+    art_cianci_p2:"From there, her style evolved toward singer-songwriter rap: 2026 marks her full artistic maturity through a trilogy of companion singles &mdash; Fortunata, L'ultima Parola and Musica Mia.",
+    art_cianci_p3:"On June 4th she confirmed all her talent, bringing to the GrowMi stage, together with her band, a powerful and overwhelming live show that won over our audience.",
+
+    art_arbues_p1:"Arbues is a Disk Jockey and club culture passionate. Arbues' sound is deeply influenced by the '80s New Wave sounds, early disco, black and funky rhythms, as well as the early 2000s minimal and deep house sound. A typical Arbues DJ set can move from groovy and funky rhythms to hypnotic and raw, emotional &laquo;sunrise&raquo; house.",
+    art_arbues_p2:"He discovers electronic music at 13, thanks to New Wave masters such as New Order and Depeche Mode, and from there moved towards &laquo;dancy&raquo; stuff, discovering house music. Feeling the urge to dig and share uncommon tunes, he starts playing at various parties and clubs in his hometown, Bari.",
+    art_arbues_p3:"At 19, he moves to Milan, deepening his knowledge of house music culture through the city's scene, while also playing in some of Milan's renowned clubs, such as Apophis, SuperLove and Spazio Diaz.",
 
     cs_eyebrow:"About us", cs_title:"Growing talent, turning it into reality",
     cs_p1:"GrowMI is a project born from the desire to give small, emerging artists — with more than unique talent — the chance to grow and make their mark on the world. We support emerging artists — singer-songwriters, producers, DJs, visual creatives — who want to bring something new, breaking the rules of today's trends. Because it's often those not yet in the spotlight who bring the most authentic innovation. Today's icons were yesterday's long shots. It's time for new ideas to find their place.",
