@@ -75,6 +75,15 @@ export default {
       }
     }
 
+    if (url.pathname === "/api/feedback-submit" && request.method === "POST") {
+      try {
+        return await handleFeedbackSubmit(request, env);
+      } catch (err) {
+        console.log("Errore feedback-submit:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     return env.ASSETS.fetch(request);
   },
 
@@ -455,6 +464,31 @@ async function handleSendFeedback(request, env) {
   const { sent, failed } = await sendFeedbackEmails(env, attendees, feedbackFormUrl);
 
   return jsonResponse({ totalAttendees: attendees.length, sent, failed });
+}
+
+// Salva una risposta al form di feedback (feedback.html) su KV — nessun servizio esterno,
+// stesso archivio dei biglietti, prefisso diverso per non mischiarli.
+async function handleFeedbackSubmit(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const body = await request.json();
+  const rating = Number(body.rating) || null;
+  if (!rating || rating < 1 || rating > 5) {
+    return jsonResponse({ error: "valutazione mancante o non valida" }, 400);
+  }
+
+  const id = crypto.randomUUID();
+  await env.TICKETS.put(`feedback:${id}`, JSON.stringify({
+    eventName: String(body.eventName || "").slice(0, 200) || null,
+    rating,
+    liked: String(body.liked || "").slice(0, 2000),
+    improve: String(body.improve || "").slice(0, 2000),
+    wouldRecommend: body.wouldRecommend === true,
+    comments: String(body.comments || "").slice(0, 2000),
+    submittedAt: new Date().toISOString()
+  }));
+
+  return jsonResponse({ ok: true });
 }
 
 // Cron giornaliero (vedi [triggers] in wrangler.toml): controlla se qualche evento è finito

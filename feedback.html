@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Il tuo feedback — GrowMi</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#2C0943">
+<link rel="icon" href="assets/img/logo-growmi.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple-deep:#3E0D5D; --purple-deeper:#2C0943; --coral:#F86639; --yellow:#FDC631;
+    --cream:#FBF6F0; --ink:#1E0C2C; --grey:#6E6478; --line:rgba(30,12,44,0.12);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--cream); color:var(--ink); font-family:'Inter', system-ui, sans-serif;
+    line-height:1.6; min-height:100vh; min-height:100dvh; display:flex; flex-direction:column;
+    align-items:center; padding:40px 20px;
+  }
+  h1,h2{ font-family:'Space Grotesk', sans-serif; font-weight:700; }
+  .logo{ height:32px; margin-bottom:28px; }
+
+  .card{
+    width:100%; max-width:520px; background:#fff; border-radius:24px; padding:40px 32px;
+    box-shadow:0 20px 50px rgba(30,12,44,0.1);
+  }
+  .eyebrow{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--coral); margin-bottom:10px; }
+  h1{ font-size:26px; margin-bottom:8px; }
+  .lead{ font-size:14.5px; color:var(--grey); margin-bottom:28px; }
+
+  .field{ margin-bottom:24px; }
+  .field label{ display:block; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:14px; margin-bottom:10px; }
+  .field textarea{
+    width:100%; padding:13px 15px; border:1.5px solid var(--line); border-radius:12px;
+    font-family:'Inter', sans-serif; font-size:14.5px; resize:vertical; min-height:80px;
+  }
+  .field textarea:focus{ outline:none; border-color:var(--coral); }
+
+  .stars{ display:flex; gap:8px; }
+  .stars button{
+    background:none; border:none; font-size:34px; cursor:pointer; padding:0; line-height:1;
+    color:var(--line); transition:color .15s ease, transform .1s ease;
+  }
+  .stars button.active{ color:var(--yellow); }
+  .stars button:hover{ transform:scale(1.1); }
+
+  .toggle-row{ display:flex; gap:10px; }
+  .toggle-row button{
+    flex:1; padding:12px; border-radius:12px; border:1.5px solid var(--line); background:#fff;
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:14px; cursor:pointer;
+    color:var(--ink); transition:all .15s ease;
+  }
+  .toggle-row button.active{ background:var(--purple-deeper); border-color:var(--purple-deeper); color:#fff; }
+
+  .submit-btn{
+    width:100%; padding:16px; border-radius:12px; border:none; background:var(--coral); color:#fff;
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:15px; cursor:pointer;
+    margin-top:8px;
+  }
+  .submit-btn:disabled{ opacity:.6; cursor:default; }
+
+  .error{ color:#c0392b; font-size:13px; margin-top:8px; display:none; }
+
+  #thanks{ display:none; text-align:center; }
+  #thanks .big{ font-size:44px; margin-bottom:14px; }
+  #thanks h2{ font-size:22px; margin-bottom:8px; }
+  #thanks p{ font-size:14.5px; color:var(--grey); }
+</style>
+</head>
+<body>
+
+<img class="logo" src="assets/img/logo-growmi.png" alt="GrowMi">
+
+<div class="card">
+  <div id="formWrap">
+    <p class="eyebrow">Feedback</p>
+    <h1>Com'è andata?</h1>
+    <p class="lead">Ci vuole meno di un minuto, e ci aiuti tantissimo a migliorare i prossimi eventi.</p>
+
+    <div class="field">
+      <label>Come valuti l'evento nel complesso?</label>
+      <div class="stars" id="stars">
+        <button type="button" data-v="1">&#9733;</button>
+        <button type="button" data-v="2">&#9733;</button>
+        <button type="button" data-v="3">&#9733;</button>
+        <button type="button" data-v="4">&#9733;</button>
+        <button type="button" data-v="5">&#9733;</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Cosa ti è piaciuto di più?</label>
+      <textarea id="liked" placeholder="La musica, l'atmosfera, gli artisti..."></textarea>
+    </div>
+
+    <div class="field">
+      <label>Cosa miglioreresti?</label>
+      <textarea id="improve" placeholder="Dicci pure tutto"></textarea>
+    </div>
+
+    <div class="field">
+      <label>Consiglieresti GrowMi a un amico?</label>
+      <div class="toggle-row">
+        <button type="button" id="recYes" data-v="yes">Sì, assolutamente</button>
+        <button type="button" id="recNo" data-v="no">Non ancora</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Altro che vuoi dirci? (facoltativo)</label>
+      <textarea id="comments" placeholder="Scrivi qui"></textarea>
+    </div>
+
+    <button type="button" class="submit-btn" id="submitBtn">Invia feedback</button>
+    <p class="error" id="errorMsg">Scegli almeno una valutazione a stelle prima di inviare.</p>
+  </div>
+
+  <div id="thanks">
+    <div class="big">&#127881;</div>
+    <h2>Grazie mille!</h2>
+    <p>Il tuo feedback ci aiuta a crescere. Keep growing 🌱</p>
+  </div>
+</div>
+
+<script>
+(function(){
+  var rating = 0;
+  var recommend = null;
+  var stars = document.querySelectorAll("#stars button");
+  var errorMsg = document.getElementById("errorMsg");
+  var submitBtn = document.getElementById("submitBtn");
+
+  var params = new URLSearchParams(window.location.search);
+  var eventName = params.get("event") || null;
+
+  stars.forEach(function(btn){
+    btn.addEventListener("click", function(){
+      rating = parseInt(btn.dataset.v, 10);
+      stars.forEach(function(b){ b.classList.toggle("active", parseInt(b.dataset.v, 10) <= rating); });
+      errorMsg.style.display = "none";
+    });
+  });
+
+  function setRecommend(v, btnYes, btnNo){
+    recommend = v;
+    btnYes.classList.toggle("active", v === "yes");
+    btnNo.classList.toggle("active", v === "no");
+  }
+  var recYes = document.getElementById("recYes");
+  var recNo = document.getElementById("recNo");
+  recYes.addEventListener("click", function(){ setRecommend("yes", recYes, recNo); });
+  recNo.addEventListener("click", function(){ setRecommend("no", recYes, recNo); });
+
+  submitBtn.addEventListener("click", async function(){
+    if (!rating) {
+      errorMsg.style.display = "block";
+      return;
+    }
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Invio...";
+    try {
+      var res = await fetch("/api/feedback-submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventName: eventName,
+          rating: rating,
+          liked: document.getElementById("liked").value,
+          improve: document.getElementById("improve").value,
+          wouldRecommend: recommend === "yes",
+          comments: document.getElementById("comments").value
+        })
+      });
+      if (res.ok) {
+        document.getElementById("formWrap").style.display = "none";
+        document.getElementById("thanks").style.display = "block";
+      } else {
+        errorMsg.textContent = "Qualcosa è andato storto, riprova.";
+        errorMsg.style.display = "block";
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Invia feedback";
+      }
+    } catch (e) {
+      errorMsg.textContent = "Errore di connessione, riprova.";
+      errorMsg.style.display = "block";
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Invia feedback";
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
