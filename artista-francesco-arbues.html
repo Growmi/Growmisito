@@ -63,8 +63,11 @@
         <p style="font-size:16.5px; margin-bottom:20px;" data-i18n="art_arbues_p2">Scopre la musica elettronica a 13 anni, grazie a maestri della New Wave come New Order e Depeche Mode, per poi spostarsi verso sonorità più «dancy», scoprendo la house music. Spinto dal bisogno di scavare e condividere brani fuori dal comune, inizia a suonare in varie feste e club nella sua città natale, Bari.</p>
         <p style="font-size:16.5px;" data-i18n="art_arbues_p3">A 19 anni si trasferisce a Milano, approfondendo la conoscenza della cultura house attraverso la scena cittadina, suonando anche in alcuni dei club più rinomati di Milano, come Apophis, SuperLove e Spazio Diaz.</p>
       </div>
-      <div style="flex:1 1 300px; min-width:240px; max-width:420px; display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:14px; align-content:start;">
-        <video controls playsinline style="width:100%; border-radius:14px; display:block; background:#000;">
+      <div style="flex:1 1 340px; min-width:260px; max-width:480px; display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:14px; align-content:start;">
+        <!-- Il video orizzontale è quello di qualità migliore: occupa tutta la larghezza della
+             colonna (grid-column 1/-1) invece di una singola cella, cosi' prevale sui due
+             verticali che restano affiancati sotto, più piccoli. -->
+        <video controls playsinline style="width:100%; border-radius:14px; display:block; background:#000; grid-column:1 / -1;">
           <source src="assets/video/francesco-arbues-clip1.mp4" type="video/mp4">
         </video>
         <video controls playsinline style="width:100%; border-radius:14px; display:block; background:#000;">
