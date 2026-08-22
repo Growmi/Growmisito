@@ -1,0 +1,11 @@
+{
+  "name": "GrowMi Check-in",
+  "short_name": "Check-in",
+  "start_url": "/staff-checkin",
+  "display": "standalone",
+  "background_color": "#1E0C2C",
+  "theme_color": "#1E0C2C",
+  "icons": [
+    { "src": "assets/img/staff-icon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
