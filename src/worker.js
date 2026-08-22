@@ -343,7 +343,7 @@ async function handleStripeWebhook(request, env) {
           console.log("Errore generazione PDF biglietto:", e.message);
         }
 
-        const attachments = [{ filename: "biglietto-growmi.svg", content: qrBase64 }];
+        const attachments = [];
         if (pdfBase64) attachments.push({ filename: "biglietto-growmi.pdf", content: pdfBase64 });
 
         const resendRes = await fetch("https://api.resend.com/emails", {
