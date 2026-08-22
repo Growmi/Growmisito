@@ -287,18 +287,13 @@
     });
   }
 
-  // Menu che si apre cliccando una card area del team (chi-siamo.html), stesso identico
-  // meccanismo di apertura/chiusura di initTicketsOverlay qui sopra — cambia solo il contenuto
-  // (persone dell'area invece di eventi) e il fatto che ci sono più bottoni che aprono lo
-  // stesso overlay, uno per area. Sostituisce le pagine team-*.html separate: aggiungere o
-  // togliere una persona significa modificare solo assets/team-data.js.
+  // Pannello partecipanti che compare in-place dentro la griglia team (chi-siamo.html), esattamente
+  // nel punto dov'era la card cliccata — non più una tendina in cima alla pagina. Cliccando una
+  // card, tutte le altre spariscono e quella cliccata si apre a piena riga mostrando i
+  // partecipanti dell'area (dati in assets/team-data.js, niente più pagine team-*.html separate).
   function initTeamOverlay(){
-    var triggers = document.querySelectorAll('[data-team-area]');
-    var overlay = document.getElementById('team-overlay');
-    var grid = document.getElementById('team-overlay-grid');
-    var titleEl = document.getElementById('team-overlay-title');
-    var leadEl = document.getElementById('team-overlay-lead');
-    if(!triggers.length || !overlay || !grid || typeof GROWMI_TEAM === 'undefined') return;
+    var items = document.querySelectorAll('.team-area-item[data-team-area]');
+    if(!items.length || typeof GROWMI_TEAM === 'undefined') return;
 
     function escapeHTML(s){
       return String(s).replace(/[&<>"]/g, function(c){
@@ -314,35 +309,54 @@
         '</div>'
       );
     }
+    function panelHTML(area){
+      return (
+        '<button type="button" class="team-area-close" aria-label="Chiudi">&times;</button>' +
+        '<p class="eyebrow">Team</p>' +
+        '<h2>' + escapeHTML(area.name) + '</h2>' +
+        '<p class="lead">' + escapeHTML(area.lead || '') + '</p>' +
+        '<div class="team-grid">' + area.members.map(memberHTML).join('') + '</div>'
+      );
+    }
 
-    function open(areaKey){
+    function closeAll(){
+      items.forEach(function(item){
+        item.classList.remove('is-open', 'is-hidden');
+        var panel = item.querySelector('.team-area-panel');
+        panel.hidden = true;
+        panel.innerHTML = '';
+        item.querySelector('.team-area-trigger').setAttribute('aria-expanded', 'false');
+      });
+    }
+
+    function open(item){
+      var areaKey = item.getAttribute('data-team-area');
       var area = GROWMI_TEAM[areaKey];
       if(!area) return;
-      titleEl.textContent = area.name;
-      leadEl.textContent = area.lead || '';
-      grid.innerHTML = area.members.map(memberHTML).join('');
-      overlay.hidden = false;
-      triggers.forEach(function(t){ t.setAttribute('aria-expanded', t.getAttribute('data-team-area') === areaKey ? 'true' : 'false'); });
-    }
-    function close(){
-      if(overlay.hidden) return;
-      var panel = overlay.querySelector('.tickets-overlay-panel');
-      triggers.forEach(function(t){ t.setAttribute('aria-expanded', 'false'); });
-      panel.classList.add('is-closing');
-      setTimeout(function(){
-        panel.classList.remove('is-closing');
-        overlay.hidden = true;
-      }, 280);
+      items.forEach(function(other){
+        if(other === item){
+          other.classList.add('is-open');
+          other.classList.remove('is-hidden');
+          var panel = other.querySelector('.team-area-panel');
+          panel.innerHTML = panelHTML(area);
+          panel.hidden = false;
+          other.querySelector('.team-area-trigger').setAttribute('aria-expanded', 'true');
+          panel.querySelector('.team-area-close').addEventListener('click', closeAll);
+        } else {
+          other.classList.add('is-hidden');
+          other.classList.remove('is-open');
+        }
+      });
+      item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    triggers.forEach(function(trigger){
-      trigger.addEventListener('click', function(){ open(trigger.getAttribute('data-team-area')); });
-    });
-    overlay.querySelectorAll('[data-team-close]').forEach(function(el){
-      el.addEventListener('click', close);
+    items.forEach(function(item){
+      item.querySelector('.team-area-trigger').addEventListener('click', function(){
+        item.classList.contains('is-open') ? closeAll() : open(item);
+      });
     });
     document.addEventListener('keydown', function(e){
-      if(e.key === 'Escape' && !overlay.hidden) close();
+      if(e.key === 'Escape') closeAll();
     });
   }
 
