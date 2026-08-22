@@ -57,6 +57,15 @@ export default {
       }
     }
 
+    if (url.pathname === "/api/attendees" && request.method === "GET") {
+      try {
+        return await handleAttendees(request, env);
+      } catch (err) {
+        console.log("Errore attendees:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     return env.ASSETS.fetch(request);
   }
 };
@@ -250,10 +259,12 @@ async function handleCheckin(request, env) {
 
   ticket.used = true;
   ticket.usedAt = new Date().toISOString();
-  // La metadata "used" (oltre al campo dentro il JSON) permette a /api/stats di contare
-  // biglietti venduti/entrati con un solo elenco delle chiavi, senza dover leggere per intero
-  // ogni singolo biglietto uno per uno.
-  await env.TICKETS.put(kvKey, JSON.stringify(ticket), { metadata: { used: true } });
+  // La metadata (used, nome, email, fascia, orario) oltre al campo dentro il JSON permette a
+  // /api/stats e /api/attendees di leggere l'elenco di chi è entrato con un solo elenco delle
+  // chiavi, senza dover leggere per intero ogni singolo biglietto uno per uno.
+  await env.TICKETS.put(kvKey, JSON.stringify(ticket), {
+    metadata: { used: true, name: ticket.name, email: ticket.email, tierName: ticket.tierName, usedAt: ticket.usedAt }
+  });
 
   return jsonResponse({ valid: true, email: ticket.email, name: ticket.name, eventName: ticket.eventName, tierName: ticket.tierName });
 }
@@ -282,6 +293,38 @@ async function handleStats(request, env) {
   } while (cursor);
 
   return jsonResponse({ total, checkedIn });
+}
+
+// Elenco di chi è entrato davvero (per la pagina staff-attendees.html), letto dalla metadata
+// delle chiavi già entrate — nessuna lettura dei singoli biglietti, veloce anche con centinaia
+// di persone. Stessa chiave staff dello scanner.
+async function handleAttendees(request, env) {
+  const staffKey = request.headers.get("x-staff-key");
+  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
+    return jsonResponse({ error: "unauthorized" }, 401);
+  }
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const attendees = [];
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "ticket:", cursor });
+    for (const key of page.keys) {
+      if (key.metadata?.used) {
+        attendees.push({
+          name: key.metadata.name || null,
+          email: key.metadata.email || null,
+          tierName: key.metadata.tierName || null,
+          usedAt: key.metadata.usedAt || null
+        });
+      }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  attendees.sort(function(a, b){ return (a.name || "").localeCompare(b.name || ""); });
+
+  return jsonResponse({ attendees });
 }
 
 async function handleStripeWebhook(request, env) {

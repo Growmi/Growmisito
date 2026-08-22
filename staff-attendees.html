@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Presenti — GrowMi</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1E0C2C">
+<link rel="apple-touch-icon" href="assets/img/staff-icon.png">
+<link rel="icon" href="assets/img/staff-icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple-deep:#3E0D5D; --purple-deeper:#2C0943; --coral:#F86639; --yellow:#FDC631;
+    --cream:#FBF6F0; --ink:#1E0C2C;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--ink); color:var(--cream); font-family:'Inter', system-ui, sans-serif;
+    display:flex; flex-direction:column; min-height:100vh; min-height:100dvh;
+  }
+  header{ padding:18px 20px; border-bottom:1px solid rgba(251,246,240,0.12); }
+  header .top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+  header h1{ font-family:'Space Grotesk', sans-serif; font-size:18px; font-weight:700; }
+  header a.back{ font-size:13px; color:rgba(251,246,240,0.6); text-decoration:underline; }
+  header p{ font-size:12.5px; color:rgba(251,246,240,0.6); }
+
+  main{ flex:1; padding:20px; max-width:560px; margin:0 auto; width:100%; }
+
+  #search{
+    width:100%; padding:14px 16px; border-radius:12px; border:1.5px solid rgba(251,246,240,0.25);
+    background:rgba(251,246,240,0.06); color:var(--cream); font-size:16px; margin-bottom:16px;
+  }
+  #search::placeholder{ color:rgba(251,246,240,0.4); }
+
+  #count{ font-size:13px; color:rgba(251,246,240,0.55); margin-bottom:14px; }
+
+  .row{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    padding:14px 16px; border-radius:12px; background:rgba(251,246,240,0.06); margin-bottom:8px;
+  }
+  .row .info .name{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:15px; }
+  .row .info .sub{ font-size:12.5px; color:rgba(251,246,240,0.6); margin-top:2px; }
+  .row .time{ font-size:12px; color:rgba(251,246,240,0.5); white-space:nowrap; }
+
+  #empty{ text-align:center; color:rgba(251,246,240,0.5); font-size:14px; padding:40px 0; }
+
+  .key-gate{
+    position:fixed; inset:0; background:var(--ink); display:flex; align-items:center;
+    justify-content:center; padding:24px; z-index:10;
+  }
+  .key-gate.hidden{ display:none; }
+  .key-card{ max-width:340px; width:100%; text-align:center; }
+  .key-card h2{ font-family:'Space Grotesk', sans-serif; font-size:20px; margin-bottom:10px; }
+  .key-card p{ font-size:13.5px; color:rgba(251,246,240,0.6); margin-bottom:18px; }
+  .key-card input{
+    width:100%; padding:14px 16px; border-radius:12px; border:1.5px solid rgba(251,246,240,0.25);
+    background:rgba(251,246,240,0.06); color:var(--cream); font-size:15px; margin-bottom:12px;
+  }
+  .key-card button{
+    width:100%; padding:14px; border-radius:12px; border:none; background:var(--coral); color:#fff;
+    font-weight:700; font-family:'Space Grotesk', sans-serif; cursor:pointer; font-size:14px;
+  }
+</style>
+</head>
+<body>
+
+<div class="key-gate" id="keyGate">
+  <div class="key-card">
+    <h2>Elenco presenti</h2>
+    <p>Inserisci la chiave staff per vedere l'elenco.</p>
+    <input type="password" id="keyInput" placeholder="Chiave staff" autocomplete="off">
+    <button type="button" id="keySubmit">Entra</button>
+  </div>
+</div>
+
+<header>
+  <div class="top">
+    <h1>Chi è entrato</h1>
+    <a class="back" href="staff-checkin">&larr; Scanner</a>
+  </div>
+  <p>Elenco di chi ha fatto check-in, con ricerca</p>
+</header>
+
+<main>
+  <input type="text" id="search" placeholder="Cerca per nome...">
+  <p id="count"></p>
+  <div id="list"></div>
+  <p id="empty" style="display:none;">Nessun nominativo trovato.</p>
+</main>
+
+<script>
+(function(){
+  var KEY_STORAGE = "growmi_staff_key";
+  var keyGate = document.getElementById("keyGate");
+  var keyInput = document.getElementById("keyInput");
+  var list = document.getElementById("list");
+  var count = document.getElementById("count");
+  var empty = document.getElementById("empty");
+  var search = document.getElementById("search");
+  var allAttendees = [];
+
+  function getStaffKey(){ return localStorage.getItem(KEY_STORAGE); }
+  function setStaffKey(k){ localStorage.setItem(KEY_STORAGE, k); }
+  function clearStaffKey(){ localStorage.removeItem(KEY_STORAGE); }
+
+  function render(items){
+    list.innerHTML = "";
+    empty.style.display = items.length ? "none" : "block";
+    count.textContent = items.length + (items.length === 1 ? " persona entrata" : " persone entrate");
+    items.forEach(function(a){
+      var row = document.createElement("div");
+      row.className = "row";
+      var time = a.usedAt ? new Date(a.usedAt).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) : "";
+      row.innerHTML =
+        '<div class="info">' +
+          '<div class="name">' + (a.name || "Senza nome") + '</div>' +
+          '<div class="sub">' + [a.email, a.tierName].filter(Boolean).join(" — ") + '</div>' +
+        '</div>' +
+        '<div class="time">' + time + '</div>';
+      list.appendChild(row);
+    });
+  }
+
+  function applyFilter(){
+    var q = search.value.trim().toLowerCase();
+    if (!q) { render(allAttendees); return; }
+    render(allAttendees.filter(function(a){
+      return (a.name || "").toLowerCase().indexOf(q) !== -1;
+    }));
+  }
+
+  async function loadAttendees(){
+    try {
+      var res = await fetch("/api/attendees", { headers: { "X-Staff-Key": getStaffKey() } });
+      if (res.status === 401) {
+        clearStaffKey();
+        keyGate.classList.remove("hidden");
+        return;
+      }
+      var data = await res.json();
+      allAttendees = data.attendees || [];
+      applyFilter();
+    } catch (e) {
+      count.textContent = "Errore di connessione, riprova.";
+    }
+  }
+
+  search.addEventListener("input", applyFilter);
+
+  document.getElementById("keySubmit").addEventListener("click", function(){
+    var k = keyInput.value.trim();
+    if (!k) return;
+    setStaffKey(k);
+    keyGate.classList.add("hidden");
+    loadAttendees();
+  });
+  keyInput.addEventListener("keydown", function(e){
+    if (e.key === "Enter") { document.getElementById("keySubmit").click(); }
+  });
+
+  if (getStaffKey()) {
+    keyGate.classList.add("hidden");
+    loadAttendees();
+  } else {
+    keyInput.focus();
+  }
+
+  setInterval(function(){ if (getStaffKey()) loadAttendees(); }, 30000);
+})();
+</script>
+
+</body>
+</html>
