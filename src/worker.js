@@ -36,13 +36,22 @@ async function handleStripeWebhook(request, env) {
   const signature = request.headers.get("stripe-signature");
   const body = await request.text();
 
+  // Prova prima la chiave live, poi quella di test: sono due endpoint webhook diversi su Stripe
+  // (uno per pagamenti veri, uno per "stripe trigger" in modalità test) che mandano entrambi qui,
+  // ognuno firmato con la propria secret. Cosi' possiamo testare in sicurezza senza toccare la
+  // configurazione live.
   let event;
   try {
-    // constructEventAsync (non la versione sync) perché usa Web Crypto invece del modulo
-    // "crypto" di Node, che su Cloudflare Workers non è disponibile allo stesso modo.
     event = await stripe.webhooks.constructEventAsync(body, signature, env.STRIPE_WEBHOOK_SECRET);
-  } catch (err) {
-    return new Response(`Webhook Error: ${err.message}`, { status: 400 });
+  } catch (liveErr) {
+    if (!env.STRIPE_WEBHOOK_SECRET_TEST) {
+      return new Response(`Webhook Error: ${liveErr.message}`, { status: 400 });
+    }
+    try {
+      event = await stripe.webhooks.constructEventAsync(body, signature, env.STRIPE_WEBHOOK_SECRET_TEST);
+    } catch (testErr) {
+      return new Response(`Webhook Error: ${testErr.message}`, { status: 400 });
+    }
   }
 
   if (event.type === "checkout.session.completed") {
