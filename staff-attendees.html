@@ -84,6 +84,7 @@
 </header>
 
 <main>
+  <button type="button" id="sendFeedbackBtn" style="width:100%; padding:14px; border-radius:12px; border:1.5px solid rgba(251,246,240,0.25); background:rgba(251,246,240,0.06); color:var(--cream); font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:14px; cursor:pointer; margin-bottom:16px;">&#128231; Manda email di feedback a tutti i presenti</button>
   <input type="text" id="search" placeholder="Cerca per nome...">
   <p id="count"></p>
   <div id="list"></div>
@@ -158,6 +159,33 @@
   });
   keyInput.addEventListener("keydown", function(e){
     if (e.key === "Enter") { document.getElementById("keySubmit").click(); }
+  });
+
+  document.getElementById("sendFeedbackBtn").addEventListener("click", async function(){
+    if (!allAttendees.length) { alert("Nessun presente a cui mandare il feedback."); return; }
+    var url = prompt("Incolla il link del form di feedback (Google Form o simile):");
+    if (!url) return;
+    if (!confirm("Mandare l'email di feedback a " + allAttendees.length + " persone entrate? Non si può annullare.")) return;
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = "Invio in corso...";
+    try {
+      var res = await fetch("/api/send-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Staff-Key": getStaffKey() },
+        body: JSON.stringify({ feedbackFormUrl: url })
+      });
+      var data = await res.json();
+      if (res.ok) {
+        alert("Fatto: " + data.sent + " email mandate su " + data.totalAttendees + " (" + data.failed + " fallite).");
+      } else {
+        alert("Errore: " + (data.error || res.status));
+      }
+    } catch (e) {
+      alert("Errore di rete: " + e.message);
+    }
+    btn.disabled = false;
+    btn.textContent = "📧 Manda email di feedback a tutti i presenti";
   });
 
   if (getStaffKey()) {

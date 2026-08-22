@@ -66,6 +66,15 @@ export default {
       }
     }
 
+    if (url.pathname === "/api/send-feedback" && request.method === "POST") {
+      try {
+        return await handleSendFeedback(request, env);
+      } catch (err) {
+        console.log("Errore send-feedback:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     return env.ASSETS.fetch(request);
   }
 };
@@ -263,7 +272,10 @@ async function handleCheckin(request, env) {
   // /api/stats e /api/attendees di leggere l'elenco di chi è entrato con un solo elenco delle
   // chiavi, senza dover leggere per intero ogni singolo biglietto uno per uno.
   await env.TICKETS.put(kvKey, JSON.stringify(ticket), {
-    metadata: { used: true, name: ticket.name, email: ticket.email, tierName: ticket.tierName, usedAt: ticket.usedAt }
+    metadata: {
+      used: true, name: ticket.name, email: ticket.email, tierName: ticket.tierName,
+      usedAt: ticket.usedAt, eventName: ticket.eventName
+    }
   });
 
   return jsonResponse({ valid: true, email: ticket.email, name: ticket.name, eventName: ticket.eventName, tierName: ticket.tierName });
@@ -315,7 +327,8 @@ async function handleAttendees(request, env) {
           name: key.metadata.name || null,
           email: key.metadata.email || null,
           tierName: key.metadata.tierName || null,
-          usedAt: key.metadata.usedAt || null
+          usedAt: key.metadata.usedAt || null,
+          eventName: key.metadata.eventName || null
         });
       }
     }
@@ -325,6 +338,98 @@ async function handleAttendees(request, env) {
   attendees.sort(function(a, b){ return (a.name || "").localeCompare(b.name || ""); });
 
   return jsonResponse({ attendees });
+}
+
+// Email di feedback GRAZIA: usa lo stesso template "a card" delle conferme biglietto, ma con un
+// pulsante che porta al form (Google Form o altro, l'URL arriva nella richiesta — non è mai
+// hardcoded nel codice) invece del QR. Nessuna dipendenza da servizi esterni oltre a Resend,
+// già collegato per i biglietti.
+function buildFeedbackEmailHTML({ name, eventName, feedbackFormUrl }) {
+  const firstName = name ? name.split(" ")[0] : "";
+  return `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FBF6F0" style="background:#FBF6F0;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#2C0943" style="background:#2C0943; border-radius:24px; max-width:600px;">
+        <tr>
+          <td style="padding:48px 44px; font-family:Arial, Helvetica, sans-serif;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr><td align="center" style="font-size:30px; font-weight:bold; color:#F86639; padding-bottom:18px; line-height:1.3;">&#128155; Grazie per essere stato con noi!</td></tr>
+              <tr><td align="center" style="font-size:19px; color:#FBF6F0; padding-bottom:16px; line-height:1.5;">Ciao <strong>${firstName || "!"}</strong>${firstName ? "," : ""}<br>speriamo tu ti sia divertito a</td></tr>
+              <tr><td align="center" style="font-size:26px; font-weight:bold; color:#FDC631; padding-bottom:22px; line-height:1.3;">${eventName}</td></tr>
+              <tr><td align="center" style="font-size:17px; color:#FBF6F0; line-height:1.6; padding-bottom:28px;">Ci piacerebbe sapere cosa ne pensi: ci vogliono meno di due minuti, e ci aiuti a rendere il prossimo evento ancora migliore.</td></tr>
+              <tr>
+                <td align="center" style="padding-bottom:8px;">
+                  <a href="${feedbackFormUrl}" style="display:inline-block; background:#F86639; color:#FFFFFF; font-family:Arial, Helvetica, sans-serif; font-weight:bold; font-size:17px; text-decoration:none; padding:16px 36px; border-radius:12px;">Lascia il tuo feedback</a>
+                </td>
+              </tr>
+              <tr><td style="border-top:1px solid #5C3E75; font-size:1px; line-height:1px; padding-top:28px;">&nbsp;</td></tr>
+              <tr><td align="center" style="font-size:18px; color:#FBF6F0; padding-top:22px;">Keep growing &#127793;</td></tr>
+              <tr><td align="center" style="font-size:15px; color:#C9BCD6; padding-top:2px;">Il team GrowMi</td></tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+  `;
+}
+
+// Manda l'email di feedback a tutti quelli che sono entrati davvero a un evento (mai a chi ha
+// solo comprato senza presentarsi). Va chiamato una volta dopo l'evento, non è automatico —
+// serve a Carlo indicare l'URL del form (Google Form) al momento della chiamata.
+async function handleSendFeedback(request, env) {
+  const staffKey = request.headers.get("x-staff-key");
+  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
+    return jsonResponse({ error: "unauthorized" }, 401);
+  }
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  if (!env.RESEND_API_KEY) throw new Error("RESEND_API_KEY non configurato");
+
+  const { feedbackFormUrl, eventName } = await request.json();
+  if (!feedbackFormUrl) {
+    return jsonResponse({ error: "manca feedbackFormUrl" }, 400);
+  }
+
+  const attendees = [];
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "ticket:", cursor });
+    for (const key of page.keys) {
+      const m = key.metadata;
+      if (m?.used && m.email && (!eventName || m.eventName === eventName)) {
+        attendees.push({ name: m.name, email: m.email, eventName: m.eventName });
+      }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  let sent = 0;
+  let failed = 0;
+  for (const a of attendees) {
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${env.RESEND_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          from: "GrowMi <onboarding@resend.dev>",
+          to: a.email,
+          subject: `Com'è andata a ${a.eventName || "GrowMi"}?`,
+          html: buildFeedbackEmailHTML({ name: a.name, eventName: a.eventName || "GrowMi", feedbackFormUrl })
+        })
+      });
+      if (res.ok) sent++; else { failed++; console.log("Resend feedback error:", res.status, await res.text()); }
+    } catch (e) {
+      failed++;
+      console.log("Errore invio feedback a", a.email, e.message);
+    }
+  }
+
+  return jsonResponse({ totalAttendees: attendees.length, sent, failed });
 }
 
 async function handleStripeWebhook(request, env) {
