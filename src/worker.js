@@ -78,10 +78,11 @@ async function handleStripeWebhook(request, env) {
       const eventName = "The Miseducation of GrowMi";
       const ticketCode = generateTicketCode();
 
-      // toBuffer (non toDataURL) perché genera il PNG lato server senza bisogno di un
-      // elemento <canvas> del browser, che su Cloudflare Workers non esiste.
-      const qrBuffer = await QRCode.toBuffer(ticketCode, { margin: 1, width: 400 });
-      const qrBase64 = Buffer.from(qrBuffer).toString("base64");
+      // SVG invece di PNG: su Cloudflare Workers la libreria carica la sua versione "da
+      // browser" (punta a un <canvas> che qui non esiste, e in quella versione manca anche
+      // toBuffer). toString con type "svg" è testo puro, funziona in qualsiasi ambiente.
+      const qrSvg = await QRCode.toString(ticketCode, { type: "svg", margin: 1, width: 400 });
+      const qrBase64 = btoa(qrSvg);
 
       if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
 
@@ -108,10 +109,11 @@ async function handleStripeWebhook(request, env) {
             subject: `Il tuo biglietto — ${eventName}`,
             html: `
               <p>Grazie per il tuo acquisto! Ecco il tuo biglietto per <strong>${eventName}</strong>.</p>
-              <p>Mostra il QR in allegato allo staff all'ingresso.</p>
+              <p>Mostra questo QR allo staff all'ingresso (anche solo dal telefono):</p>
+              <img src="data:image/svg+xml;base64,${qrBase64}" alt="QR biglietto" width="220" height="220">
               <p>Codice biglietto: <strong>${ticketCode}</strong></p>
             `,
-            attachments: [{ filename: "biglietto-growmi.png", content: qrBase64 }]
+            attachments: [{ filename: "biglietto-growmi.svg", content: qrBase64 }]
           })
         });
         if (!resendRes.ok) {
