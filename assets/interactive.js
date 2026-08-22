@@ -287,10 +287,10 @@
     });
   }
 
-  // Pannello partecipanti che compare in-place dentro la griglia team (chi-siamo.html), esattamente
-  // nel punto dov'era la card cliccata — non più una tendina in cima alla pagina. Cliccando una
-  // card, tutte le altre spariscono e quella cliccata si apre a piena riga mostrando i
-  // partecipanti dell'area (dati in assets/team-data.js, niente più pagine team-*.html separate).
+  // Menu partecipanti che compare come tendina leggera sotto la card cliccata (chi-siamo.html),
+  // senza cambiare la dimensione della card — non più una tendina in cima alla pagina né una
+  // card che si allarga. Cliccando una card, tutte le altre spariscono finché non si chiude
+  // quella aperta (dati in assets/team-data.js, niente più pagine team-*.html separate).
   function initTeamOverlay(){
     var items = document.querySelectorAll('.team-area-item[data-team-area]');
     if(!items.length || typeof GROWMI_TEAM === 'undefined') return;
@@ -302,30 +302,39 @@
     }
     function memberHTML(m){
       return (
-        '<div class="team-card">' +
-          '<div class="team-photo"></div>' +
-          '<h3>' + escapeHTML(m.name) + '</h3>' +
-          '<p class="role">' + escapeHTML(m.role) + '</p>' +
+        '<div class="team-menu-row">' +
+          '<div class="name">' + escapeHTML(m.name) + '</div>' +
+          '<div class="role">' + escapeHTML(m.role) + '</div>' +
         '</div>'
       );
     }
     function panelHTML(area){
       return (
         '<button type="button" class="team-area-close" aria-label="Chiudi">&times;</button>' +
-        '<p class="eyebrow">Team</p>' +
-        '<h2>' + escapeHTML(area.name) + '</h2>' +
+        '<p class="eyebrow">' + escapeHTML(area.name) + '</p>' +
         '<p class="lead">' + escapeHTML(area.lead || '') + '</p>' +
-        '<div class="team-grid">' + area.members.map(memberHTML).join('') + '</div>'
+        '<div class="team-menu-list">' + area.members.map(memberHTML).join('') + '</div>'
       );
+    }
+
+    function closePanel(item, callback){
+      var panel = item.querySelector('.team-area-panel');
+      if(panel.hidden){ if(callback) callback(); return; }
+      panel.classList.add('is-closing');
+      item.querySelector('.team-area-trigger').setAttribute('aria-expanded', 'false');
+      setTimeout(function(){
+        panel.classList.remove('is-closing');
+        panel.hidden = true;
+        panel.innerHTML = '';
+        item.classList.remove('is-open');
+        if(callback) callback();
+      }, 200);
     }
 
     function closeAll(){
       items.forEach(function(item){
-        item.classList.remove('is-open', 'is-hidden');
-        var panel = item.querySelector('.team-area-panel');
-        panel.hidden = true;
-        panel.innerHTML = '';
-        item.querySelector('.team-area-trigger').setAttribute('aria-expanded', 'false');
+        closePanel(item);
+        item.classList.remove('is-hidden');
       });
     }
 
@@ -333,21 +342,20 @@
       var areaKey = item.getAttribute('data-team-area');
       var area = GROWMI_TEAM[areaKey];
       if(!area) return;
-      items.forEach(function(other){
-        if(other === item){
-          other.classList.add('is-open');
-          other.classList.remove('is-hidden');
-          var panel = other.querySelector('.team-area-panel');
-          panel.innerHTML = panelHTML(area);
-          panel.hidden = false;
-          other.querySelector('.team-area-trigger').setAttribute('aria-expanded', 'true');
-          panel.querySelector('.team-area-close').addEventListener('click', closeAll);
-        } else {
-          other.classList.add('is-hidden');
-          other.classList.remove('is-open');
-        }
-      });
-      item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      var currentOpen = document.querySelector('.team-area-item.is-open');
+
+      function reveal(){
+        items.forEach(function(other){ other.classList.toggle('is-hidden', other !== item); });
+        item.classList.add('is-open');
+        var panel = item.querySelector('.team-area-panel');
+        panel.innerHTML = panelHTML(area);
+        panel.hidden = false;
+        item.querySelector('.team-area-trigger').setAttribute('aria-expanded', 'true');
+        panel.querySelector('.team-area-close').addEventListener('click', closeAll);
+      }
+
+      if(currentOpen && currentOpen !== item) closePanel(currentOpen, reveal);
+      else reveal();
     }
 
     items.forEach(function(item){
