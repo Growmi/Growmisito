@@ -287,48 +287,6 @@
     });
   }
 
-  function initEventRegistrationGate(){
-    var form = document.getElementById('mise-reg-form');
-    var tierList = document.getElementById('mise-tier-list');
-    var lockedNote = document.getElementById('mise-locked-note');
-    var status = document.getElementById('mise-reg-status');
-    var submitBtn = document.getElementById('mise-reg-submit');
-    if(!form || !tierList) return;
-
-    function encode(data){
-      return Object.keys(data).map(function(k){
-        return encodeURIComponent(k) + '=' + encodeURIComponent(data[k]);
-      }).join('&');
-    }
-
-    form.addEventListener('submit', function(e){
-      e.preventDefault();
-      var data = {};
-      new FormData(form).forEach(function(value, key){ data[key] = value; });
-      submitBtn.disabled = true;
-
-      fetch('/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: encode(data)
-      }).then(function(){
-        tierList.classList.remove('mise-locked');
-        if(lockedNote) lockedNote.hidden = true;
-        form.hidden = true;
-        status.hidden = false;
-        status.classList.remove('is-error');
-        status.textContent = 'Grazie! I tuoi dati sono stati registrati. Scegli il biglietto qui sotto.';
-        status.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        document.getElementById('mise-tickets').scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }).catch(function(){
-        submitBtn.disabled = false;
-        status.hidden = false;
-        status.classList.add('is-error');
-        status.textContent = 'Invio non riuscito, riprova (funziona solo sul sito pubblicato, non in locale).';
-      });
-    });
-  }
-
   // dissolvenza in uscita quando si clicca un link interno verso un'altra pagina del sito,
   // cosi' il passaggio da una pagina all'altra non è un cambio secco. Va in fondo al bootstrap
   // cosi' il suo listener sul click gira per ultimo: se un altro handler ha già gestito il click
@@ -363,6 +321,5 @@
   });
 
   initTicketsOverlay();
-  initEventRegistrationGate();
   initPageTransitions();
 })();

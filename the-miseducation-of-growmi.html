@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
 <link rel="stylesheet" href="assets/event-miseducation.css">
+<link rel="stylesheet" href="assets/event-tickets.css">
 <link rel="stylesheet" href="assets/mailerlite-form.css">
 <link rel="stylesheet" href="assets/redesign.css">
 <link rel="stylesheet" href="assets/interactive.css">
@@ -109,44 +110,6 @@
   </div>
 </section>
 
-<section class="mise-section" id="mise-registration" style="padding-top:0;">
-  <div class="wrap">
-    <div class="section-head">
-      <p class="eyebrow">Prima di acquistare</p>
-      <h2>I tuoi dati</h2>
-      <p>Compila questo modulo prima di scegliere il biglietto: ci servono i tuoi dati per l'ingresso e per le comunicazioni sull'evento.</p>
-    </div>
-    <!-- Modulo gestito automaticamente da Netlify (nessun backend necessario), stesso principio
-         del form contatti. Il campo "evento" nascosto identifica a quale evento si riferisce
-         l'iscrizione: per un evento futuro basta duplicare questo blocco e cambiarne il valore. -->
-    <form name="registrazione-evento" method="POST" data-netlify="true" netlify-honeypot="bot-field-reg" class="mise-reg-form" id="mise-reg-form">
-      <input type="hidden" name="form-name" value="registrazione-evento">
-      <input type="hidden" name="evento" value="The Miseducation of GrowMI — 10 settembre 2026">
-      <p style="display:none;"><label>Non compilare: <input name="bot-field-reg"></label></p>
-      <div class="mise-reg-row">
-        <div class="mise-reg-field">
-          <label for="mise-reg-nome">Nome e cognome</label>
-          <input type="text" id="mise-reg-nome" name="nome" required>
-        </div>
-        <div class="mise-reg-field">
-          <label for="mise-reg-email">Email</label>
-          <input type="email" id="mise-reg-email" name="email" required>
-        </div>
-      </div>
-      <label class="mise-reg-checkbox">
-        <input type="checkbox" name="consenso_foto" required>
-        <span>Accetto che GrowMi possa scattare foto e video durante l'evento e utilizzarle sui propri canali media (social, sito, newsletter, articoli e magazine). <strong>Obbligatorio per partecipare.</strong></span>
-      </label>
-      <label class="mise-reg-checkbox">
-        <input type="checkbox" name="newsletter_optin">
-        <span>Voglio iscrivermi alla newsletter GrowMi per restare aggiornato sui prossimi eventi.</span>
-      </label>
-      <button type="submit" class="btn coral" id="mise-reg-submit">Continua all'acquisto</button>
-      <p class="mise-reg-status" id="mise-reg-status" hidden></p>
-    </form>
-  </div>
-</section>
-
 <section class="mise-section" id="mise-tickets" style="padding-top:0;">
   <div class="wrap">
     <div class="section-head">
@@ -154,43 +117,47 @@
       <h2 data-i18n="ev1_tickets_title">Prendi il tuo posto</h2>
       <p data-i18n="ev1_tickets_note">I prezzi salgono a scaglioni: prima si acquista, meno si paga. Ogni fascia include anche l'opzione con birra alla spina 250ml + panzerotto grande.</p>
     </div>
-    <p class="mise-locked-note" id="mise-locked-note">Compila prima il modulo qui sopra per sbloccare l'acquisto dei biglietti.</p>
-    <div class="mise-tier-list mise-locked" id="mise-tier-list">
-      <div class="mise-tier-row">
-        <div class="mise-tier-name"><span data-i18n="tier_fascia1_name">Prima fascia</span><small data-i18n="tier_fascia1_sub">Posti limitati</small></div>
-        <div class="mise-tier-options">
-          <a class="mise-tier-btn" href="https://buy.stripe.com/bJebJ03HHfRn8VE9tv4ow04" target="_blank" rel="noopener">
-            <span class="mise-tier-btn-label" data-i18n="tier_btn_plain">Solo ingresso</span><span class="mise-tier-btn-price">€12</span>
-          </a>
-          <a class="mise-tier-btn" href="https://buy.stripe.com/00w4gya657kRdbUdJL4ow05" target="_blank" rel="noopener">
-            <span class="mise-tier-btn-label" data-i18n="tier_btn_food">+ Birra e panzerotto</span><span class="mise-tier-btn-price">€18,50</span>
-          </a>
-        </div>
+
+    <!-- Blocco acquisto standard (vedi assets/event-tickets.js): stessa struttura per ogni
+         evento futuro, cambia solo data-event con lo slug dell'evento nel registro EVENTS in
+         src/worker.js. Pagamento incorporato via Stripe Embedded Checkout, niente redirect. -->
+    <div class="event-tickets" data-event="miseducation-2026-09-10">
+      <div class="section-head" style="margin-top:0;">
+        <p class="eyebrow">Prima di acquistare</p>
+        <h3 style="font-family:'Space Grotesk',sans-serif; color:#fff;">I tuoi dati</h3>
+        <p>Compila questo modulo prima di scegliere il biglietto: ci servono i tuoi dati per l'ingresso e per le comunicazioni sull'evento.</p>
       </div>
-      <div class="mise-tier-row">
-        <div class="mise-tier-name"><span data-i18n="tier_fascia2_name">Seconda fascia</span><small data-i18n="tier_fascia2_sub">Prossimo scaglione</small></div>
-        <div class="mise-tier-options">
-          <a class="mise-tier-btn" href="https://buy.stripe.com/14AfZg921bB7efYdJL4ow06" target="_blank" rel="noopener">
-            <span class="mise-tier-btn-label" data-i18n="tier_btn_plain">Solo ingresso</span><span class="mise-tier-btn-price">€15</span>
-          </a>
-          <a class="mise-tier-btn" href="https://buy.stripe.com/3cIfZgfqpdJf7RAcFH4ow07" target="_blank" rel="noopener">
-            <span class="mise-tier-btn-label" data-i18n="tier_btn_food">+ Birra e panzerotto</span><span class="mise-tier-btn-price">€21,50</span>
-          </a>
+      <form class="et-reg-form" data-et-reg-form>
+        <div class="et-reg-row">
+          <div class="et-reg-field">
+            <label for="et-reg-nome">Nome e cognome</label>
+            <input type="text" id="et-reg-nome" data-et-name required>
+          </div>
+          <div class="et-reg-field">
+            <label for="et-reg-email">Email</label>
+            <input type="email" id="et-reg-email" data-et-email required>
+          </div>
         </div>
-      </div>
-      <div class="mise-tier-row">
-        <div class="mise-tier-name"><span data-i18n="tier_fascia3_name">Terza fascia</span><small data-i18n="tier_fascia3_sub">Ultimo scaglione</small></div>
-        <div class="mise-tier-options">
-          <a class="mise-tier-btn" href="https://buy.stripe.com/dRmcN4diheNjfk28pr4ow08" target="_blank" rel="noopener">
-            <span class="mise-tier-btn-label" data-i18n="tier_btn_plain">Solo ingresso</span><span class="mise-tier-btn-price">€20</span>
-          </a>
-          <a class="mise-tier-btn" href="https://buy.stripe.com/4gM4gya65eNjfk249b4ow09" target="_blank" rel="noopener">
-            <span class="mise-tier-btn-label" data-i18n="tier_btn_food">+ Birra e panzerotto</span><span class="mise-tier-btn-price">€26,50</span>
-          </a>
-        </div>
+        <label class="et-reg-checkbox">
+          <input type="checkbox" data-et-photo-consent required>
+          <span>Accetto che GrowMi possa scattare foto e video durante l'evento e utilizzarle sui propri canali media (social, sito, newsletter, articoli e magazine). <strong>Obbligatorio per partecipare.</strong></span>
+        </label>
+        <label class="et-reg-checkbox">
+          <input type="checkbox" data-et-newsletter>
+          <span>Voglio iscrivermi alla newsletter GrowMi per restare aggiornato sui prossimi eventi.</span>
+        </label>
+        <button type="submit" class="btn coral" data-et-reg-submit>Continua all'acquisto</button>
+        <p class="et-reg-status" data-et-reg-status hidden></p>
+      </form>
+
+      <p class="et-locked-note" data-et-locked-note>Compila prima il modulo qui sopra per sbloccare l'acquisto dei biglietti.</p>
+      <div class="et-tier-list et-locked" data-et-tier-list></div>
+      <p class="et-tickets-note">Il pagamento avviene qui sul sito, in sicurezza con Stripe. Riceverai il biglietto via email.</p>
+
+      <div class="et-checkout-wrap" data-et-checkout-wrap hidden>
+        <div data-et-checkout-container></div>
       </div>
     </div>
-    <p class="mise-tickets-note" data-i18n="ev1_tickets_stripe_note">Il pagamento avviene su Stripe, in una nuova scheda. Riceverai il biglietto via email.</p>
   </div>
 </section>
 
@@ -340,5 +307,7 @@
 <script src="assets/i18n.js"></script>
 <script src="assets/newsletter.js"></script>
 <script src="assets/interactive.js"></script>
+<script src="https://js.stripe.com/v3/"></script>
+<script src="assets/event-tickets.js"></script>
 </body>
 </html>

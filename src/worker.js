@@ -93,6 +93,33 @@ export default {
       }
     }
 
+    if (url.pathname === "/api/event-tiers" && request.method === "GET") {
+      try {
+        return await handleEventTiers(request, env);
+      } catch (err) {
+        console.log("Errore event-tiers:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/register" && request.method === "POST") {
+      try {
+        return await handleRegister(request, env);
+      } catch (err) {
+        console.log("Errore register:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/create-checkout-session" && request.method === "POST") {
+      try {
+        return await handleCreateCheckoutSession(request, env);
+      } catch (err) {
+        console.log("Errore create-checkout-session:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     return env.ASSETS.fetch(request);
   },
 
@@ -107,6 +134,51 @@ export default {
     }
   }
 };
+
+// Registro eventi: fonte di verità server-side per nome/data/location e fasce prezzo con
+// capacità. Aggiungere un evento nuovo = aggiungere una voce qui (slug → dati), niente Payment
+// Link esterni da creare uno per uno né HTML da riscrivere per il blocco acquisto. Le capacità
+// sono numeri semplici: si alzano/abbassano modificandoli qui, nessuna logica da toccare.
+const EVENTS = {
+  "miseducation-2026-09-10": {
+    name: "The Miseducation of GrowMi",
+    dateDisplay: "Giovedì 10 settembre 2026 · Apertura 19:00",
+    dateIso: "2026-09-10",
+    location: "Art Mall Milano, Milano",
+    teaser: "Una notte dedicata alla cultura hip-hop: graffiti dal vivo, musica e DJ set nel cuore di Milano.",
+    tiers: [
+      {
+        id: "fascia1", name: "Prima fascia", sub: "Posti limitati", capacity: 50,
+        options: [
+          { id: "plain", label: "Solo ingresso", priceCents: 1200 },
+          { id: "food", label: "+ Birra e panzerotto", priceCents: 1850 }
+        ]
+      },
+      {
+        id: "fascia2", name: "Seconda fascia", sub: "Prossimo scaglione", capacity: 50,
+        options: [
+          { id: "plain", label: "Solo ingresso", priceCents: 1500 },
+          { id: "food", label: "+ Birra e panzerotto", priceCents: 2150 }
+        ]
+      },
+      {
+        id: "fascia3", name: "Terza fascia", sub: "Ultimo scaglione", capacity: 35,
+        options: [
+          { id: "plain", label: "Solo ingresso", priceCents: 2000 },
+          { id: "food", label: "+ Birra e panzerotto", priceCents: 2650 }
+        ]
+      }
+    ]
+  }
+};
+
+function findTierOption(eventSlug, tierId, optionId) {
+  const event = EVENTS[eventSlug];
+  const tier = event?.tiers.find(function(t){ return t.id === tierId; });
+  const option = tier?.options.find(function(o){ return o.id === optionId; });
+  if (!event || !tier || !option) return null;
+  return { event, tier, option };
+}
 
 // Genera un codice biglietto breve, facile da mostrare/leggere se serve anche a occhio
 // (es. se il QR non si legge bene), oltre che come contenuto del QR stesso.
@@ -303,8 +375,11 @@ async function handleCheckin(request, env) {
   await env.TICKETS.put(kvKey, JSON.stringify(ticket), {
     metadata: {
       used: true, name: ticket.name, email: ticket.email, tierName: ticket.tierName,
-      usedAt: ticket.usedAt, eventName: ticket.eventName,
-      eventDateIso: ticket.eventDateIso, eventFeedbackUrl: ticket.eventFeedbackUrl
+      usedAt: ticket.usedAt, eventName: ticket.eventName, eventDateIso: ticket.eventDateIso,
+      // eventSlug/tierId restano anche dopo il check-in: /api/event-tiers conta TUTTI i
+      // biglietti venduti di una fascia (entrati o no), non solo quelli ancora "used:false" —
+      // senza questi due campi qui, fare check-in libererebbe per sbaglio un posto già venduto.
+      eventSlug: ticket.eventSlug, tierId: ticket.tierId
     }
   });
 
@@ -569,6 +644,129 @@ async function runScheduledFeedback(env) {
   }
 }
 
+// Stato reale delle fasce prezzo di un evento: conta i biglietti già venduti per fascia
+// leggendo la metadata KV (stesso pattern di handleStats/handleAttendees, una sola lista invece
+// di una GET per biglietto) e lo confronta con la capacità nel registro EVENTS. La fascia attiva
+// è la prima non esaurita; il client non decide mai da solo cosa è disponibile.
+async function handleEventTiers(request, env) {
+  const url = new URL(request.url);
+  const slug = url.searchParams.get("event");
+  const event = EVENTS[slug];
+  if (!event) return jsonResponse({ error: "evento non trovato" }, 404);
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const soldByTier = {};
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "ticket:", cursor });
+    for (const key of page.keys) {
+      const m = key.metadata;
+      if (m?.eventSlug === slug && m.tierId) {
+        soldByTier[m.tierId] = (soldByTier[m.tierId] || 0) + 1;
+      }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  let activeAssigned = false;
+  const tiers = event.tiers.map(function(t){
+    const sold = soldByTier[t.id] || 0;
+    const soldOut = sold >= t.capacity;
+    const active = !soldOut && !activeAssigned;
+    if (active) activeAssigned = true;
+    return { id: t.id, name: t.name, sub: t.sub, options: t.options, soldOut, active };
+  });
+
+  return jsonResponse({ eventName: event.name, tiers, allSoldOut: !activeAssigned });
+}
+
+// Salva i dati raccolti dal form "I tuoi dati" (nome/cognome/email/consensi) prima
+// dell'acquisto. Sostituisce Netlify Forms, oggi rotto e comunque scollegato dal pagamento
+// reale: qui i dati restano su KV e vengono ripresi dal webhook dopo il pagamento, cosi' il
+// biglietto usa davvero quello che la persona ha scritto sul sito.
+async function handleRegister(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const body = await request.json();
+  const eventSlug = String(body.eventSlug || "");
+  const name = String(body.name || "").trim().slice(0, 200);
+  const email = String(body.email || "").trim().slice(0, 200);
+  const photoConsent = body.photoConsent === true;
+  const newsletterOptin = body.newsletterOptin === true;
+
+  if (!EVENTS[eventSlug]) return jsonResponse({ error: "evento non valido" }, 400);
+  if (!name || !email || !photoConsent) {
+    return jsonResponse({ error: "nome, email e consenso foto/video sono obbligatori" }, 400);
+  }
+
+  const registrationId = crypto.randomUUID();
+  await env.TICKETS.put(`registration:${registrationId}`, JSON.stringify({
+    eventSlug, name, email, photoConsent, newsletterOptin, createdAt: new Date().toISOString()
+  }));
+
+  return jsonResponse({ registrationId });
+}
+
+// Crea la sessione di pagamento Stripe incorporata nel sito (ui_mode "embedded" invece del
+// redirect a un Payment Link esterno). Prezzo e capacità si leggono SEMPRE dal registro
+// server-side (EVENTS), mai da quello che manda il client: evita sia di far pagare un prezzo
+// sbagliato sia di vendere una fascia già esaurita per una gara tra due richieste ravvicinate.
+async function handleCreateCheckoutSession(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  if (!env.STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY non configurato");
+
+  const { registrationId, tierId, optionId } = await request.json();
+
+  const rawReg = registrationId ? await env.TICKETS.get(`registration:${registrationId}`) : null;
+  if (!rawReg) return jsonResponse({ error: "registrazione non trovata o scaduta" }, 400);
+  const registration = JSON.parse(rawReg);
+
+  const found = findTierOption(registration.eventSlug, tierId, optionId);
+  if (!found) return jsonResponse({ error: "fascia o opzione non valida" }, 400);
+
+  // Ricontrollo la capacità qui, non solo lato UI: se nel frattempo la fascia si è esaurita
+  // (un'altra persona ha comprato l'ultimo posto un attimo prima), rifiuto la creazione della
+  // sessione invece di far pagare un biglietto per un posto che non c'è più.
+  let sold = 0;
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "ticket:", cursor });
+    for (const key of page.keys) {
+      if (key.metadata?.eventSlug === registration.eventSlug && key.metadata?.tierId === tierId) sold++;
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  if (sold >= found.tier.capacity) {
+    return jsonResponse({ error: "fascia esaurita" }, 409);
+  }
+
+  const stripe = new Stripe(env.STRIPE_SECRET_KEY);
+  const origin = new URL(request.url).origin;
+
+  const session = await stripe.checkout.sessions.create({
+    ui_mode: "embedded",
+    mode: "payment",
+    client_reference_id: registrationId,
+    customer_email: registration.email,
+    line_items: [{
+      quantity: 1,
+      price_data: {
+        currency: "eur",
+        unit_amount: found.option.priceCents,
+        product_data: { name: `${found.event.name} — ${found.tier.name} — ${found.option.label}` }
+      }
+    }],
+    metadata: {
+      event: registration.eventSlug,
+      tierId,
+      optionId
+    },
+    return_url: `${origin}/biglietto-confermato?session_id={CHECKOUT_SESSION_ID}`
+  });
+
+  return jsonResponse({ clientSecret: session.client_secret });
+}
+
 async function handleStripeWebhook(request, env) {
   const stripe = new Stripe(env.STRIPE_SECRET_KEY);
 
@@ -602,42 +800,37 @@ async function handleStripeWebhook(request, env) {
     }
 
     const session = event.data.object;
-    const email = session.customer_details?.email;
-    const customerName = session.customer_details?.name || null;
 
-    if (!email) {
-      console.log("checkout.session.completed senza email cliente, ignorato:", session.id);
+    // Nome/email/consensi arrivano dalla registrazione fatta sul form del sito PRIMA del
+    // pagamento (POST /api/register), recuperata via client_reference_id — non più da
+    // session.customer_details di Stripe: cosi' il biglietto usa davvero i dati raccolti sul
+    // sito (compresi i consensi, che con il vecchio form Netlify si perdevano).
+    const registrationId = session.client_reference_id;
+    const rawReg = registrationId ? await env.TICKETS.get(`registration:${registrationId}`) : null;
+
+    if (!rawReg) {
+      console.log("checkout.session.completed senza registrazione trovata, ignorato:", session.id);
     }
 
-    if (email) {
-      // Nome evento, data e location si leggono dai metadata del Payment Link Stripe usato per
-      // l'acquisto (chiavi "event", "event_date", "event_location" — da impostare quando si crea
-      // il Payment Link per un nuovo evento, in Advanced → Metadata). Se mancano (come sui
-      // Payment Link già esistenti del 10 settembre, creati prima di questa modifica), restano
-      // sui valori di quell'evento come default: nessuna rottura per quelli già in vendita.
-      const eventName = session.metadata?.event || "The Miseducation of GrowMi";
-      const eventDate = session.metadata?.event_date || "Giovedì 10 settembre 2026 · Apertura 19:00";
-      const eventLocation = session.metadata?.event_location || "Art Mall Milano, Milano";
-      const eventTeaser = session.metadata?.event_teaser || "Una notte dedicata alla cultura hip-hop: graffiti dal vivo, musica e DJ set nel cuore di Milano.";
-      // Data in formato AAAA-MM-GG (non il testo leggibile eventDate sopra): serve al cron
-      // giornaliero per capire "questo evento è stato ieri?" e mandare il feedback da solo.
-      // Il link del form di feedback (Google Form o altro) si imposta qui una volta per evento,
-      // cosi' l'invio automatico sa dove mandare le persone senza bisogno del pulsante manuale.
-      const eventDateIso = session.metadata?.event_date_iso || "2026-09-10";
-      const eventFeedbackUrl = session.metadata?.event_feedback_url || null;
-      const ticketCode = generateTicketCode();
+    if (rawReg) {
+      const registration = JSON.parse(rawReg);
+      const eventSlug = session.metadata?.event || registration.eventSlug;
+      const tierId = session.metadata?.tierId;
+      const optionId = session.metadata?.optionId;
+      const found = findTierOption(eventSlug, tierId, optionId);
+      const eventInfo = found?.event || EVENTS[eventSlug];
 
-      // Il nome della fascia/prodotto acquistato (es. "Prima fascia - Solo ingresso") si legge
-      // dalla riga d'acquisto vera su Stripe, non va assunto: cosi' il biglietto e l'email
-      // mostrano sempre cosa è stato comprato davvero, qualunque dei 6 Payment Link sia stato
-      // usato, senza doverli distinguere a mano nel codice.
-      let tierName = null;
-      try {
-        const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 });
-        tierName = lineItems.data[0]?.description || null;
-      } catch (e) {
-        console.log("Impossibile leggere i line item:", e.message);
-      }
+      const email = registration.email;
+      const customerName = registration.name;
+      const eventName = eventInfo?.name || "GrowMi";
+      const eventDate = eventInfo?.dateDisplay || "";
+      const eventLocation = eventInfo?.location || "";
+      const eventTeaser = eventInfo?.teaser || "";
+      // Data in formato AAAA-MM-GG: serve al cron giornaliero per capire "questo evento è stato
+      // ieri?" e mandare il feedback da solo.
+      const eventDateIso = eventInfo?.dateIso || null;
+      const tierName = found ? `${found.tier.name} — ${found.option.label}` : null;
+      const ticketCode = generateTicketCode();
 
       // SVG invece di PNG: su Cloudflare Workers la libreria carica la sua versione "da
       // browser" (punta a un <canvas> che qui non esiste, e in quella versione manca anche
@@ -652,14 +845,21 @@ async function handleStripeWebhook(request, env) {
         eventDate,
         eventDateIso,
         eventLocation,
-        eventFeedbackUrl,
         tierName,
+        eventSlug,
+        tierId,
+        optionId,
+        photoConsent: registration.photoConsent,
+        newsletterOptin: registration.newsletterOptin,
         amountTotal: session.amount_total,
         currency: session.currency,
         used: false,
         createdAt: new Date().toISOString(),
         stripeSessionId: session.id
-      }), { metadata: { used: false } });
+      }), { metadata: { used: false, eventSlug, tierId } });
+      // La registrazione è servita al suo scopo (i dati sono ora sul biglietto): la rimuovo per
+      // non lasciare copie sparse di dati personali su KV più a lungo del necessario.
+      await env.TICKETS.delete(`registration:${registrationId}`);
       // Segna l'evento Stripe come gestito solo ORA che il biglietto esiste davvero su KV:
       // cosi' se il Worker si interrompe prima di questo punto, un eventuale nuovo tentativo di
       // Stripe riesce comunque a creare il biglietto, invece di essere scartato come "già fatto"
