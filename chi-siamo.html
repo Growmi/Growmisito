@@ -28,13 +28,24 @@
      di un semplice elenco testuale. Le altre card spariscono finché non si chiude quella
      aperta. Animazione leggera di comparsa/scomparsa (opacità + un filo di scorrimento). */
   .team-area-item{ position:relative; }
-  .team-area-item.is-hidden{ display:none; }
+  .team-area-item.is-open{ z-index:6; }
+  /* stile "mega menu" (come il menu Mac di apple.com): il pannello è più largo della card, e
+     il resto della pagina dietro si sfoca leggermente mentre è aperto, cosi' l'attenzione va
+     tutta lì. Il pannello resta ancorato sotto la card cliccata, non è una tendina in cima
+     alla pagina, e la card che lo apre non cambia mai dimensione. */
+  .team-menu-backdrop{
+    position:fixed; inset:0; z-index:4; opacity:0; pointer-events:none;
+    background:rgba(30,12,44,.28);
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    transition:opacity .3s ease;
+  }
+  .team-menu-backdrop.is-active{ opacity:1; pointer-events:auto; }
   .team-area-panel{
-    position:absolute; top:calc(100% + 10px); left:0; min-width:100%; width:max-content; max-width:420px; z-index:5;
-    padding:20px 22px 22px; box-sizing:border-box;
-    border:1.5px solid var(--line); border-radius:14px;
+    position:absolute; top:calc(100% + 10px); left:0; min-width:100%; width:max-content; max-width:420px; z-index:6;
+    padding:24px 26px 26px; box-sizing:border-box;
+    border:1.5px solid var(--line); border-radius:16px;
     background:var(--cream);
-    box-shadow:0 14px 28px rgba(30,12,44,.12);
+    box-shadow:0 20px 44px rgba(30,12,44,.18);
     transform-origin:top center;
     animation:teamPanelIn .38s cubic-bezier(.25,.8,.35,1);
   }
@@ -42,14 +53,16 @@
   @keyframes teamPanelIn{ from{ opacity:0; transform:translateY(-10px) scaleY(.96); } to{ opacity:1; transform:translateY(0) scaleY(1); } }
   @keyframes teamPanelOut{ from{ opacity:1; transform:translateY(0) scaleY(1); } to{ opacity:0; transform:translateY(-10px) scaleY(.96); } }
   @media (prefers-reduced-motion: reduce){ .team-area-panel{ animation:none; } }
-  .team-area-panel .lead{ color:var(--grey); font-size:13px; margin-top:4px; max-width:340px; }
+  .team-area-panel .lead{ color:var(--grey); font-size:13px; margin-top:4px; max-width:420px; }
   .team-area-panel .team-grid{
-    margin-top:16px; display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:16px;
+    margin-top:18px; display:flex; flex-direction:row; flex-wrap:nowrap; gap:14px;
+    overflow-x:auto; padding-bottom:2px;
   }
+  .team-area-panel .team-grid .team-card{ flex:0 0 110px; }
   .team-area-panel .team-grid .team-photo{ margin-bottom:8px; }
-  .team-area-panel .team-grid h3{ font-size:14px; }
+  .team-area-panel .team-grid h3{ font-size:13px; }
   .team-area-close{
-    position:absolute; top:10px; right:10px; width:28px; height:28px; border-radius:50%;
+    position:absolute; top:12px; right:12px; width:28px; height:28px; border-radius:50%;
     border:1.5px solid var(--line); background:transparent; font-size:16px; cursor:pointer; line-height:1;
   }
   @media (max-width:600px){ .team-area-panel{ max-width:none; width:100%; } }
@@ -245,6 +258,7 @@
         <div class="team-area-panel" hidden></div>
       </div>
     </div>
+    <div class="team-menu-backdrop" id="team-menu-backdrop"></div>
   </div>
 </section>
 

@@ -293,6 +293,7 @@
   // quella aperta (dati in assets/team-data.js, niente più pagine team-*.html separate).
   function initTeamOverlay(){
     var items = document.querySelectorAll('.team-area-item[data-team-area]');
+    var backdrop = document.getElementById('team-menu-backdrop');
     if(!items.length || typeof GROWMI_TEAM === 'undefined') return;
 
     function escapeHTML(s){
@@ -318,6 +319,9 @@
       );
     }
 
+    // Il pannello galleggia sopra il resto della pagina (posizionamento assoluto, stesso
+    // principio del menu "Biglietti" in header): non nasconde né sposta le altre card, si
+    // limita a comparire/scomparire sopra quello che c'è sotto.
     function closePanel(item, callback){
       var panel = item.querySelector('.team-area-panel');
       if(panel.hidden){ if(callback) callback(); return; }
@@ -328,31 +332,23 @@
         panel.hidden = true;
         panel.innerHTML = '';
         item.classList.remove('is-open');
-        item.style.maxWidth = '';
         if(callback) callback();
       }, 320);
     }
 
     function closeAll(){
-      items.forEach(function(item){
-        closePanel(item);
-        item.classList.remove('is-hidden');
-      });
+      items.forEach(function(item){ closePanel(item); });
+      if(backdrop) backdrop.classList.remove('is-active');
     }
 
     function reveal(item, area){
-      // La griglia usa colonne "1fr": appena le altre card spariscono, quella rimasta si
-      // allargherebbe da sola per riempire lo spazio libero. Le blocco alla sua larghezza
-      // reale MISURATA ORA (prima di nascondere le altre), cosi' resta identica.
-      var lockedWidth = item.getBoundingClientRect().width;
-      items.forEach(function(other){ other.classList.toggle('is-hidden', other !== item); });
-      item.style.maxWidth = lockedWidth + 'px';
       item.classList.add('is-open');
       var panel = item.querySelector('.team-area-panel');
       panel.innerHTML = panelHTML(area);
       panel.hidden = false;
       item.querySelector('.team-area-trigger').setAttribute('aria-expanded', 'true');
       panel.querySelector('.team-area-close').addEventListener('click', closeAll);
+      if(backdrop) backdrop.classList.add('is-active');
     }
 
     function open(item){
@@ -365,11 +361,23 @@
       else reveal(item, area);
     }
 
+    // Basta passarci sopra il cursore (non serve cliccare): un piccolo ritardo alla chiusura
+    // evita che il menu si chiuda mentre il mouse si sposta dalla card al pannello sotto.
+    // Il click resta comunque valido (indispensabile su touch, dove l'hover non esiste).
+    var leaveTimer = null;
     items.forEach(function(item){
       item.querySelector('.team-area-trigger').addEventListener('click', function(){
         item.classList.contains('is-open') ? closeAll() : open(item);
       });
+      item.addEventListener('mouseenter', function(){
+        window.clearTimeout(leaveTimer);
+        open(item);
+      });
+      item.addEventListener('mouseleave', function(){
+        leaveTimer = window.setTimeout(closeAll, 150);
+      });
     });
+    if(backdrop) backdrop.addEventListener('click', closeAll);
     document.addEventListener('keydown', function(e){
       if(e.key === 'Escape') closeAll();
     });
