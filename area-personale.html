@@ -29,6 +29,23 @@
   }
   .ap-field input:focus{ outline:none; border-color:var(--coral); }
   .ap-field .hint{ font-size:12px; color:var(--grey); margin-top:6px; }
+  .ap-field select{
+    width:100%; padding:13px 15px; border-radius:10px; border:1.5px solid var(--line);
+    font-family:'Inter',sans-serif; font-size:14.5px; background:#fff;
+  }
+  .ap-radio-row{ display:flex; gap:22px; }
+  .ap-radio-row label{ display:flex; align-items:center; gap:7px; font-size:14px; font-family:'Inter',sans-serif; cursor:pointer; }
+  .ap-radio-row input{ accent-color:var(--coral); width:16px; height:16px; }
+  .ap-dob-row{ display:flex; align-items:center; gap:8px; }
+  .ap-dob-row input{
+    padding:13px 12px; border-radius:10px; border:1.5px solid var(--line); font-family:'Inter',sans-serif;
+    font-size:14.5px; text-align:center;
+  }
+  .ap-dob-row input#ap-p-birthday, .ap-dob-row input#ap-p-birthmonth{ width:56px; }
+  .ap-dob-row input#ap-p-birthyear{ width:76px; }
+  .ap-dob-row span{ color:var(--grey); }
+  .ap-checkbox-row{ display:flex; align-items:flex-start; gap:10px; font-size:13.5px; color:var(--grey); cursor:pointer; }
+  .ap-checkbox-row input{ margin-top:3px; accent-color:var(--coral); width:16px; height:16px; flex-shrink:0; }
   .ap-submit{
     padding:14px; border-radius:12px; border:none; background:var(--coral); color:#fff;
     font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14.5px; cursor:pointer;
@@ -121,7 +138,13 @@
       </div>
     </div>
     <div class="navright">
-      <a class="nav-account" href="area-personale.html" data-i18n="nav_account">Accedi</a>
+      <div class="nav-account-wrap">
+        <a class="nav-account" href="area-personale.html" data-i18n="nav_account">Accedi</a>
+        <button type="button" class="nav-account-icon" aria-label="Il mio account" aria-haspopup="true">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+        </button>
+        <div class="nav-account-menu"></div>
+      </div>
       <div class="lang-switch">
         <button data-lang="it">IT</button>
         <button data-lang="en">EN</button>
@@ -202,9 +225,74 @@
       </div>
 
       <div class="ap-panel" data-panel-content="profilo">
-        <div class="ap-info-row"><span>Nome</span><span id="ap-profile-name">—</span></div>
+        <p class="eyebrow">Dati personali</p>
+        <h2 style="font-size:20px; margin-bottom:4px;">Dati personali e consensi</h2>
+
+        <div class="ap-info-row"><span>Numero cliente</span><span id="ap-profile-customernum">—</span></div>
         <div class="ap-info-row"><span>Email</span><span id="ap-profile-email">—</span></div>
         <div class="ap-info-row"><span>Cliente da</span><span id="ap-profile-since">—</span></div>
+
+        <form id="ap-profile-form" style="margin-top:26px; display:flex; flex-direction:column; gap:20px;">
+          <div class="ap-field">
+            <label>Tipologia cliente</label>
+            <div class="ap-radio-row">
+              <label><input type="radio" name="customerType" value="privato"> Privato</label>
+              <label><input type="radio" name="customerType" value="azienda"> Azienda</label>
+            </div>
+          </div>
+
+          <div class="ap-field">
+            <label>Titolo</label>
+            <div class="ap-radio-row">
+              <label><input type="radio" name="title" value="signora"> Signora</label>
+              <label><input type="radio" name="title" value="signor"> Signor</label>
+            </div>
+          </div>
+
+          <div class="ap-field"><label for="ap-p-firstname">Nome</label><input type="text" id="ap-p-firstname"></div>
+          <div class="ap-field"><label for="ap-p-lastname">Cognome</label><input type="text" id="ap-p-lastname"></div>
+
+          <div class="ap-field">
+            <label>Data di nascita</label>
+            <div class="ap-dob-row">
+              <input type="text" inputmode="numeric" maxlength="2" placeholder="GG" id="ap-p-birthday" aria-label="Giorno">
+              <span>/</span>
+              <input type="text" inputmode="numeric" maxlength="2" placeholder="MM" id="ap-p-birthmonth" aria-label="Mese">
+              <span>/</span>
+              <input type="text" inputmode="numeric" maxlength="4" placeholder="AAAA" id="ap-p-birthyear" aria-label="Anno">
+            </div>
+          </div>
+
+          <div class="ap-field">
+            <label>Genere</label>
+            <div class="ap-radio-row">
+              <label><input type="radio" name="gender" value="maschio"> Maschio</label>
+              <label><input type="radio" name="gender" value="femmina"> Femmina</label>
+            </div>
+          </div>
+
+          <div class="ap-field">
+            <label for="ap-p-birthcountry">Paese di nascita</label>
+            <select id="ap-p-birthcountry">
+              <option value="Italia">Italia</option>
+              <option value="Francia">Francia</option>
+              <option value="Germania">Germania</option>
+              <option value="Spagna">Spagna</option>
+              <option value="Svizzera">Svizzera</option>
+              <option value="Altro">Altro</option>
+            </select>
+          </div>
+
+          <div class="ap-field"><label for="ap-p-birthcity">Città di nascita</label><input type="text" id="ap-p-birthcity"></div>
+
+          <label class="ap-checkbox-row">
+            <input type="checkbox" id="ap-p-newsletter">
+            <span>Voglio iscrivermi alla newsletter GrowMi per restare aggiornato sui prossimi eventi.</span>
+          </label>
+
+          <button type="submit" class="ap-submit" style="width:auto; padding:12px 24px; align-self:flex-start;">Salva modifiche</button>
+          <p class="ap-msg" id="ap-profile-msg" hidden></p>
+        </form>
       </div>
 
       <div class="ap-panel" data-panel-content="biglietti" hidden>
@@ -498,6 +586,60 @@
     } catch (err) { /* la card resta vuota, non blocca il resto della dashboard */ }
   }
 
+  function fillProfileForm(profile){
+    profile = profile || {};
+    var form = document.getElementById('ap-profile-form');
+    if (profile.customerType) {
+      var ct = form.querySelector('input[name="customerType"][value="' + profile.customerType + '"]');
+      if (ct) ct.checked = true;
+    }
+    if (profile.title) {
+      var t = form.querySelector('input[name="title"][value="' + profile.title + '"]');
+      if (t) t.checked = true;
+    }
+    if (profile.gender) {
+      var g = form.querySelector('input[name="gender"][value="' + profile.gender + '"]');
+      if (g) g.checked = true;
+    }
+    document.getElementById('ap-p-firstname').value = profile.firstName || '';
+    document.getElementById('ap-p-lastname').value = profile.lastName || '';
+    document.getElementById('ap-p-birthday').value = profile.birthDay || '';
+    document.getElementById('ap-p-birthmonth').value = profile.birthMonth || '';
+    document.getElementById('ap-p-birthyear').value = profile.birthYear || '';
+    if (profile.birthCountry) document.getElementById('ap-p-birthcountry').value = profile.birthCountry;
+    document.getElementById('ap-p-birthcity').value = profile.birthCity || '';
+    document.getElementById('ap-p-newsletter').checked = !!profile.newsletterOptin;
+  }
+
+  document.getElementById('ap-profile-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var msg = document.getElementById('ap-profile-msg');
+    var form = e.target;
+    var customerType = form.querySelector('input[name="customerType"]:checked');
+    var title = form.querySelector('input[name="title"]:checked');
+    var gender = form.querySelector('input[name="gender"]:checked');
+    try {
+      var res = await fetch('/api/account/profile', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerType: customerType ? customerType.value : null,
+          title: title ? title.value : null,
+          firstName: document.getElementById('ap-p-firstname').value,
+          lastName: document.getElementById('ap-p-lastname').value,
+          birthDay: document.getElementById('ap-p-birthday').value,
+          birthMonth: document.getElementById('ap-p-birthmonth').value,
+          birthYear: document.getElementById('ap-p-birthyear').value,
+          gender: gender ? gender.value : null,
+          birthCountry: document.getElementById('ap-p-birthcountry').value,
+          birthCity: document.getElementById('ap-p-birthcity').value,
+          newsletterOptin: document.getElementById('ap-p-newsletter').checked
+        })
+      });
+      var data = await res.json();
+      showMsg(msg, res.ok ? 'Dati salvati.' : (data.error || 'Qualcosa è andato storto.'), !res.ok);
+    } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
+  });
+
   async function loadDashboard(){
     try {
       var res = await fetch('/api/account/me');
@@ -508,11 +650,20 @@
       heroTitle.textContent = 'Ciao, ' + (data.name ? data.name.split(' ')[0] : '') + '!';
       heroLead.textContent = 'Ecco i tuoi biglietti e la tua loyalty card.';
       document.getElementById('ap-dash-hello').textContent = 'Ciao, ' + (data.name ? data.name.split(' ')[0] : '') + '!';
-      document.getElementById('ap-profile-name').textContent = data.name || '—';
+      document.getElementById('ap-profile-customernum').textContent = data.customerNumber || '—';
       document.getElementById('ap-profile-email').textContent = data.email || '—';
       document.getElementById('ap-profile-since').textContent = data.createdAt ? new Date(data.createdAt).toLocaleDateString('it-IT', { year:'numeric', month:'long' }) : '—';
+      fillProfileForm(data.profile);
       loadTickets();
       loadLoyalty();
+
+      // Deep link da un menu esterno (es. il menu account nell'header): ?tab=biglietti apre
+      // direttamente quella scheda invece di partire sempre da "Profilo".
+      var wantedTab = new URLSearchParams(window.location.search).get('tab');
+      if (wantedTab) {
+        var tabBtn = document.querySelector('.ap-dash-menu button[data-panel="' + wantedTab + '"]');
+        if (tabBtn) tabBtn.click();
+      }
     } catch (err) { /* resta la schermata di login, riprovabile ricaricando */ }
   }
 

@@ -287,6 +287,58 @@
     });
   }
 
+  // Menu account nell'header: se loggato, il link testuale "Accedi" lascia il posto a un'icona
+  // profilo che apre una tendina con le sezioni dell'area personale, il nome di chi è loggato e
+  // "Esci" — stesso schema del menu "My TicketOne" preso come riferimento. Un solo controllo
+  // /api/account/me per pagina, non blocca il resto se fallisce o se non si è loggati (resta
+  // semplicemente il link "Accedi" così com'è).
+  function initAccountNav(){
+    var wraps = document.querySelectorAll('.nav-account-wrap');
+    if(!wraps.length) return;
+
+    function escapeHTML(s){
+      return String(s).replace(/[&<>"]/g, function(c){
+        return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c];
+      });
+    }
+
+    fetch('/api/account/me').then(function(res){
+      return res.ok ? res.json() : null;
+    }).then(function(data){
+      if(!data) return;
+      wraps.forEach(function(wrap){
+        wrap.classList.add('is-logged-in');
+        var icon = wrap.querySelector('.nav-account-icon');
+        var menu = wrap.querySelector('.nav-account-menu');
+        menu.innerHTML =
+          '<p class="nav-account-menu-title">Il mio GrowMi</p>' +
+          '<a href="area-personale.html">Area personale</a>' +
+          '<a href="area-personale.html?tab=profilo">Dati personali</a>' +
+          '<a href="area-personale.html?tab=biglietti">I miei biglietti</a>' +
+          '<a href="area-personale.html?tab=loyalty">Loyalty Card</a>' +
+          '<p class="nav-account-menu-as">Registrato come:<strong>' + escapeHTML(data.name || data.email) + '</strong></p>' +
+          '<button type="button" class="nav-account-logout">Esci</button>';
+
+        function close(){ wrap.classList.remove('is-open'); }
+
+        icon.addEventListener('click', function(e){
+          e.preventDefault();
+          wrap.classList.toggle('is-open');
+        });
+        document.addEventListener('click', function(e){
+          if(wrap.classList.contains('is-open') && !wrap.contains(e.target)) close();
+        });
+        document.addEventListener('keydown', function(e){
+          if(e.key === 'Escape') close();
+        });
+        menu.querySelector('.nav-account-logout').addEventListener('click', async function(){
+          try { await fetch('/api/account/logout', { method: 'POST' }); } catch(e){}
+          window.location.href = 'index.html';
+        });
+      });
+    }).catch(function(){ /* non loggato o rete assente: resta il link "Accedi" normale */ });
+  }
+
   // Menu partecipanti che compare come tendina leggera sotto la card cliccata (chi-siamo.html),
   // senza cambiare la dimensione della card — non più una tendina in cima alla pagina né una
   // card che si allarga. Cliccando una card, tutte le altre spariscono finché non si chiude
@@ -417,6 +469,7 @@
   });
 
   initTicketsOverlay();
+  initAccountNav();
   initTeamOverlay();
   initPageTransitions();
 })();

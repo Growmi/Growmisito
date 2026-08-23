@@ -128,6 +128,44 @@ nav.wrap{
   padding:6px 0; border-bottom:2px solid transparent; color:var(--ink);
 }
 .nav-account:hover{ border-color:var(--coral); }
+
+/* Una volta loggato, il link testuale "Accedi" lascia il posto a un'icona profilo che apre un
+   menu a tendina — stesso meccanismo di apertura/chiusura di .nav-tickets/.nav-tickets-menu qui
+   sotto, contenuto diverso (dati account invece di eventi). Popolato da initAccountNav() in
+   interactive.js, che controlla /api/account/me a ogni caricamento pagina. */
+.nav-account-wrap{ position:relative; display:flex; align-items:center; }
+.nav-account-icon{
+  display:none; width:34px; height:34px; border-radius:50%; align-items:center; justify-content:center;
+  border:1.5px solid var(--ink); background:none; cursor:pointer; color:var(--ink); padding:0; flex-shrink:0;
+}
+header.at-top .nav-account-icon{ border-color:var(--cream); color:var(--cream); }
+.nav-account-wrap.is-logged-in .nav-account{ display:none; }
+.nav-account-wrap.is-logged-in .nav-account-icon{ display:flex; }
+.nav-account-menu{
+  position:absolute; top:calc(100% + 10px); right:0; min-width:240px;
+  background:var(--cream); border:1.5px solid var(--ink); border-radius:14px;
+  padding:16px; box-shadow:0 16px 32px -12px rgba(30,12,44,.35);
+  z-index:70; opacity:0; transform:translateY(-6px); pointer-events:none;
+  transition:opacity .18s ease, transform .18s ease;
+}
+.nav-account-wrap.is-open .nav-account-menu{ opacity:1; transform:translateY(0); pointer-events:auto; }
+.nav-account-menu-title{
+  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; margin:0 0 6px; color:var(--ink);
+}
+.nav-account-menu a{
+  display:block; padding:10px 2px; font-family:'Space Grotesk',sans-serif; font-weight:600;
+  font-size:13.5px; color:var(--coral); text-decoration:none; border-bottom:1px solid var(--line);
+}
+.nav-account-menu a:last-of-type{ border-bottom:none; }
+.nav-account-menu-as{ font-size:12px; color:var(--grey); text-align:center; margin:14px 0 10px; }
+.nav-account-menu-as strong{ display:block; color:var(--ink); font-size:13px; margin-top:2px; }
+.nav-account-logout{
+  width:100%; padding:10px; border-radius:999px; border:1.5px solid var(--ink); background:none;
+  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; cursor:pointer; color:var(--ink);
+  transition:background .15s ease, color .15s ease;
+}
+.nav-account-logout:hover{ background:var(--ink); color:var(--cream); }
+
 .lang-switch{
   display:flex; border:2px solid var(--ink); border-radius:999px; overflow:hidden;
   font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:12px;

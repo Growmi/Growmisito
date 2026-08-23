@@ -187,6 +187,15 @@ export default {
       }
     }
 
+    if (url.pathname === "/api/account/profile" && request.method === "POST") {
+      try {
+        return await handleAccountProfile(request, env);
+      } catch (err) {
+        console.log("Errore account/profile:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     if (url.pathname === "/api/account/tickets" && request.method === "GET") {
       try {
         return await handleAccountTickets(request, env);
@@ -1249,12 +1258,24 @@ async function handleAccountRegister(request, env) {
   const salt = crypto.randomUUID();
   const passwordHash = await hashPassword(password, salt);
   const verifyToken = crypto.randomUUID();
+  // Numero cliente in stile TicketOne: solo un identificativo da mostrare, non serve sia
+  // sequenziale — un numero a 9 cifre casuale è più che sufficiente ai volumi di GrowMi.
+  const customerNumber = String(Math.floor(100000000 + Math.random() * 900000000));
 
   await env.TICKETS.put(`account:${email}`, JSON.stringify({
     email, name, passwordHash, salt,
     emailVerified: false,
     verifyToken,
-    createdAt: new Date().toISOString()
+    customerNumber,
+    createdAt: new Date().toISOString(),
+    // Dati personali estesi (sezione "Dati personali e consensi"), vuoti finché la persona non
+    // li compila dalla propria area personale — vedi handleAccountProfile.
+    profile: {
+      customerType: null, title: null, firstName: null, lastName: null,
+      birthDay: null, birthMonth: null, birthYear: null,
+      gender: null, birthCountry: null, birthCity: null,
+      newsletterOptin: false
+    }
   }));
 
   await backfillLoyaltyFromTickets(env, email);
@@ -1353,7 +1374,36 @@ async function handleAccountMe(request, env) {
   const raw = await env.TICKETS.get(`account:${email}`);
   if (!raw) return jsonResponse({ error: "account non trovato" }, 404);
   const account = JSON.parse(raw);
-  return jsonResponse({ email: account.email, name: account.name, createdAt: account.createdAt });
+  return jsonResponse({
+    email: account.email, name: account.name, createdAt: account.createdAt,
+    customerNumber: account.customerNumber || null,
+    profile: account.profile || {}
+  });
+}
+
+// Salva la scheda "Dati personali e consensi" — stesso account, campi in più (numero cliente
+// escluso, quello non si cambia). Tutto facoltativo: si può salvare anche solo qualche campo
+// alla volta, non serve compilarli tutti insieme.
+async function handleAccountProfile(request, env) {
+  const email = await getSessionEmail(request, env);
+  if (!email) return jsonResponse({ error: "non autenticato" }, 401);
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const raw = await env.TICKETS.get(`account:${email}`);
+  if (!raw) return jsonResponse({ error: "account non trovato" }, 404);
+  const account = JSON.parse(raw);
+
+  const body = await request.json();
+  const allowed = ["customerType", "title", "firstName", "lastName", "birthDay", "birthMonth", "birthYear", "gender", "birthCountry", "birthCity", "newsletterOptin"];
+  account.profile = account.profile || {};
+  for (const key of allowed) {
+    if (key in body) {
+      account.profile[key] = key === "newsletterOptin" ? body[key] === true : String(body[key] || "").trim().slice(0, 200) || null;
+    }
+  }
+
+  await env.TICKETS.put(`account:${email}`, JSON.stringify(account));
+  return jsonResponse({ ok: true, profile: account.profile });
 }
 
 // Storico biglietti dell'account loggato: legge dalla metadata KV (email inclusa dalla
