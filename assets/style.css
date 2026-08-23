@@ -124,10 +124,6 @@ nav.wrap{
   padding:6px 0; border-bottom:2px solid transparent; color:var(--ink);
 }
 .nav-account:hover{ border-color:var(--coral); }
-/* la copia dentro il menu mobile resta nascosta di default: .navlinks è sempre visibile
-   (display:flex) su desktop, non solo sotto i 1040px, quindi senza questa regola comparirebbe
-   raddoppiata accanto a quella vera nella barra in alto. */
-.mobile-lang-switch{ display:none; }
 .lang-switch{
   display:flex; border:2px solid var(--ink); border-radius:999px; overflow:hidden;
   font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:12px;
@@ -137,6 +133,10 @@ nav.wrap{
   font-family:inherit; font-weight:inherit; font-size:inherit;
 }
 .lang-switch button.active{background:var(--ink); color:var(--cream);}
+/* la copia dentro il menu mobile resta nascosta di default: specificità .lang-switch.mobile-
+   lang-switch (due classi) per battere sempre la regola base .lang-switch{display:flex} qui
+   sopra, indipendentemente dall'ordine nel foglio di stile. */
+.lang-switch.mobile-lang-switch{ display:none; }
 
 /* menu a tendina del bottone "Biglietti" nell'header: elenca gli eventi disponibili,
    generato da assets/interactive.js → initTicketsDropdown() leggendo GROWMI_EVENTS */
