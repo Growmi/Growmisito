@@ -105,8 +105,12 @@ header.at-top .nav-account{ color:var(--cream); }
 /* il menu a tendina mobile (.navlinks.open) ha SEMPRE sfondo crema, indipendentemente dalla banda
    viola in cima: qui il testo deve restare scuro, altrimenti e' crema su crema e sparisce */
 header.at-top .navlinks.open a{ color:var(--ink); }
+/* sfondo scuro esplicito sul pulsante non attivo (non solo sul testo crema): senza, il
+   contrasto dipende da cosa c'e' dietro l'header trasparente in quel momento — se per qualsiasi
+   motivo non e' abbastanza scuro, il testo crema diventa illeggibile (stesso rischio già
+   risolto qui sopra per il menu mobile). */
 header.at-top .lang-switch{ border-color:var(--cream); }
-header.at-top .lang-switch button{ color:var(--cream); }
+header.at-top .lang-switch button{ color:var(--cream); background:rgba(0,0,0,0.18); }
 header.at-top .lang-switch button.active{ background:var(--cream); color:var(--ink); }
 header.at-top .nav-toggle span{ background:var(--cream); }
 nav.wrap{
