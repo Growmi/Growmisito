@@ -1,7 +1,7 @@
 const GROWMI_I18N = {
   it: {
     nav_home:"Home", nav_eventi:"Eventi", nav_artisti:"Artisti", nav_chisiamo:"Chi siamo", nav_contatti:"Contatti", nav_cta:"Biglietti",
-    nav_loyalty:"Carta fedeltà", nav_supporters:"Supportaci",
+    nav_loyalty:"Carta fedeltà", nav_supporters:"Supportaci", nav_account:"Accedi",
     foot_sito:"Sito", foot_contatti:"Contatti", foot_social:"Social", foot_rights:"© 2026 GrowMi. Milano.", foot_madewith:"Sito in fase di sviluppo",
 
     home_eyebrow:"Milano · eventi dal vivo",
@@ -142,7 +142,7 @@ const GROWMI_I18N = {
   },
   en: {
     nav_home:"Home", nav_eventi:"Events", nav_artisti:"Artists", nav_chisiamo:"About", nav_contatti:"Contact", nav_cta:"Tickets",
-    nav_loyalty:"Loyalty Card", nav_supporters:"Support us",
+    nav_loyalty:"Loyalty Card", nav_supporters:"Support us", nav_account:"Sign in",
     foot_sito:"Site", foot_contatti:"Contact", foot_social:"Social", foot_rights:"© 2026 GrowMi. Milan.", foot_madewith:"Site in development",
 
     home_eyebrow:"Milan · live events",

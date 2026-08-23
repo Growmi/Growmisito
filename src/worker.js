@@ -28,6 +28,26 @@ export default {
       }), { headers: { "Content-Type": "application/json" } });
     }
 
+    // Endpoint di debug TEMPORANEO, protetto dalla chiave staff: forza la verifica di un
+    // account senza passare dal link email, serve solo per creare le credenziali di test
+    // dell'area personale mentre Resend è ancora in sandbox. Da rimuovere appena non serve più.
+    if (url.pathname === "/api/debug-verify-account" && request.method === "POST") {
+      try {
+        const staffKey = request.headers.get("x-staff-key");
+        if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) return jsonResponse({ error: "unauthorized" }, 401);
+        const { email } = await request.json();
+        const raw = await env.TICKETS.get(`account:${email}`);
+        if (!raw) return jsonResponse({ error: "account non trovato" }, 404);
+        const account = JSON.parse(raw);
+        account.emailVerified = true;
+        delete account.verifyToken;
+        await env.TICKETS.put(`account:${email}`, JSON.stringify(account));
+        return jsonResponse({ ok: true });
+      } catch (err) {
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     if (url.pathname === "/api/stripe-webhook" && request.method === "POST") {
       // Tutta la gestione del webhook è avvolta qui, dal primo all'ultimo rigo: senza questo,
       // un'eccezione qualsiasi (anche nella creazione del client Stripe) produce solo un

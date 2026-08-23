@@ -101,6 +101,7 @@ header.at-top{
   border-bottom-color:transparent;
 }
 header.at-top .navlinks a{ color:var(--cream); }
+header.at-top .nav-account{ color:var(--cream); }
 /* il menu a tendina mobile (.navlinks.open) ha SEMPRE sfondo crema, indipendentemente dalla banda
    viola in cima: qui il testo deve restare scuro, altrimenti e' crema su crema e sparisce */
 header.at-top .navlinks.open a{ color:var(--ink); }
@@ -118,6 +119,11 @@ nav.wrap{
 .navlinks a{padding:6px 0; border-bottom:2px solid transparent;}
 .navlinks a:hover, .navlinks a.active{border-color:var(--coral);}
 .navright{display:flex; align-items:center; gap:14px;}
+.nav-account{
+  font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:13px;
+  padding:6px 0; border-bottom:2px solid transparent; color:var(--ink);
+}
+.nav-account:hover{ border-color:var(--coral); }
 .lang-switch{
   display:flex; border:2px solid var(--ink); border-radius:999px; overflow:hidden;
   font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:12px;
@@ -170,6 +176,11 @@ nav.wrap{
   .navlinks.closing{display:flex; animation:ticketsOverlayOut .28s cubic-bezier(.22,1,.36,1);}
   .navlinks a{padding:13px 0; border-bottom:1px solid var(--line); font-size:16px;}
   .navlinks a:last-child{border-bottom:none;}
+  /* su schermo stretto il pulsante IT/EN si sposta dentro il menu a tendina (in fondo
+     all'elenco dei link) invece di stare compresso nella barra in alto: quella barra resta
+     solo logo + hamburger, con lo spazio in mezzo semplicemente vuoto. */
+  .navright > .lang-switch{ display:none; }
+  .navlinks .mobile-lang-switch{ display:flex; margin-top:14px; align-self:flex-start; }
 }
 @media (max-width:1040px) and (prefers-reduced-motion: reduce){ .navlinks.open, .navlinks.closing{animation:none;} }
 
