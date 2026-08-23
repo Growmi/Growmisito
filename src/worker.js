@@ -121,6 +121,97 @@ export default {
       }
     }
 
+    // Area personale: registrazione, login, verifica email, recupero password, dati account.
+    if (url.pathname === "/api/account/register" && request.method === "POST") {
+      try {
+        return await handleAccountRegister(request, env);
+      } catch (err) {
+        console.log("Errore account/register:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/account/verify" && request.method === "GET") {
+      try {
+        return await handleAccountVerify(request, env);
+      } catch (err) {
+        console.log("Errore account/verify:", err.stack || err.message);
+        return new Response("Errore interno: " + err.message, { status: 500 });
+      }
+    }
+
+    if (url.pathname === "/api/account/login" && request.method === "POST") {
+      try {
+        return await handleAccountLogin(request, env);
+      } catch (err) {
+        console.log("Errore account/login:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/account/logout" && request.method === "POST") {
+      try {
+        return await handleAccountLogout(request, env);
+      } catch (err) {
+        console.log("Errore account/logout:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/account/me" && request.method === "GET") {
+      try {
+        return await handleAccountMe(request, env);
+      } catch (err) {
+        console.log("Errore account/me:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/account/tickets" && request.method === "GET") {
+      try {
+        return await handleAccountTickets(request, env);
+      } catch (err) {
+        console.log("Errore account/tickets:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/account/loyalty" && request.method === "GET") {
+      try {
+        return await handleAccountLoyalty(request, env);
+      } catch (err) {
+        console.log("Errore account/loyalty:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/account/ticket-qr" && request.method === "GET") {
+      try {
+        return await handleAccountTicketQr(request, env);
+      } catch (err) {
+        console.log("Errore account/ticket-qr:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/account/forgot-password" && request.method === "POST") {
+      try {
+        return await handleAccountForgotPassword(request, env);
+      } catch (err) {
+        console.log("Errore account/forgot-password:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/account/reset-password" && request.method === "POST") {
+      try {
+        return await handleAccountResetPassword(request, env);
+      } catch (err) {
+        console.log("Errore account/reset-password:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     return env.ASSETS.fetch(request);
   },
 
@@ -887,7 +978,7 @@ async function handleStripeWebhook(request, env) {
         used: false,
         createdAt: new Date().toISOString(),
         stripeSessionId: session.id
-      }), { metadata: { used: false, eventSlug, tierId } });
+      }), { metadata: { used: false, eventSlug, tierId, email, eventName, eventDateIso, tierName } });
       // La registrazione è servita al suo scopo (i dati sono ora sul biglietto): la rimuovo per
       // non lasciare copie sparse di dati personali su KV più a lungo del necessario.
       await env.TICKETS.delete(`registration:${registrationId}`);
@@ -896,6 +987,12 @@ async function handleStripeWebhook(request, env) {
       // Stripe riesce comunque a creare il biglietto, invece di essere scartato come "già fatto"
       // quando in realtà non è mai stato completato.
       await env.TICKETS.put(dedupeKey, ticketCode);
+
+      // Timbro loyalty all'acquisto (non al check-in — decisione di Carlo): se chi compra ha
+      // già un account GrowMi con quella email, il biglietto appena creato vale subito un
+      // timbro. Se non ha un account, il timbro arriva comunque in automatico se lo crea più
+      // avanti (vedi handleAccountRegister, che recupera i biglietti già esistenti).
+      await addLoyaltyStamp(env, email, { eventName, ticketCode, stampedAt: new Date().toISOString() });
 
       if (env.RESEND_API_KEY) {
         let pdfBase64 = null;
@@ -931,4 +1028,436 @@ async function handleStripeWebhook(request, env) {
   }
 
   return new Response("ok", { status: 200 });
+}
+
+// ============================================================================
+// Area personale: account cliente, login/sessione via cookie, loyalty card.
+// Stesso archivio KV "TICKETS" di tutto il resto (nessuna nuova infrastruttura), prefissi
+// nuovi: account:<email>, session:<token>, loyalty:<email>.
+// ============================================================================
+
+// Hash password con PBKDF2-SHA256 via Web Crypto nativo (nessuna libreria esterna: bcrypt non
+// è disponibile su Cloudflare Workers, PBKDF2 sì ed è considerato sicuro con iterazioni alte).
+async function hashPassword(password, salt) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt: enc.encode(salt), iterations: 100000, hash: "SHA-256" },
+    keyMaterial,
+    256
+  );
+  return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Confronto a tempo costante: evita che un attaccante deduca quanto è "vicina" una password
+// sbagliata misurando quanto ci mette il confronto a fallire (timing attack).
+function timingSafeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+function parseCookies(request) {
+  const header = request.headers.get("cookie") || "";
+  const out = {};
+  header.split(";").forEach(function(part) {
+    const idx = part.indexOf("=");
+    if (idx === -1) return;
+    out[part.slice(0, idx).trim()] = decodeURIComponent(part.slice(idx + 1).trim());
+  });
+  return out;
+}
+
+function sessionCookieHeader(token, maxAgeSeconds) {
+  return `growmi_session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAgeSeconds}`;
+}
+function clearSessionCookieHeader() {
+  return "growmi_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0";
+}
+
+// Legge la sessione dal cookie e restituisce l'email dell'account loggato, o null. Usata da
+// ogni endpoint /api/account/* che deve sapere CHI sta chiedendo — mai fidarsi di un'email
+// mandata dal client stesso nel body della richiesta.
+async function getSessionEmail(request, env) {
+  const cookies = parseCookies(request);
+  const token = cookies["growmi_session"];
+  if (!token) return null;
+  const raw = await env.TICKETS.get(`session:${token}`);
+  if (!raw) return null;
+  const session = JSON.parse(raw);
+  if (new Date(session.expiresAt) < new Date()) {
+    await env.TICKETS.delete(`session:${token}`);
+    return null;
+  }
+  return session.email;
+}
+
+// Template email account (verifica/reset password): stessa impostazione a card viola delle
+// altre email GrowMi, ma senza QR — solo un pulsante.
+function buildAccountEmailHTML({ title, lead, buttonLabel, buttonUrl, note }) {
+  return `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FBF6F0" style="background:#FBF6F0;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#2C0943" style="background:#2C0943; border-radius:24px; max-width:600px;">
+        <tr>
+          <td style="padding:48px 44px; font-family:Arial, Helvetica, sans-serif;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr><td align="center" style="font-size:26px; font-weight:bold; color:#F86639; padding-bottom:18px; line-height:1.3;">${title}</td></tr>
+              <tr><td align="center" style="font-size:17px; color:#FBF6F0; line-height:1.6; padding-bottom:26px;">${lead}</td></tr>
+              <tr>
+                <td align="center" style="padding-bottom:10px;">
+                  <a href="${buttonUrl}" style="display:inline-block; background:#F86639; color:#FFFFFF; font-family:Arial, Helvetica, sans-serif; font-weight:bold; font-size:16px; text-decoration:none; padding:15px 34px; border-radius:12px;">${buttonLabel}</a>
+                </td>
+              </tr>
+              ${note ? `<tr><td align="center" style="font-size:13px; color:#C9BCD6; padding-top:18px;">${note}</td></tr>` : ""}
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+  `;
+}
+
+async function sendAccountEmail(env, { to, subject, html }) {
+  if (!env.RESEND_API_KEY) return;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: "GrowMi <onboarding@resend.dev>", to, subject, html })
+  });
+  if (!res.ok) console.log("Resend error (account):", res.status, await res.text());
+}
+
+// Piccola pagina HTML autonoma per i link cliccati direttamente dalle email (conferma email,
+// eventuali errori) — non serve caricare tutto il sito per un messaggio di conferma.
+function accountStatusPageHTML(title, message) {
+  return `<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${title} — GrowMi</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  body{ background:#FBF6F0; color:#1E0C2C; font-family:'Inter',sans-serif; min-height:100vh; min-height:100dvh; display:flex; align-items:center; justify-content:center; text-align:center; padding:24px; }
+  .card{ max-width:420px; }
+  h1{ font-family:'Space Grotesk',sans-serif; font-size:24px; margin-bottom:12px; }
+  p{ color:#6E6478; font-size:14.5px; }
+  a{ display:inline-block; margin-top:22px; background:#F86639; color:#fff; text-decoration:none; padding:13px 26px; border-radius:12px; font-weight:600; font-family:'Space Grotesk',sans-serif; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>${title}</h1>
+    <p>${message}</p>
+    <a href="/area-personale">Vai alla tua area personale</a>
+  </div>
+</body>
+</html>`;
+}
+
+// Aggiunge un timbro loyalty, evitando doppioni se lo stesso biglietto viene passato due volte
+// (es. webhook Stripe rimandato). Se l'account non esiste ancora, non fa nulla: il timbro
+// arriva comunque in automatico quando la persona crea l'account (vedi handleAccountRegister).
+async function addLoyaltyStamp(env, email, entry) {
+  if (!email) return;
+  const accountRaw = await env.TICKETS.get(`account:${email}`);
+  if (!accountRaw) return;
+  const raw = await env.TICKETS.get(`loyalty:${email}`);
+  const loyalty = raw ? JSON.parse(raw) : { stamps: 0, history: [] };
+  if (loyalty.history.some(function(h){ return h.ticketCode === entry.ticketCode; })) return;
+  loyalty.stamps += 1;
+  loyalty.history.push(entry);
+  await env.TICKETS.put(`loyalty:${email}`, JSON.stringify(loyalty));
+}
+
+// Al momento della creazione dell'account, timbra retroattivamente i biglietti già comprati
+// con quella email PRIMA di registrarsi (acquisto "come ospite" avvenuto prima dell'account) —
+// cosi' chi si registra dopo aver già partecipato a un evento non perde il timbro.
+async function backfillLoyaltyFromTickets(env, email) {
+  const entries = [];
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "ticket:", cursor });
+    for (const key of page.keys) {
+      if (key.metadata?.email === email) {
+        entries.push({
+          eventName: key.metadata.eventName || null,
+          ticketCode: key.name.replace("ticket:", ""),
+          stampedAt: key.metadata.eventDateIso || new Date().toISOString()
+        });
+      }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  if (!entries.length) return;
+
+  const raw = await env.TICKETS.get(`loyalty:${email}`);
+  const loyalty = raw ? JSON.parse(raw) : { stamps: 0, history: [] };
+  for (const entry of entries) {
+    if (!loyalty.history.some(function(h){ return h.ticketCode === entry.ticketCode; })) {
+      loyalty.stamps += 1;
+      loyalty.history.push(entry);
+    }
+  }
+  await env.TICKETS.put(`loyalty:${email}`, JSON.stringify(loyalty));
+}
+
+async function handleAccountRegister(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const body = await request.json();
+  const email = String(body.email || "").trim().toLowerCase().slice(0, 200);
+  const password = String(body.password || "");
+  const name = String(body.name || "").trim().slice(0, 200);
+
+  if (!email || !email.includes("@") || !name) {
+    return jsonResponse({ error: "nome ed email sono obbligatori" }, 400);
+  }
+  if (password.length < 8) {
+    return jsonResponse({ error: "la password deve avere almeno 8 caratteri" }, 400);
+  }
+  if (await env.TICKETS.get(`account:${email}`)) {
+    return jsonResponse({ error: "esiste già un account con questa email" }, 409);
+  }
+
+  const salt = crypto.randomUUID();
+  const passwordHash = await hashPassword(password, salt);
+  const verifyToken = crypto.randomUUID();
+
+  await env.TICKETS.put(`account:${email}`, JSON.stringify({
+    email, name, passwordHash, salt,
+    emailVerified: false,
+    verifyToken,
+    createdAt: new Date().toISOString()
+  }));
+
+  await backfillLoyaltyFromTickets(env, email);
+
+  const origin = new URL(request.url).origin;
+  const verifyUrl = `${origin}/api/account/verify?token=${verifyToken}`;
+  await sendAccountEmail(env, {
+    to: email,
+    subject: "Conferma la tua email — GrowMi",
+    html: buildAccountEmailHTML({
+      title: `Ciao ${name.split(" ")[0] || ""}!`,
+      lead: "Conferma la tua email per attivare il tuo account GrowMi e iniziare a timbrare la tua loyalty card.",
+      buttonLabel: "Conferma email",
+      buttonUrl: verifyUrl
+    })
+  });
+
+  return jsonResponse({ ok: true, message: "Controlla la tua email per confermare l'account." });
+}
+
+async function handleAccountVerify(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const url = new URL(request.url);
+  const token = url.searchParams.get("token");
+  if (!token) {
+    return new Response(accountStatusPageHTML("Link non valido", "Manca il codice di conferma."), { headers: { "Content-Type": "text/html" }, status: 400 });
+  }
+
+  // Nessun indice separato token→email: si scorrono gli account (volumi piccoli per GrowMi,
+  // non serve altro) cercando quello con questo verifyToken.
+  let cursor = undefined;
+  let found = null;
+  do {
+    const page = await env.TICKETS.list({ prefix: "account:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      const acc = JSON.parse(raw);
+      if (acc.verifyToken === token) { found = { key: key.name, acc }; break; }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor && !found);
+
+  if (!found) {
+    return new Response(accountStatusPageHTML("Link non valido", "Questo link di conferma non è valido o è già stato usato."), { headers: { "Content-Type": "text/html" }, status: 400 });
+  }
+
+  found.acc.emailVerified = true;
+  delete found.acc.verifyToken;
+  await env.TICKETS.put(found.key, JSON.stringify(found.acc));
+
+  return new Response(accountStatusPageHTML("Email confermata!", "Il tuo account GrowMi è attivo. Ora puoi accedere alla tua area personale."), { headers: { "Content-Type": "text/html" } });
+}
+
+async function handleAccountLogin(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const email = String(body.email || "").trim().toLowerCase();
+  const password = String(body.password || "");
+  if (!email || !password) return jsonResponse({ error: "email e password sono obbligatorie" }, 400);
+
+  const raw = await env.TICKETS.get(`account:${email}`);
+  if (!raw) return jsonResponse({ error: "email o password non corretti" }, 401);
+  const account = JSON.parse(raw);
+
+  const hash = await hashPassword(password, account.salt);
+  if (!timingSafeEqual(hash, account.passwordHash)) {
+    return jsonResponse({ error: "email o password non corretti" }, 401);
+  }
+  if (!account.emailVerified) {
+    return jsonResponse({ error: "conferma prima la tua email — controlla la posta in arrivo" }, 403);
+  }
+
+  const token = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  await env.TICKETS.put(`session:${token}`, JSON.stringify({ email, expiresAt }));
+
+  return new Response(JSON.stringify({ ok: true, name: account.name, email }), {
+    status: 200,
+    headers: { "Content-Type": "application/json", "Set-Cookie": sessionCookieHeader(token, 30 * 24 * 60 * 60) }
+  });
+}
+
+async function handleAccountLogout(request, env) {
+  const cookies = parseCookies(request);
+  const token = cookies["growmi_session"];
+  if (token) await env.TICKETS.delete(`session:${token}`);
+  return new Response(JSON.stringify({ ok: true }), {
+    status: 200,
+    headers: { "Content-Type": "application/json", "Set-Cookie": clearSessionCookieHeader() }
+  });
+}
+
+async function handleAccountMe(request, env) {
+  const email = await getSessionEmail(request, env);
+  if (!email) return jsonResponse({ error: "non autenticato" }, 401);
+  const raw = await env.TICKETS.get(`account:${email}`);
+  if (!raw) return jsonResponse({ error: "account non trovato" }, 404);
+  const account = JSON.parse(raw);
+  return jsonResponse({ email: account.email, name: account.name, createdAt: account.createdAt });
+}
+
+// Storico biglietti dell'account loggato: legge dalla metadata KV (email inclusa dalla
+// creazione del biglietto in poi), stesso pattern di /api/attendees — una sola KV.list()
+// invece di una GET per ogni biglietto esistente sul sito.
+async function handleAccountTickets(request, env) {
+  const email = await getSessionEmail(request, env);
+  if (!email) return jsonResponse({ error: "non autenticato" }, 401);
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const tickets = [];
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "ticket:", cursor });
+    for (const key of page.keys) {
+      if (key.metadata?.email === email) {
+        tickets.push({
+          code: key.name.replace("ticket:", ""),
+          eventName: key.metadata.eventName || null,
+          eventDateIso: key.metadata.eventDateIso || null,
+          tierName: key.metadata.tierName || null,
+          used: !!key.metadata.used,
+          usedAt: key.metadata.usedAt || null
+        });
+      }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  tickets.sort(function(a, b){ return (b.eventDateIso || "").localeCompare(a.eventDateIso || ""); });
+  return jsonResponse({ tickets });
+}
+
+// Ridà il QR di un singolo biglietto a chi è loggato, solo se il biglietto è davvero suo
+// (stessa email della sessione) — evita che qualcuno possa indovinare un codice e vedere il
+// QR di un altro cliente.
+async function handleAccountTicketQr(request, env) {
+  const email = await getSessionEmail(request, env);
+  if (!email) return jsonResponse({ error: "non autenticato" }, 401);
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const url = new URL(request.url);
+  const code = String(url.searchParams.get("code") || "").trim().toUpperCase();
+  if (!code) return jsonResponse({ error: "codice mancante" }, 400);
+
+  const raw = await env.TICKETS.get(`ticket:${code}`);
+  if (!raw) return jsonResponse({ error: "biglietto non trovato" }, 404);
+  const ticket = JSON.parse(raw);
+  if (ticket.email !== email) return jsonResponse({ error: "non autorizzato" }, 403);
+
+  const qrSvg = await QRCode.toString(code, { type: "svg", margin: 1, width: 320 });
+  return jsonResponse({
+    code, eventName: ticket.eventName, eventDate: ticket.eventDate, tierName: ticket.tierName,
+    used: ticket.used, usedAt: ticket.usedAt || null,
+    qrBase64: btoa(qrSvg)
+  });
+}
+
+async function handleAccountLoyalty(request, env) {
+  const email = await getSessionEmail(request, env);
+  if (!email) return jsonResponse({ error: "non autenticato" }, 401);
+  const raw = await env.TICKETS.get(`loyalty:${email}`);
+  const loyalty = raw ? JSON.parse(raw) : { stamps: 0, history: [] };
+  return jsonResponse(loyalty);
+}
+
+async function handleAccountForgotPassword(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const email = String(body.email || "").trim().toLowerCase();
+  if (!email) return jsonResponse({ error: "email obbligatoria" }, 400);
+
+  const raw = await env.TICKETS.get(`account:${email}`);
+  // Risponde sempre "ok", anche se l'account non esiste: cosi' non si rivela a chi lo chiede
+  // se una certa email ha o no un account GrowMi.
+  if (raw) {
+    const account = JSON.parse(raw);
+    account.resetToken = crypto.randomUUID();
+    account.resetExpires = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    await env.TICKETS.put(`account:${email}`, JSON.stringify(account));
+
+    const origin = new URL(request.url).origin;
+    const resetUrl = `${origin}/area-personale?reset=${account.resetToken}&email=${encodeURIComponent(email)}`;
+    await sendAccountEmail(env, {
+      to: email,
+      subject: "Reimposta la tua password — GrowMi",
+      html: buildAccountEmailHTML({
+        title: "Reimposta la password",
+        lead: "Hai chiesto di reimpostare la password del tuo account GrowMi. Il link scade tra un'ora.",
+        buttonLabel: "Scegli una nuova password",
+        buttonUrl: resetUrl,
+        note: "Se non sei stato tu, ignora questa email: la tua password resta quella di sempre."
+      })
+    });
+  }
+
+  return jsonResponse({ ok: true, message: "Se l'email è registrata, ti abbiamo mandato le istruzioni." });
+}
+
+async function handleAccountResetPassword(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const email = String(body.email || "").trim().toLowerCase();
+  const token = String(body.token || "");
+  const newPassword = String(body.newPassword || "");
+  if (!email || !token || newPassword.length < 8) {
+    return jsonResponse({ error: "dati mancanti o password troppo corta (minimo 8 caratteri)" }, 400);
+  }
+
+  const raw = await env.TICKETS.get(`account:${email}`);
+  if (!raw) return jsonResponse({ error: "link non valido" }, 400);
+  const account = JSON.parse(raw);
+  if (!account.resetToken || account.resetToken !== token) {
+    return jsonResponse({ error: "link non valido" }, 400);
+  }
+  if (new Date(account.resetExpires) < new Date()) {
+    return jsonResponse({ error: "link scaduto, richiedine uno nuovo" }, 400);
+  }
+
+  account.salt = crypto.randomUUID();
+  account.passwordHash = await hashPassword(newPassword, account.salt);
+  delete account.resetToken;
+  delete account.resetExpires;
+  await env.TICKETS.put(`account:${email}`, JSON.stringify(account));
+
+  return jsonResponse({ ok: true });
 }

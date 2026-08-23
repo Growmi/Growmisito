@@ -25,9 +25,11 @@
   h1{ font-size:24px; margin-bottom:10px; }
   p{ font-size:14.5px; color:var(--grey); }
   a.btn{
-    display:inline-block; margin-top:24px; padding:14px 28px; border-radius:12px; background:var(--coral);
+    display:inline-block; margin-top:14px; padding:14px 28px; border-radius:12px; background:var(--coral);
     color:#fff; text-decoration:none; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px;
   }
+  a.btn.outline{ background:none; border:1.5px solid var(--ink); color:var(--ink); }
+  .btn-row{ display:flex; flex-direction:column; gap:12px; }
 </style>
 </head>
 <body>
@@ -37,7 +39,11 @@
   <div class="big">🎉</div>
   <h1>Pagamento andato a buon fine!</h1>
   <p>Il biglietto con il QR di ingresso sta arrivando alla tua email da un momento all'altro. Controlla anche nello spam.</p>
-  <a class="btn" href="eventi.html">Torna agli eventi</a>
+  <p style="margin-top:18px;">Vuoi salvare i tuoi biglietti in un unico posto e iniziare a timbrare la tua loyalty card?</p>
+  <div class="btn-row">
+    <a class="btn" href="area-personale.html">Crea la tua area personale</a>
+    <a class="btn outline" href="eventi.html">Torna agli eventi</a>
+  </div>
 </div>
 
 </body>

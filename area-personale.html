@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<script>if(performance.getEntriesByType("navigation")[0]&&performance.getEntriesByType("navigation")[0].type==="back_forward"){document.documentElement.classList.add("nav-back");}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Area personale — GrowMi</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/redesign.css">
+<link rel="stylesheet" href="assets/interactive.css">
+<style>
+  .ap-wrap{ max-width:640px; }
+  .ap-tabs{ display:flex; gap:8px; margin-bottom:28px; }
+  .ap-tab-btn{
+    flex:1; padding:12px; border-radius:12px; border:1.5px solid var(--line); background:#fff;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; cursor:pointer; color:var(--ink);
+  }
+  .ap-tab-btn.is-active{ background:var(--purple-deeper); border-color:var(--purple-deeper); color:#fff; }
+  .ap-form{ display:flex; flex-direction:column; gap:16px; }
+  .ap-form[hidden]{ display:none; }
+  .ap-field label{ display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:8px; }
+  .ap-field input{
+    width:100%; padding:13px 15px; border-radius:10px; border:1.5px solid var(--line);
+    font-family:'Inter',sans-serif; font-size:14.5px;
+  }
+  .ap-field input:focus{ outline:none; border-color:var(--coral); }
+  .ap-field .hint{ font-size:12px; color:var(--grey); margin-top:6px; }
+  .ap-submit{
+    padding:14px; border-radius:12px; border:none; background:var(--coral); color:#fff;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14.5px; cursor:pointer;
+  }
+  .ap-submit:disabled{ opacity:.6; cursor:default; }
+  .ap-msg{ font-size:13.5px; padding:12px 14px; border-radius:10px; }
+  .ap-msg.ok{ background:#EAF7EE; color:#1E7A3A; }
+  .ap-msg.error{ background:#FDE8E0; color:#B4400F; }
+  .ap-link-btn{
+    background:none; border:none; color:var(--coral); font-size:13px; cursor:pointer;
+    text-decoration:underline; padding:0; font-family:'Inter',sans-serif; text-align:left;
+  }
+
+  /* dashboard */
+  .ap-dash-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:28px; flex-wrap:wrap; gap:12px; }
+  .ap-dash-head h1{ font-size:24px; margin:0; }
+  .ap-dash-menu{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:32px; }
+  .ap-dash-menu button{
+    padding:10px 16px; border-radius:20px; border:1.5px solid var(--line); background:#fff;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; cursor:pointer; color:var(--ink);
+  }
+  .ap-dash-menu button.is-active{ background:var(--ink); border-color:var(--ink); color:#fff; }
+  .ap-panel[hidden]{ display:none; }
+
+  .ap-info-row{ display:flex; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--line); font-size:14.5px; }
+  .ap-info-row span:first-child{ color:var(--grey); }
+  .ap-info-row span:last-child{ font-weight:600; }
+
+  .ap-ticket{
+    border:1.5px solid var(--line); border-radius:14px; padding:16px 18px; margin-bottom:12px;
+    display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
+  }
+  .ap-ticket .ev{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; }
+  .ap-ticket .sub{ font-size:12.5px; color:var(--grey); margin-top:3px; }
+  .ap-ticket .badge{
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:10.5px; text-transform:uppercase;
+    letter-spacing:.03em; padding:4px 10px; border-radius:20px;
+  }
+  .ap-ticket .badge.upcoming{ background:#FDF1E4; color:#B4720F; }
+  .ap-ticket .badge.used{ background:#EAF7EE; color:#1E7A3A; }
+  .ap-ticket button{
+    padding:9px 16px; border-radius:10px; border:1.5px solid var(--ink); background:#fff;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12.5px; cursor:pointer;
+  }
+  .ap-empty{ color:var(--grey); font-size:14px; text-align:center; padding:30px 0; }
+
+  .ap-stamps{ display:flex; gap:10px; flex-wrap:wrap; margin:20px 0; }
+  .ap-stamp{
+    width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    border:2px dashed var(--line); font-size:20px;
+  }
+  .ap-stamp.filled{ border-style:solid; border-color:var(--coral); background:#FDF1EA; }
+  .ap-rewards{ display:flex; flex-direction:column; gap:10px; margin-top:22px; }
+  .ap-reward{
+    display:flex; justify-content:space-between; align-items:center; padding:12px 16px;
+    border-radius:12px; border:1.5px solid var(--line); font-size:13.5px;
+  }
+  .ap-reward.unlocked{ background:#EAF7EE; border-color:#BFE5CB; }
+
+  .ap-modal{ position:fixed; inset:0; z-index:80; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .ap-modal[hidden]{ display:none; }
+  .ap-modal-backdrop{ position:fixed; inset:0; background:rgba(30,12,44,.55); }
+  .ap-modal-card{
+    position:relative; background:#fff; border-radius:20px; padding:32px 28px; max-width:340px; width:100%;
+    text-align:center;
+  }
+  .ap-modal-close{
+    position:absolute; top:12px; right:12px; width:32px; height:32px; border-radius:50%;
+    border:1.5px solid var(--line); background:transparent; font-size:18px; cursor:pointer;
+  }
+  .ap-modal-card img{ width:100%; max-width:220px; margin:16px auto; display:block; }
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="wrap">
+    <a class="logo" href="index.html"><img src="assets/img/logo-growmi.png" alt="GrowMi"></a>
+    <div class="navlinks">
+      <a href="index.html" data-i18n="nav_home">Home</a>
+      <a href="eventi.html" data-i18n="nav_eventi">Eventi</a>
+      <a href="artisti.html" data-i18n="nav_artisti">Artisti</a>
+      <a href="loyalty-card.html" data-i18n="nav_loyalty">Loyalty Card</a>
+      <a href="financial-supporters.html" data-i18n="nav_supporters">Financial Supporters</a>
+      <a href="chi-siamo.html" data-i18n="nav_chisiamo">Chi siamo</a>
+      <a href="contatti.html" data-i18n="nav_contatti">Contatti</a>
+    </div>
+    <div class="navright">
+      <div class="lang-switch">
+        <button data-lang="it">IT</button>
+        <button data-lang="en">EN</button>
+      </div>
+      <div class="nav-tickets"><a class="btn coral small nav-tickets-toggle" href="eventi.html" data-i18n="nav_cta" aria-haspopup="true" aria-expanded="false">Biglietti</a><div class="nav-tickets-menu"></div></div>
+    </div>
+    <button type="button" class="nav-toggle" aria-label="Menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+</header>
+
+<section class="ed-hero" style="padding:100px 0 50px;">
+  <div class="wrap ed-wrap">
+    <span class="ed-eyebrow">Area personale</span>
+    <h1 id="ap-hero-title" style="font-size:clamp(30px,5vw,52px);">Il tuo account GrowMi</h1>
+    <p class="ed-lead" id="ap-hero-lead">Accedi per vedere i tuoi biglietti e la tua loyalty card.</p>
+  </div>
+</section>
+
+<section class="ed-section-tight">
+  <div class="wrap ap-wrap">
+
+    <!-- AUTH: login / registrazione / password dimenticata / reset -->
+    <div id="ap-auth">
+      <div class="ap-tabs" id="ap-auth-tabs">
+        <button type="button" class="ap-tab-btn is-active" data-auth-tab="login">Accedi</button>
+        <button type="button" class="ap-tab-btn" data-auth-tab="register">Registrati</button>
+      </div>
+
+      <form class="ap-form" id="ap-login-form">
+        <div class="ap-field"><label for="ap-login-email">Email</label><input type="email" id="ap-login-email" required></div>
+        <div class="ap-field"><label for="ap-login-password">Password</label><input type="password" id="ap-login-password" required></div>
+        <button type="submit" class="ap-submit">Accedi</button>
+        <button type="button" class="ap-link-btn" data-auth-tab="forgot">Password dimenticata?</button>
+        <p class="ap-msg" id="ap-login-msg" hidden></p>
+      </form>
+
+      <form class="ap-form" id="ap-register-form" hidden>
+        <div class="ap-field"><label for="ap-reg-name">Nome e cognome</label><input type="text" id="ap-reg-name" required></div>
+        <div class="ap-field"><label for="ap-reg-email">Email</label><input type="email" id="ap-reg-email" required></div>
+        <div class="ap-field">
+          <label for="ap-reg-password">Password</label>
+          <input type="password" id="ap-reg-password" required minlength="8">
+          <p class="hint">Almeno 8 caratteri.</p>
+        </div>
+        <button type="submit" class="ap-submit">Crea account</button>
+        <p class="ap-msg" id="ap-register-msg" hidden></p>
+      </form>
+
+      <form class="ap-form" id="ap-forgot-form" hidden>
+        <p style="font-size:14px; color:var(--grey);">Ti mandiamo un link per scegliere una nuova password.</p>
+        <div class="ap-field"><label for="ap-forgot-email">Email</label><input type="email" id="ap-forgot-email" required></div>
+        <button type="submit" class="ap-submit">Invia link</button>
+        <button type="button" class="ap-link-btn" data-auth-tab="login">Torna al login</button>
+        <p class="ap-msg" id="ap-forgot-msg" hidden></p>
+      </form>
+
+      <form class="ap-form" id="ap-reset-form" hidden>
+        <p style="font-size:14px; color:var(--grey);">Scegli la tua nuova password.</p>
+        <div class="ap-field"><label for="ap-reset-password">Nuova password</label><input type="password" id="ap-reset-password" required minlength="8"></div>
+        <button type="submit" class="ap-submit">Salva nuova password</button>
+        <p class="ap-msg" id="ap-reset-msg" hidden></p>
+      </form>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="ap-dash" hidden>
+      <div class="ap-dash-head">
+        <h1 id="ap-dash-hello">Ciao!</h1>
+        <button type="button" class="ap-link-btn" id="ap-logout">Esci</button>
+      </div>
+      <div class="ap-dash-menu">
+        <button type="button" class="is-active" data-panel="profilo">Profilo</button>
+        <button type="button" data-panel="biglietti">I miei biglietti</button>
+        <button type="button" data-panel="loyalty">Loyalty Card</button>
+        <button type="button" data-panel="impostazioni">Impostazioni</button>
+      </div>
+
+      <div class="ap-panel" data-panel-content="profilo">
+        <div class="ap-info-row"><span>Nome</span><span id="ap-profile-name">—</span></div>
+        <div class="ap-info-row"><span>Email</span><span id="ap-profile-email">—</span></div>
+        <div class="ap-info-row"><span>Cliente da</span><span id="ap-profile-since">—</span></div>
+      </div>
+
+      <div class="ap-panel" data-panel-content="biglietti" hidden>
+        <div id="ap-tickets-list"><p class="ap-empty">Caricamento…</p></div>
+      </div>
+
+      <div class="ap-panel" data-panel-content="loyalty" hidden>
+        <p style="font-size:14.5px; color:var(--grey); margin-bottom:6px;" id="ap-loyalty-count">0 timbri</p>
+        <div class="ap-stamps" id="ap-stamps"></div>
+        <div class="ap-rewards">
+          <div class="ap-reward" id="ap-reward-3"><span>3° evento — un drink offerto dalla casa</span><span id="ap-reward-3-state">🔒</span></div>
+          <div class="ap-reward" id="ap-reward-5"><span>5° evento — ingresso gratuito</span><span id="ap-reward-5-state">🔒</span></div>
+        </div>
+      </div>
+
+      <div class="ap-panel" data-panel-content="impostazioni" hidden>
+        <p style="font-size:14px; color:var(--grey); margin-bottom:16px;">Ti mandiamo un'email con un link per scegliere una nuova password.</p>
+        <button type="button" class="ap-submit" id="ap-change-password" style="width:auto; padding:12px 20px;">Cambia password</button>
+        <p class="ap-msg" id="ap-settings-msg" hidden style="margin-top:14px;"></p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<div class="ap-modal" id="ap-qr-modal" hidden>
+  <div class="ap-modal-backdrop" data-qr-close></div>
+  <div class="ap-modal-card">
+    <button type="button" class="ap-modal-close" data-qr-close aria-label="Chiudi">&times;</button>
+    <p class="eyebrow" id="ap-qr-event">Evento</p>
+    <img id="ap-qr-img" src="" alt="QR biglietto">
+    <p style="font-size:13px; color:var(--grey);" id="ap-qr-code"></p>
+  </div>
+</div>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div><a class="foot-logo" href="index.html"><img src="assets/img/logo-growmi.png" alt="GrowMi"></a></div>
+      <div>
+        <h4 data-i18n="foot_sito">Sito</h4>
+        <ul>
+          <li><a href="eventi.html" data-i18n="nav_eventi">Eventi</a></li>
+          <li><a href="artisti.html" data-i18n="nav_artisti">Artisti</a></li>
+          <li><a href="chi-siamo.html" data-i18n="nav_chisiamo">Chi siamo</a></li>
+          <li><a href="loyalty-card.html">Loyalty Card</a></li>
+          <li><a href="financial-supporters.html">Financial Supporters</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 data-i18n="foot_contatti">Contatti</h4>
+        <ul>
+          <li><a href="mailto:grow.mi@outlook.it">grow.mi@outlook.it</a></li>
+          <li><a href="contatti.html" data-i18n="nav_contatti">Contatti</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 data-i18n="foot_social">Social</h4>
+        <ul>
+          <li><a href="https://www.instagram.com/growmiii/" target="_blank" rel="noopener">Instagram</a></li>
+          <li><a href="https://www.tiktok.com/@growmii_" target="_blank" rel="noopener">TikTok</a></li>
+          <li><a href="https://www.youtube.com/@GrowMiii" target="_blank" rel="noopener">YouTube</a></li>
+          <li><a href="https://www.linkedin.com/company/growmiagency/" target="_blank" rel="noopener">LinkedIn</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span data-i18n="foot_rights">© 2026 GrowMi. Milano.</span>
+      <span data-i18n="foot_madewith">Sito in fase di sviluppo</span>
+    </div>
+  </div>
+</footer>
+
+<div class="tickets-overlay" id="tickets-overlay" hidden>
+  <div class="tickets-overlay-backdrop" data-tickets-close></div>
+  <div class="tickets-overlay-panel">
+    <button type="button" class="tickets-overlay-close" data-tickets-close aria-label="Chiudi">&times;</button>
+    <p class="eyebrow">Biglietti</p>
+    <h2>Eventi disponibili</h2>
+    <div class="ed-grid tickets-overlay-grid" id="tickets-overlay-grid"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var authBox = document.getElementById('ap-auth');
+  var dashBox = document.getElementById('ap-dash');
+  var heroTitle = document.getElementById('ap-hero-title');
+  var heroLead = document.getElementById('ap-hero-lead');
+
+  function showMsg(el, text, isError){
+    el.textContent = text;
+    el.hidden = false;
+    el.classList.toggle('error', !!isError);
+    el.classList.toggle('ok', !isError);
+  }
+
+  // ---- tab switching (login / registrati / password dimenticata / reset) ----
+  var authForms = { login: document.getElementById('ap-login-form'), register: document.getElementById('ap-register-form'),
+    forgot: document.getElementById('ap-forgot-form'), reset: document.getElementById('ap-reset-form') };
+  function showAuthTab(name){
+    Object.keys(authForms).forEach(function(k){ authForms[k].hidden = k !== name; });
+    document.querySelectorAll('[data-auth-tab]').forEach(function(btn){
+      btn.classList.toggle('is-active', btn.getAttribute('data-auth-tab') === name && btn.classList.contains('ap-tab-btn'));
+    });
+  }
+  document.querySelectorAll('[data-auth-tab]').forEach(function(btn){
+    btn.addEventListener('click', function(){ showAuthTab(btn.getAttribute('data-auth-tab')); });
+  });
+
+  // ---- reset password via link nell'email (?reset=token&email=...) ----
+  var params = new URLSearchParams(window.location.search);
+  var resetToken = params.get('reset');
+  var resetEmail = params.get('email');
+  if (resetToken && resetEmail) {
+    showAuthTab('reset');
+    document.getElementById('ap-reset-form').addEventListener('submit', async function(e){
+      e.preventDefault();
+      var newPassword = document.getElementById('ap-reset-password').value;
+      try {
+        var res = await fetch('/api/account/reset-password', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: resetEmail, token: resetToken, newPassword: newPassword })
+        });
+        var data = await res.json();
+        var msg = document.getElementById('ap-reset-msg');
+        if (res.ok) {
+          showMsg(msg, 'Password aggiornata. Ora puoi accedere.', false);
+          setTimeout(function(){ window.location.href = 'area-personale'; }, 1500);
+        } else {
+          showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+        }
+      } catch (err) {
+        showMsg(document.getElementById('ap-reset-msg'), 'Errore di connessione.', true);
+      }
+    });
+  }
+
+  // ---- login ----
+  document.getElementById('ap-login-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var msg = document.getElementById('ap-login-msg');
+    try {
+      var res = await fetch('/api/account/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: document.getElementById('ap-login-email').value.trim(),
+          password: document.getElementById('ap-login-password').value
+        })
+      });
+      var data = await res.json();
+      if (res.ok) { loadDashboard(); }
+      else { showMsg(msg, data.error || 'Accesso non riuscito.', true); }
+    } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
+  });
+
+  // ---- registrazione ----
+  document.getElementById('ap-register-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var msg = document.getElementById('ap-register-msg');
+    try {
+      var res = await fetch('/api/account/register', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: document.getElementById('ap-reg-name').value.trim(),
+          email: document.getElementById('ap-reg-email').value.trim(),
+          password: document.getElementById('ap-reg-password').value
+        })
+      });
+      var data = await res.json();
+      if (res.ok) {
+        showMsg(msg, data.message || 'Controlla la tua email per confermare l\'account.', false);
+        document.getElementById('ap-register-form').reset();
+      } else {
+        showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+      }
+    } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
+  });
+
+  // ---- password dimenticata ----
+  document.getElementById('ap-forgot-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var msg = document.getElementById('ap-forgot-msg');
+    try {
+      var res = await fetch('/api/account/forgot-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: document.getElementById('ap-forgot-email').value.trim() })
+      });
+      var data = await res.json();
+      showMsg(msg, data.message || 'Controlla la tua email.', !res.ok);
+    } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
+  });
+
+  // ---- dashboard ----
+  document.querySelectorAll('.ap-dash-menu button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.ap-dash-menu button').forEach(function(b){ b.classList.remove('is-active'); });
+      btn.classList.add('is-active');
+      var target = btn.getAttribute('data-panel');
+      document.querySelectorAll('[data-panel-content]').forEach(function(p){
+        p.hidden = p.getAttribute('data-panel-content') !== target;
+      });
+    });
+  });
+
+  document.getElementById('ap-logout').addEventListener('click', async function(){
+    await fetch('/api/account/logout', { method: 'POST' });
+    window.location.reload();
+  });
+
+  document.getElementById('ap-change-password').addEventListener('click', async function(){
+    var msg = document.getElementById('ap-settings-msg');
+    try {
+      var email = document.getElementById('ap-profile-email').textContent;
+      var res = await fetch('/api/account/forgot-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email })
+      });
+      var data = await res.json();
+      showMsg(msg, data.message || 'Controlla la tua email.', !res.ok);
+    } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
+  });
+
+  function ticketRowHTML(t){
+    var today = new Date().toISOString().slice(0, 10);
+    var upcoming = !t.used && (!t.eventDateIso || t.eventDateIso >= today);
+    var badge = upcoming ? '<span class="badge upcoming">In arrivo</span>' : '<span class="badge used">Partecipato</span>';
+    return (
+      '<div class="ap-ticket">' +
+        '<div>' +
+          '<div class="ev">' + (t.eventName || 'Evento') + '</div>' +
+          '<div class="sub">' + (t.eventDateIso || '') + (t.tierName ? ' — ' + t.tierName : '') + '</div>' +
+        '</div>' +
+        badge +
+        '<button type="button" data-qr-code="' + t.code + '" data-qr-event="' + (t.eventName || '').replace(/"/g,'&quot;') + '">Mostra biglietto</button>' +
+      '</div>'
+    );
+  }
+
+  async function loadTickets(){
+    var box = document.getElementById('ap-tickets-list');
+    try {
+      var res = await fetch('/api/account/tickets');
+      var data = await res.json();
+      if (!data.tickets || !data.tickets.length) {
+        box.innerHTML = '<p class="ap-empty">Non hai ancora nessun biglietto GrowMi collegato a questo account.</p>';
+        return;
+      }
+      box.innerHTML = data.tickets.map(ticketRowHTML).join('');
+      box.querySelectorAll('[data-qr-code]').forEach(function(btn){
+        btn.addEventListener('click', function(){ openQr(btn.getAttribute('data-qr-code'), btn.getAttribute('data-qr-event')); });
+      });
+    } catch (err) { box.innerHTML = '<p class="ap-empty">Errore di connessione.</p>'; }
+  }
+
+  async function openQr(code, eventName){
+    var modal = document.getElementById('ap-qr-modal');
+    document.getElementById('ap-qr-event').textContent = eventName || 'Biglietto';
+    document.getElementById('ap-qr-code').textContent = code;
+    document.getElementById('ap-qr-img').src = '';
+    modal.hidden = false;
+    try {
+      var res = await fetch('/api/account/ticket-qr?code=' + encodeURIComponent(code));
+      var data = await res.json();
+      if (res.ok) document.getElementById('ap-qr-img').src = 'data:image/svg+xml;base64,' + data.qrBase64;
+    } catch (err) { /* il modal resta aperto senza immagine, non blocca nulla */ }
+  }
+  document.querySelectorAll('[data-qr-close]').forEach(function(el){
+    el.addEventListener('click', function(){ document.getElementById('ap-qr-modal').hidden = true; });
+  });
+
+  async function loadLoyalty(){
+    try {
+      var res = await fetch('/api/account/loyalty');
+      var data = await res.json();
+      var stamps = data.stamps || 0;
+      document.getElementById('ap-loyalty-count').textContent = stamps + (stamps === 1 ? ' timbro' : ' timbri');
+      var total = Math.max(5, stamps);
+      var wrap = document.getElementById('ap-stamps');
+      wrap.innerHTML = '';
+      for (var i = 1; i <= total; i++) {
+        var d = document.createElement('div');
+        d.className = 'ap-stamp' + (i <= stamps ? ' filled' : '');
+        d.textContent = i <= stamps ? '★' : '';
+        wrap.appendChild(d);
+      }
+      var r3 = document.getElementById('ap-reward-3'); var r3s = document.getElementById('ap-reward-3-state');
+      var r5 = document.getElementById('ap-reward-5'); var r5s = document.getElementById('ap-reward-5-state');
+      if (stamps >= 3) { r3.classList.add('unlocked'); r3s.textContent = '✓'; }
+      if (stamps >= 5) { r5.classList.add('unlocked'); r5s.textContent = '✓'; }
+    } catch (err) { /* la card resta vuota, non blocca il resto della dashboard */ }
+  }
+
+  async function loadDashboard(){
+    try {
+      var res = await fetch('/api/account/me');
+      if (!res.ok) { authBox.hidden = false; dashBox.hidden = true; return; }
+      var data = await res.json();
+      authBox.hidden = true;
+      dashBox.hidden = false;
+      heroTitle.textContent = 'Ciao, ' + (data.name ? data.name.split(' ')[0] : '') + '!';
+      heroLead.textContent = 'Ecco i tuoi biglietti e la tua loyalty card.';
+      document.getElementById('ap-dash-hello').textContent = 'Ciao, ' + (data.name ? data.name.split(' ')[0] : '') + '!';
+      document.getElementById('ap-profile-name').textContent = data.name || '—';
+      document.getElementById('ap-profile-email').textContent = data.email || '—';
+      document.getElementById('ap-profile-since').textContent = data.createdAt ? new Date(data.createdAt).toLocaleDateString('it-IT', { year:'numeric', month:'long' }) : '—';
+      loadTickets();
+      loadLoyalty();
+    } catch (err) { /* resta la schermata di login, riprovabile ricaricando */ }
+  }
+
+  loadDashboard();
+})();
+</script>
+
+<script src="assets/events-data.js"></script>
+<script src="assets/i18n.js"></script>
+<script src="assets/interactive.js"></script>
+</body>
+</html>
