@@ -257,7 +257,13 @@
       var data = await res.json();
       if (data.valid) {
         refreshStats();
-        showResult(true, data.eventName || "Ingresso valido", [data.name, data.email, data.tierName].filter(Boolean).join(" — "));
+        // Se questo check-in ha appena sbloccato una ricompensa loyalty (3°/5° evento), lo
+        // staff lo vede subito qui e può darla sul posto — il timbro scatta solo alla presenza
+        // reale, vedi handleCheckin in src/worker.js.
+        var rewardBanner = "";
+        if (data.reward3) rewardBanner = '<div class="reward unlocked" style="margin-top:12px;"><span>🎉 3° evento — drink offerto dalla casa!</span></div>';
+        else if (data.reward5) rewardBanner = '<div class="reward unlocked" style="margin-top:12px;"><span>🎉 5° evento — ingresso gratuito sbloccato!</span></div>';
+        showResult(true, data.eventName || "Ingresso valido", [data.name, data.email, data.tierName].filter(Boolean).join(" — "), rewardBanner);
       } else if (data.reason === "already_used") {
         showResult(false, "Già usato", data.usedAt ? ("Usato il " + new Date(data.usedAt).toLocaleString("it-IT")) : "");
       } else {

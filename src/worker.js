@@ -573,7 +573,15 @@ async function handleCheckin(request, env) {
     }
   });
 
-  return jsonResponse({ valid: true, email: ticket.email, name: ticket.name, eventName: ticket.eventName, tierName: ticket.tierName });
+  // Timbro loyalty qui, alla presenza reale — se questo check-in sblocca una ricompensa (3°/5°
+  // evento) lo staff lo vede subito nella risposta e può darla sul posto, senza dover cercare
+  // separatamente la loyalty card. stamps è null se la persona non ha un account GrowMi.
+  const stamps = await addLoyaltyStamp(env, ticket.email, { eventName: ticket.eventName, ticketCode, stampedAt: ticket.usedAt });
+
+  return jsonResponse({
+    valid: true, email: ticket.email, name: ticket.name, eventName: ticket.eventName, tierName: ticket.tierName,
+    stamps: stamps, reward3: stamps === 3, reward5: stamps === 5
+  });
 }
 
 // Riepilogo per la dashboard staff: quanti biglietti venduti in totale e quanti già entrati,
@@ -1102,11 +1110,8 @@ async function handleStripeWebhook(request, env) {
       // quando in realtà non è mai stato completato.
       await env.TICKETS.put(dedupeKey, ticketCode);
 
-      // Timbro loyalty all'acquisto (non al check-in — decisione di Carlo): se chi compra ha
-      // già un account GrowMi con quella email, il biglietto appena creato vale subito un
-      // timbro. Se non ha un account, il timbro arriva comunque in automatico se lo crea più
-      // avanti (vedi handleAccountRegister, che recupera i biglietti già esistenti).
-      await addLoyaltyStamp(env, email, { eventName, ticketCode, stampedAt: new Date().toISOString() });
+      // Nessun timbro loyalty qui: scatta solo alla presenza reale confermata al check-in
+      // (vedi handleCheckin) — chi compra e non si presenta non riceve il timbro.
 
       if (env.RESEND_API_KEY) {
         let pdfBase64 = null;
@@ -1351,34 +1356,44 @@ async function nextSequentialCustomerNumber(env) {
 }
 
 // Aggiunge un timbro loyalty, evitando doppioni se lo stesso biglietto viene passato due volte
-// (es. webhook Stripe rimandato). Se l'account non esiste ancora, non fa nulla: il timbro
-// arriva comunque in automatico quando la persona crea l'account (vedi handleAccountRegister).
+// (es. check-in ripetuto per errore). Scatta solo alla presenza reale confermata al check-in
+// (vedi handleCheckin) — chi compra e non si presenta non riceve il timbro, cosi' il vantaggio
+// (drink al 3° evento, ingresso gratis al 5°) è utilizzabile subito sul posto. Se l'account non
+// esiste ancora, non fa nulla: il timbro arriva comunque in automatico quando la persona crea
+// l'account (vedi handleAccountRegister → backfillLoyaltyFromTickets, solo biglietti già usati).
+// Ritorna il numero di timbri aggiornato, o null se non è stato aggiunto nulla (nessun account,
+// o timbro già dato in precedenza per lo stesso biglietto).
 async function addLoyaltyStamp(env, email, entry) {
-  if (!email) return;
+  if (!email) return null;
   const accountRaw = await env.TICKETS.get(`account:${email}`);
-  if (!accountRaw) return;
+  if (!accountRaw) return null;
   const raw = await env.TICKETS.get(`loyalty:${email}`);
   const loyalty = raw ? JSON.parse(raw) : { stamps: 0, history: [] };
-  if (loyalty.history.some(function(h){ return h.ticketCode === entry.ticketCode; })) return;
+  if (loyalty.history.some(function(h){ return h.ticketCode === entry.ticketCode; })) return loyalty.stamps;
   loyalty.stamps += 1;
   loyalty.history.push(entry);
   await env.TICKETS.put(`loyalty:${email}`, JSON.stringify(loyalty));
+  return loyalty.stamps;
 }
 
-// Al momento della creazione dell'account, timbra retroattivamente i biglietti già comprati
-// con quella email PRIMA di registrarsi (acquisto "come ospite" avvenuto prima dell'account) —
-// cosi' chi si registra dopo aver già partecipato a un evento non perde il timbro.
+// Al momento della creazione dell'account, timbra retroattivamente gli eventi a cui la persona
+// si è già presentata (check-in fatto) con quella email PRIMA di registrarsi (acquisto "come
+// ospite" avvenuto prima dell'account) — cosi' chi si registra dopo aver già partecipato a un
+// evento non perde il timbro. I biglietti comprati ma mai usati non contano, stessa regola di
+// handleCheckin.
 async function backfillLoyaltyFromTickets(env, email) {
   const entries = [];
   let cursor = undefined;
   do {
     const page = await env.TICKETS.list({ prefix: "ticket:", cursor });
     for (const key of page.keys) {
-      if (key.metadata?.email === email) {
+      // Solo i biglietti già usati (check-in reale confermato): il timbro segue la stessa
+      // regola di handleCheckin, mai un biglietto comprato e basta senza essersi presentati.
+      if (key.metadata?.email === email && key.metadata?.used) {
         entries.push({
           eventName: key.metadata.eventName || null,
           ticketCode: key.name.replace("ticket:", ""),
-          stampedAt: key.metadata.eventDateIso || new Date().toISOString()
+          stampedAt: key.metadata.usedAt || key.metadata.eventDateIso || new Date().toISOString()
         });
       }
     }
