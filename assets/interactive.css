@@ -88,6 +88,10 @@ body::after{
    La descrizione resta nascosta finche' il punto non e' aperto (bug corretto: era rimasta sempre
    visibile per errore durante una modifica precedente) */
 .tri-desc{ font-size:15.5px; line-height:1.6; max-height:0; opacity:0; overflow:hidden; }
+.tri-subtitle{
+  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13.5px;
+  letter-spacing:.02em; color:var(--coral); margin:14px 0 4px;
+}
 .ed-tri-point.is-open{
   position:absolute; inset:0; z-index:10;
   display:flex; align-items:flex-start; gap:18px;
@@ -97,10 +101,11 @@ body::after{
   padding:28px 30px;
   box-shadow:0 26px 50px -16px rgba(224,33,122,.45);
   animation:triCardPop .4s cubic-bezier(.34,1.4,.4,1);
+  overflow-y:auto;
 }
 .ed-tri-point.is-open .n{ color:var(--coral); font-size:20px; }
 .ed-tri-point.is-open h3{ font-size:clamp(22px,3vw,28px); margin-bottom:10px; }
-.ed-tri-point.is-open .tri-desc{ font-size:16px; max-height:260px; opacity:1; }
+.ed-tri-point.is-open .tri-desc{ font-size:16px; max-height:460px; opacity:1; }
 @keyframes triCardPop{ from{ transform:scale(.88); opacity:0; } to{ transform:scale(1); opacity:1; } }
 
 .tri-svg-frame{

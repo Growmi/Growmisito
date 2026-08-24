@@ -143,6 +143,7 @@ header.at-top .nav-account-icon{ border-color:var(--cream); color:var(--cream); 
 .nav-account-wrap.is-logged-in .nav-account-icon{ display:flex; }
 .nav-account-menu{
   position:absolute; top:calc(100% + 10px); right:0; min-width:240px;
+  max-width:min(240px, calc(100vw - 32px));
   background:var(--cream); border:1.5px solid var(--ink); border-radius:14px;
   padding:16px; box-shadow:0 16px 32px -12px rgba(30,12,44,.35);
   z-index:70; opacity:0; transform:translateY(-6px); pointer-events:none;
@@ -165,6 +166,13 @@ header.at-top .nav-account-icon{ border-color:var(--cream); color:var(--cream); 
   transition:background .15s ease, color .15s ease;
 }
 .nav-account-logout:hover{ background:var(--ink); color:var(--cream); }
+/* sotto i 1040px .nav-account-wrap non e' piu' vicino al bordo destro (a sinistra restano
+   il pulsante "Biglietti" e l'hamburger), quindi il menu ancorato con right:0 al wrap sporgeva
+   a sinistra oltre il bordo dello schermo e veniva tagliato da overflow-x:hidden sul body.
+   Sotto quella soglia lo ancoriamo invece al viewport (stesso top:76px del menu mobile .navlinks). */
+@media (max-width:1040px){
+  .nav-account-menu{ position:fixed; top:76px; right:16px; left:16px; max-width:none; }
+}
 
 .lang-switch{
   display:flex; border:2px solid var(--ink); border-radius:999px; overflow:hidden;
