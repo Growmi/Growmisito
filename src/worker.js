@@ -48,6 +48,40 @@ export default {
       }
     }
 
+    // Endpoint di debug/admin, protetto dalla chiave staff: annulla il riscatto di una carta
+    // fisica (es. riscattata per errore o solo per un test) — libera il numero e riporta
+    // l'account a un numero cliente casuale, come se non l'avesse mai riscattata.
+    if (url.pathname === "/api/debug-release-physical-card" && request.method === "POST") {
+      try {
+        const staffKey = request.headers.get("x-staff-key");
+        if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) return jsonResponse({ error: "unauthorized" }, 401);
+        const body = await request.json();
+        const parsed = parseInt(String(body.cardNumber || "").trim(), 10);
+        if (!Number.isInteger(parsed) || parsed < 1 || parsed > 200) {
+          return jsonResponse({ error: "numero carta non valido" }, 400);
+        }
+        const cardNumber = String(parsed).padStart(3, "0");
+        const claimRaw = await env.TICKETS.get(`physicalcard:${cardNumber}`);
+        if (!claimRaw) return jsonResponse({ error: "questo numero non risulta riscattato" }, 404);
+        const { email } = JSON.parse(claimRaw);
+
+        const accountRaw = await env.TICKETS.get(`account:${email}`);
+        if (accountRaw) {
+          const account = JSON.parse(accountRaw);
+          const newCustomerNumber = String(Math.floor(100000000 + Math.random() * 900000000));
+          account.customerNumber = newCustomerNumber;
+          account.physicalCardClaimed = false;
+          await env.TICKETS.put(`account:${email}`, JSON.stringify(account));
+          await env.TICKETS.put(`customernum:${newCustomerNumber}`, email);
+        }
+        await env.TICKETS.delete(`physicalcard:${cardNumber}`);
+        await env.TICKETS.delete(`customernum:${cardNumber}`);
+        return jsonResponse({ ok: true, releasedFrom: email });
+      } catch (err) {
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     if (url.pathname === "/api/stripe-webhook" && request.method === "POST") {
       // Tutta la gestione del webhook è avvolta qui, dal primo all'ultimo rigo: senza questo,
       // un'eccezione qualsiasi (anche nella creazione del client Stripe) produce solo un
@@ -587,6 +621,22 @@ async function handleAttendees(request, env) {
     }
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
+
+  // Chi ha la loyalty card (account creato, con o senza carta fisica riscattata) e chi invece
+  // ha comprato solo "come ospite", senza mai registrarsi — utile allo staff per capire chi
+  // proporre di iscrivere. Una sola cache per email, così una persona con più biglietti non fa
+  // una lettura KV ripetuta per ogni evento a cui è stata.
+  const accountCache = new Map();
+  for (const attendee of attendees) {
+    if (!attendee.email) { attendee.hasLoyaltyAccount = false; attendee.physicalCardClaimed = false; continue; }
+    if (!accountCache.has(attendee.email)) {
+      const raw = await env.TICKETS.get(`account:${attendee.email}`);
+      accountCache.set(attendee.email, raw ? JSON.parse(raw) : null);
+    }
+    const account = accountCache.get(attendee.email);
+    attendee.hasLoyaltyAccount = !!account;
+    attendee.physicalCardClaimed = !!(account && account.physicalCardClaimed);
+  }
 
   attendees.sort(function(a, b){ return (a.name || "").localeCompare(b.name || ""); });
 

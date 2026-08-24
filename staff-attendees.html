@@ -42,7 +42,14 @@
   }
   .row .info .name{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:15px; }
   .row .info .sub{ font-size:12.5px; color:rgba(251,246,240,0.6); margin-top:2px; }
-  .row .time{ font-size:12px; color:rgba(251,246,240,0.5); white-space:nowrap; }
+  .row .time{ font-size:12px; color:rgba(251,246,240,0.5); white-space:nowrap; text-align:right; }
+  .row .badge{
+    display:inline-block; margin-top:4px; padding:2px 9px; border-radius:20px; font-size:10.5px;
+    font-family:'Space Grotesk', sans-serif; font-weight:700; text-transform:uppercase; letter-spacing:.03em;
+  }
+  .row .badge.card{ background:rgba(253,198,49,0.2); color:var(--yellow); }
+  .row .badge.account{ background:rgba(46,204,113,0.18); color:#5FE0A0; }
+  .row .badge.guest{ background:rgba(251,246,240,0.08); color:rgba(251,246,240,0.5); }
 
   #empty{ text-align:center; color:rgba(251,246,240,0.5); font-size:14px; padding:40px 0; }
 
@@ -117,12 +124,18 @@
       var row = document.createElement("div");
       row.className = "row";
       var time = a.usedAt ? new Date(a.usedAt).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) : "";
+      // Differenzia chi ha una loyalty card (registrato, con o senza carta fisica riscattata)
+      // da chi ha comprato solo "come ospite" senza mai crearsi un account — vedi
+      // handleAttendees in src/worker.js.
+      var badge = a.physicalCardClaimed
+        ? '<span class="badge card">🪪 Carta fisica</span>'
+        : (a.hasLoyaltyAccount ? '<span class="badge account">⭐ Loyalty</span>' : '<span class="badge guest">Ospite</span>');
       row.innerHTML =
         '<div class="info">' +
           '<div class="name">' + (a.name || "Senza nome") + '</div>' +
           '<div class="sub">' + [a.email, a.tierName].filter(Boolean).join(" — ") + '</div>' +
         '</div>' +
-        '<div class="time">' + time + '</div>';
+        '<div class="time">' + time + '<br>' + badge + '</div>';
       list.appendChild(row);
     });
   }
