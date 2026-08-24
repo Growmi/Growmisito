@@ -105,25 +105,21 @@
   }
   .ap-reward.unlocked{ background:#EAF7EE; border-color:#BFE5CB; }
 
-  /* La card mostra in cima la grafica reale della loyalty card (assets/img/loyalty/front.jpg,
-     stessa immagine della pagina marketing loyalty-card.html), e sotto una fascia viola scuro
-     brandizzata con il barcode vero al posto del disegno illustrato dei timbri che c'è sul retro
-     della card fisica — i timbri reali sono già mostrati sotto, in forma di pallini. */
-  .ap-barcode-card{
-    border-radius:18px; overflow:hidden; margin-bottom:24px;
-    box-shadow:0 14px 30px -12px rgba(30,12,44,.35);
+  /* Stessa card a flip della pagina marketing loyalty-card.html (stesse classi globali
+     .loyalty-card/.loyalty-card-inner/.loyalty-card-face di assets/style.css, stessa
+     dimensione): fronte identico (front.jpg, logo + "LOYALTY CARD"), retro sostituito — al
+     posto del disegno illustrato dei timbri di back.jpg (i timbri reali sono già mostrati più
+     sotto, come pallini) c'è il barcode vero. Sfondo del retro #F1DCC9, campionato dal colore
+     di sfondo di front.jpg per restare coerente girando la card. */
+  .ap-barcode-back{
+    background:#F1DCC9; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:16px;
   }
-  .ap-barcode-banner{ width:100%; display:block; }
-  .ap-barcode-body{ background:var(--purple-deeper); padding:22px 18px 26px; text-align:center; }
-  .ap-barcode-body img{
-    width:100%; max-width:280px; height:auto; display:block; margin:0 auto;
-    background:#fff; border-radius:10px; padding:12px;
-  }
+  .ap-barcode-back img{ height:15%; min-height:36px; width:auto; max-width:88%; }
   .ap-barcode-num{
-    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; letter-spacing:.1em;
-    color:var(--yellow); margin-top:14px;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:clamp(13px,2.2vw,16px);
+    letter-spacing:.08em; color:var(--ink); margin-top:12px;
   }
-  .ap-barcode-hint{ font-size:12px; color:rgba(251,246,240,.65); margin-top:6px; }
 
   .ap-request-card{
     border:1.5px dashed var(--line); border-radius:16px; padding:22px; margin-bottom:24px; text-align:center;
@@ -346,13 +342,19 @@
       </div>
 
       <div class="ap-panel" data-panel-content="loyalty" hidden>
-        <div class="ap-barcode-card" id="ap-barcode-card" hidden>
-          <img src="assets/img/loyalty/front.jpg" alt="GrowMi Loyalty Card" class="ap-barcode-banner">
-          <div class="ap-barcode-body">
-            <img id="ap-barcode-img" src="" alt="Barcode loyalty card">
-            <p class="ap-barcode-num" id="ap-barcode-num">—</p>
-            <p class="ap-barcode-hint">Fai scansionare questo codice allo staff all'ingresso per farti riconoscere.</p>
+        <div class="loyalty-card-wrap" id="ap-barcode-card" hidden style="margin-bottom:24px;">
+          <div class="loyalty-card" id="ap-loyalty-card" tabindex="0" role="button" aria-label="Gira la card">
+            <div class="loyalty-card-inner">
+              <div class="loyalty-card-face loyalty-card-front">
+                <img src="assets/img/loyalty/front.jpg" alt="GrowMi Loyalty Card" class="loyalty-card-img">
+              </div>
+              <div class="loyalty-card-face loyalty-card-back ap-barcode-back">
+                <img id="ap-barcode-img" src="" alt="Barcode loyalty card">
+                <p class="ap-barcode-num" id="ap-barcode-num">—</p>
+              </div>
+            </div>
           </div>
+          <p class="loyalty-hint">Tocca la card per girarla e far scansionare il codice allo staff all'ingresso.</p>
         </div>
 
         <div class="ap-request-card" id="ap-request-card" hidden>
@@ -807,6 +809,13 @@
       }
     } catch (err) { /* resta la schermata di login, riprovabile ricaricando */ }
   }
+
+  // Stesso comportamento di flip della card in loyalty-card.html (la pagina marketing).
+  var loyaltyCardEl = document.getElementById('ap-loyalty-card');
+  loyaltyCardEl.addEventListener('click', function(){ loyaltyCardEl.classList.toggle('flipped'); });
+  loyaltyCardEl.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); loyaltyCardEl.classList.toggle('flipped'); }
+  });
 
   loadDashboard();
 })();
