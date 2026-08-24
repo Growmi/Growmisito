@@ -223,6 +223,33 @@ export default {
       }
     }
 
+    if (url.pathname === "/api/account/loyalty-barcode" && request.method === "GET") {
+      try {
+        return await handleAccountLoyaltyBarcode(request, env);
+      } catch (err) {
+        console.log("Errore account/loyalty-barcode:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/account/claim-physical-card" && request.method === "POST") {
+      try {
+        return await handleClaimPhysicalCard(request, env);
+      } catch (err) {
+        console.log("Errore account/claim-physical-card:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/lookup-customer" && request.method === "GET") {
+      try {
+        return await handleLookupByCustomerNumber(request, env);
+      } catch (err) {
+        console.log("Errore lookup-customer:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     if (url.pathname === "/api/account/forgot-password" && request.method === "POST") {
       try {
         return await handleAccountForgotPassword(request, env);
@@ -1190,6 +1217,68 @@ function accountStatusPageHTML(title, message) {
 </html>`;
 }
 
+// Tabella di codifica Code128 (set B — ASCII 32-127, sufficiente per un numero cliente
+// numerico), verificata contro la libreria jsbarcode: ogni voce è un pattern di 11 moduli
+// (13 per lo stop finale), 1=barra nera 0=spazio bianco. Niente libreria esterna: stesso
+// approccio già usato per il QR nel PDF biglietto (disegnare moduli grezzi invece di
+// affidarsi a un renderer che su Cloudflare Workers non ha canvas disponibile).
+const CODE128_BARS = [
+  11011001100, 11001101100, 11001100110, 10010011000, 10010001100, 10001001100, 10011001000, 10011000100,
+  10001100100, 11001001000, 11001000100, 11000100100, 10110011100, 10011011100, 10011001110, 10111001100,
+  10011101100, 10011100110, 11001110010, 11001011100, 11001001110, 11011100100, 11001110100, 11101101110,
+  11101001100, 11100101100, 11100100110, 11101100100, 11100110100, 11100110010, 11011011000, 11011000110,
+  11000110110, 10100011000, 10001011000, 10001000110, 10110001000, 10001101000, 10001100010, 11010001000,
+  11000101000, 11000100010, 10110111000, 10110001110, 10001101110, 10111011000, 10111000110, 10001110110,
+  11101110110, 11010001110, 11000101110, 11011101000, 11011100010, 11011101110, 11101011000, 11101000110,
+  11100010110, 11101101000, 11101100010, 11100011010, 11101111010, 11001000010, 11110001010, 10100110000,
+  10100001100, 10010110000, 10010000110, 10000101100, 10000100110, 10110010000, 10110000100, 10011010000,
+  10011000010, 10000110100, 10000110010, 11000010010, 11001010000, 11110111010, 11000010100, 10001111010,
+  10100111100, 10010111100, 10010011110, 10111100100, 10011110100, 10011110010, 11110100100, 11110010100,
+  11110010010, 11011011110, 11011110110, 11110110110, 10101111000, 10100011110, 10001011110, 10111101000,
+  10111100010, 11110101000, 11110100010, 10111011110, 10111101110, 11101011110, 11110101110, 11010000100,
+  11010010000, 11010011100, 1100011101011
+];
+const CODE128_START_B = 104;
+const CODE128_STOP = 106;
+
+// Codifica una stringa (solo ASCII 32-127: cifre e lettere bastano per il numero cliente)
+// nella sequenza di simboli Code128 Set B, checksum incluso — formula standard:
+// (valore_start + Σ valore_carattere_i × posizione_i) mod 103.
+function encodeCode128B(text) {
+  const values = [CODE128_START_B];
+  for (const ch of String(text)) {
+    const code = ch.charCodeAt(0);
+    if (code < 32 || code > 127) throw new Error("carattere non supportato dal barcode: " + ch);
+    values.push(code - 32);
+  }
+  let checksum = values[0];
+  for (let i = 1; i < values.length; i++) checksum += values[i] * i;
+  values.push(checksum % 103);
+  values.push(CODE128_STOP);
+  return values.map(v => String(CODE128_BARS[v]));
+}
+
+// Disegna i moduli del barcode come rettangoli SVG (stessa logica "solo calcolo, nessun
+// renderer" già usata per il QR del PDF biglietto).
+function code128Svg(text, opts) {
+  opts = opts || {};
+  const height = opts.height || 90;
+  const moduleWidth = opts.moduleWidth || 2.4;
+  const quietZone = moduleWidth * 10;
+  const patterns = encodeCode128B(text);
+  let x = quietZone;
+  let rects = "";
+  for (const pattern of patterns) {
+    for (const bit of pattern) {
+      if (bit === "1") rects += `<rect x="${x}" y="0" width="${moduleWidth}" height="${height}" fill="#000"/>`;
+      x += moduleWidth;
+    }
+  }
+  const totalWidth = x + quietZone;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalWidth} ${height}" width="${totalWidth}" height="${height}">` +
+    `<rect x="0" y="0" width="${totalWidth}" height="${height}" fill="#fff"/>${rects}</svg>`;
+}
+
 // Aggiunge un timbro loyalty, evitando doppioni se lo stesso biglietto viene passato due volte
 // (es. webhook Stripe rimandato). Se l'account non esiste ancora, non fa nulla: il timbro
 // arriva comunque in automatico quando la persona crea l'account (vedi handleAccountRegister).
@@ -1267,6 +1356,10 @@ async function handleAccountRegister(request, env) {
     emailVerified: false,
     verifyToken,
     customerNumber,
+    // true solo se il numero cliente è quello di una carta fedeltà fisica già posseduta e
+    // "riscattata" dall'area personale (vedi handleClaimPhysicalCard) — altrimenti è il numero
+    // casuale generato qui sopra, mai una carta fisica.
+    physicalCardClaimed: false,
     createdAt: new Date().toISOString(),
     // Dati personali estesi (sezione "Dati personali e consensi"), vuoti finché la persona non
     // li compila dalla propria area personale — vedi handleAccountProfile.
@@ -1277,6 +1370,9 @@ async function handleAccountRegister(request, env) {
       newsletterOptin: false
     }
   }));
+  // Indice numero cliente → email: permette allo staff di cercare un account dal barcode
+  // scansionato (vedi handleLookupByCustomerNumber) senza dover scorrere tutti gli account.
+  await env.TICKETS.put(`customernum:${customerNumber}`, email);
 
   await backfillLoyaltyFromTickets(env, email);
 
@@ -1377,6 +1473,7 @@ async function handleAccountMe(request, env) {
   return jsonResponse({
     email: account.email, name: account.name, createdAt: account.createdAt,
     customerNumber: account.customerNumber || null,
+    physicalCardClaimed: !!account.physicalCardClaimed,
     profile: account.profile || {}
   });
 }
@@ -1468,6 +1565,104 @@ async function handleAccountLoyalty(request, env) {
   const raw = await env.TICKETS.get(`loyalty:${email}`);
   const loyalty = raw ? JSON.parse(raw) : { stamps: 0, history: [] };
   return jsonResponse(loyalty);
+}
+
+// Barcode Code128 del numero cliente dell'account loggato, da mostrare nell'area personale e
+// far scansionare allo staff all'ingresso (identificazione, non timbra nulla — il timbro
+// loyalty resta legato solo all'acquisto del biglietto, vedi addLoyaltyStamp).
+async function handleAccountLoyaltyBarcode(request, env) {
+  const email = await getSessionEmail(request, env);
+  if (!email) return jsonResponse({ error: "non autenticato" }, 401);
+  const raw = await env.TICKETS.get(`account:${email}`);
+  if (!raw) return jsonResponse({ error: "account non trovato" }, 404);
+  const account = JSON.parse(raw);
+  if (!account.customerNumber) return jsonResponse({ error: "numero cliente mancante" }, 404);
+  const svg = code128Svg(account.customerNumber);
+  return jsonResponse({ customerNumber: account.customerNumber, svgBase64: btoa(svg) });
+}
+
+// Collega una carta fedeltà fisica già posseduta (numeri 1-200, consegnate una sola volta il
+// 4 giugno, mai timbrate finora) all'account online: il numero fisico diventa il "numero
+// cliente" ufficiale dell'account, così la card fisica e quella digitale sono la stessa
+// identità agli occhi dello staff. Un numero può essere riscattato una volta sola.
+async function handleClaimPhysicalCard(request, env) {
+  const email = await getSessionEmail(request, env);
+  if (!email) return jsonResponse({ error: "non autenticato" }, 401);
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const body = await request.json();
+  const parsed = parseInt(String(body.cardNumber || "").trim(), 10);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 200) {
+    return jsonResponse({ error: "numero carta non valido (deve essere tra 1 e 200)" }, 400);
+  }
+  const cardNumber = String(parsed).padStart(3, "0");
+
+  const accountRaw = await env.TICKETS.get(`account:${email}`);
+  if (!accountRaw) return jsonResponse({ error: "account non trovato" }, 404);
+  const account = JSON.parse(accountRaw);
+  if (account.physicalCardClaimed) {
+    return jsonResponse({ error: "hai già collegato una carta fisica a questo account" }, 409);
+  }
+
+  const claimKey = `physicalcard:${cardNumber}`;
+  if (await env.TICKETS.get(claimKey)) {
+    return jsonResponse({ error: "questo numero carta è già stato riscattato" }, 409);
+  }
+
+  const oldCustomerNumber = account.customerNumber;
+  await env.TICKETS.put(claimKey, JSON.stringify({ email, claimedAt: new Date().toISOString() }));
+  if (oldCustomerNumber) await env.TICKETS.delete(`customernum:${oldCustomerNumber}`);
+  await env.TICKETS.put(`customernum:${cardNumber}`, email);
+
+  account.customerNumber = cardNumber;
+  account.physicalCardClaimed = true;
+  await env.TICKETS.put(`account:${email}`, JSON.stringify(account));
+
+  return jsonResponse({ ok: true, customerNumber: cardNumber });
+}
+
+// Cerca un account dal numero cliente scansionato (barcode digitale o carta fisica riscattata):
+// mostra allo staff chi è e a che punto è con la loyalty card. Sola lettura, nessun timbro —
+// protetta dalla stessa chiave staff dello scanner biglietti, stesso principio di handleCheckin.
+async function handleLookupByCustomerNumber(request, env) {
+  const staffKey = request.headers.get("x-staff-key");
+  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
+    return jsonResponse({ error: "unauthorized" }, 401);
+  }
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const url = new URL(request.url);
+  const raw = String(url.searchParams.get("number") || "").trim();
+  if (!raw) return jsonResponse({ found: false });
+
+  // Il numero cliente casuale è a 9 cifre, quello di una carta fisica riscattata è 001-200
+  // (zero-paddato a 3 cifre): proviamo prima il valore così com'è, poi la versione paddata,
+  // così lo staff può anche digitare "7" a mano invece di leggerlo dal barcode.
+  const candidates = [raw, raw.padStart(3, "0")];
+  let email = null;
+  for (const candidate of candidates) {
+    email = await env.TICKETS.get(`customernum:${candidate}`);
+    if (email) break;
+  }
+  if (!email) return jsonResponse({ found: false });
+
+  const accountRaw = await env.TICKETS.get(`account:${email}`);
+  if (!accountRaw) return jsonResponse({ found: false });
+  const account = JSON.parse(accountRaw);
+
+  const loyaltyRaw = await env.TICKETS.get(`loyalty:${email}`);
+  const loyalty = loyaltyRaw ? JSON.parse(loyaltyRaw) : { stamps: 0 };
+
+  return jsonResponse({
+    found: true,
+    name: account.name,
+    email: account.email,
+    customerNumber: account.customerNumber,
+    physicalCardClaimed: !!account.physicalCardClaimed,
+    stamps: loyalty.stamps || 0,
+    reward3: (loyalty.stamps || 0) >= 3,
+    reward5: (loyalty.stamps || 0) >= 5
+  });
 }
 
 async function handleAccountForgotPassword(request, env) {

@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Check-in staff — GrowMi</title>
+<title>Loyalty staff — GrowMi</title>
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#1E0C2C">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="GrowMi Check-in">
+<meta name="apple-mobile-web-app-title" content="GrowMi Loyalty">
 <link rel="manifest" href="staff-manifest.json">
 <link rel="apple-touch-icon" href="assets/img/staff-icon.png">
 <link rel="icon" href="assets/img/staff-icon.png">
@@ -38,6 +38,7 @@
     font-family:'Space Grotesk', sans-serif; font-size:18px; font-weight:700;
   }
   header p{ font-size:12.5px; color:rgba(251,246,240,0.6); margin-top:2px; }
+  header a{ color:rgba(251,246,240,0.6); }
 
   main{ flex:1; display:flex; flex-direction:column; padding:20px; gap:18px; max-width:480px; margin:0 auto; width:100%; }
 
@@ -48,9 +49,9 @@
   .manual-row input{
     flex:1; padding:14px 16px; border-radius:12px; border:1.5px solid rgba(251,246,240,0.25);
     background:rgba(251,246,240,0.06); color:var(--cream); font-size:16px;
-    font-family:'Space Grotesk', sans-serif; letter-spacing:0.05em; text-transform:uppercase;
+    font-family:'Space Grotesk', sans-serif; letter-spacing:0.05em;
   }
-  .manual-row input::placeholder{ color:rgba(251,246,240,0.4); text-transform:none; letter-spacing:normal; }
+  .manual-row input::placeholder{ color:rgba(251,246,240,0.4); letter-spacing:normal; }
   .manual-row button{
     padding:14px 20px; border-radius:12px; border:none; background:var(--coral); color:#fff;
     font-weight:700; font-family:'Space Grotesk', sans-serif; cursor:pointer; font-size:14px;
@@ -63,18 +64,13 @@
   #result.invalid{ background:rgba(224,33,122,0.15); border:2px solid var(--red); display:block; }
   #result .icon{ font-size:40px; margin-bottom:8px; }
   #result .title{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:20px; margin-bottom:6px; }
-  #result .detail{ font-size:14px; color:rgba(251,246,240,0.75); }
-
-  .stats{ text-align:center; font-size:12.5px; color:rgba(251,246,240,0.5); }
-
-  .stats-bar{
-    display:flex; gap:10px; padding:14px 20px; border-bottom:1px solid rgba(251,246,240,0.12);
+  #result .detail{ font-size:14px; color:rgba(251,246,240,0.75); margin-bottom:14px; }
+  #result .rewards{ display:flex; flex-direction:column; gap:8px; }
+  #result .reward{
+    display:flex; justify-content:space-between; align-items:center; padding:10px 14px;
+    border-radius:10px; background:rgba(251,246,240,0.08); font-size:13.5px;
   }
-  .stats-box{
-    flex:1; text-align:center; background:rgba(251,246,240,0.06); border-radius:12px; padding:10px 8px;
-  }
-  .stats-box .n{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:22px; display:block; }
-  .stats-box .l{ font-size:11px; color:rgba(251,246,240,0.55); text-transform:uppercase; letter-spacing:0.04em; }
+  #result .reward.unlocked{ background:rgba(46,204,113,0.18); }
 
   .key-gate{
     position:fixed; inset:0; background:var(--ink); display:flex; align-items:center;
@@ -102,29 +98,24 @@
 
 <div class="key-gate" id="keyGate">
   <div class="key-card">
-    <h2>Check-in GrowMi</h2>
-    <p>Inserisci la chiave staff per accedere allo scanner biglietti.</p>
+    <h2>Loyalty GrowMi</h2>
+    <p>Inserisci la chiave staff per accedere alla ricerca cliente.</p>
     <input type="password" id="keyInput" placeholder="Chiave staff" autocomplete="off">
     <button type="button" id="keySubmit">Entra</button>
   </div>
 </div>
 
 <header>
-  <h1>Check-in biglietti</h1>
-  <p>Scanner GrowMi — valido per qualsiasi evento — <a href="staff-loyalty" style="color:rgba(251,246,240,0.6);">ricerca loyalty</a></p>
+  <h1>Ricerca loyalty card</h1>
+  <p>Scansiona il barcode del cliente — <a href="staff-checkin">vai al check-in biglietti</a></p>
 </header>
-
-<div class="stats-bar">
-  <a class="stats-box" href="staff-attendees" style="text-decoration:none; color:inherit;"><span class="n" id="statTotal">—</span><span class="l">Venduti</span></a>
-  <a class="stats-box" href="staff-attendees" style="text-decoration:none; color:inherit;"><span class="n" id="statCheckedIn">—</span><span class="l">Entrati &rarr; elenco</span></a>
-</div>
 
 <main>
   <div id="reader"></div>
 
   <div class="manual-row">
-    <input type="text" id="manualCode" placeholder="Codice biglietto" autocomplete="off">
-    <button type="button" id="manualSubmit">Controlla</button>
+    <input type="text" id="manualCode" placeholder="Numero cliente" autocomplete="off">
+    <button type="button" id="manualSubmit">Cerca</button>
   </div>
 
   <div id="result"></div>
@@ -142,28 +133,13 @@
   var keyGate = document.getElementById("keyGate");
   var keyInput = document.getElementById("keyInput");
   var result = document.getElementById("result");
-  var statTotal = document.getElementById("statTotal");
-  var statCheckedIn = document.getElementById("statCheckedIn");
 
   function getStaffKey(){ return localStorage.getItem(KEY_STORAGE); }
   function setStaffKey(k){ localStorage.setItem(KEY_STORAGE, k); }
   function clearStaffKey(){ localStorage.removeItem(KEY_STORAGE); }
 
-  // Numeri veri (venduti/entrati), letti dal server ad ogni apertura e dopo ogni scansione
-  // riuscita — non un conteggio locale che si azzera cambiando dispositivo o ricaricando.
-  async function refreshStats(){
-    try {
-      var res = await fetch("/api/stats", { headers: { "X-Staff-Key": getStaffKey() } });
-      if (!res.ok) return;
-      var data = await res.json();
-      statTotal.textContent = data.total;
-      statCheckedIn.textContent = data.checkedIn;
-    } catch (e) { /* connessione assente: lascia i numeri come sono */ }
-  }
-
-  // Suono generato al volo (nessun file audio da caricare): un bip alto e breve per un
-  // ingresso valido, due bip più bassi per un rifiuto — riconoscibili anche senza guardare
-  // lo schermo, utile in un ingresso buio/rumoroso.
+  // Stesso bip/vibrazione dello scanner biglietti, cosi' si riconosce l'esito anche senza
+  // guardare lo schermo (vedi staff-checkin.html).
   var audioCtx = null;
   function beep(frequencies, duration){
     try {
@@ -180,27 +156,26 @@
         osc.start(t + i * (duration + 0.06));
         osc.stop(t + i * (duration + 0.06) + duration);
       });
-    } catch (e) { /* audio non disponibile, non blocca il check-in */ }
+    } catch (e) { /* audio non disponibile, non blocca la ricerca */ }
   }
 
-  function showResult(ok, title, detail){
+  function showResult(ok, title, detail, rewardsHtml){
     result.className = ok ? "valid" : "invalid";
     result.innerHTML =
-      '<div class="icon">' + (ok ? "✅" : "❌") + '</div>' +
+      '<div class="icon">' + (ok ? "⭐" : "❌") + '</div>' +
       '<div class="title">' + title + '</div>' +
-      '<div class="detail">' + (detail || "") + '</div>';
+      '<div class="detail">' + (detail || "") + '</div>' +
+      (rewardsHtml || '');
     if (navigator.vibrate) navigator.vibrate(ok ? 80 : [60, 60, 60]);
     beep(ok ? [880] : [330, 330], ok ? 0.15 : 0.12);
   }
 
-  async function checkCode(code){
-    if (busy || !code) return;
+  async function lookupCode(number){
+    if (busy || !number) return;
     busy = true;
     try {
-      var res = await fetch("/api/checkin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Staff-Key": getStaffKey() },
-        body: JSON.stringify({ code: code })
+      var res = await fetch("/api/lookup-customer?number=" + encodeURIComponent(number), {
+        headers: { "X-Staff-Key": getStaffKey() }
       });
       if (res.status === 401) {
         clearStaffKey();
@@ -209,13 +184,15 @@
         return;
       }
       var data = await res.json();
-      if (data.valid) {
-        refreshStats();
-        showResult(true, data.eventName || "Ingresso valido", [data.name, data.email, data.tierName].filter(Boolean).join(" — "));
-      } else if (data.reason === "already_used") {
-        showResult(false, "Già usato", data.usedAt ? ("Usato il " + new Date(data.usedAt).toLocaleString("it-IT")) : "");
+      if (data.found) {
+        var rewards =
+          '<div class="rewards">' +
+          '<div class="reward' + (data.reward3 ? ' unlocked' : '') + '"><span>3° evento — drink offerto</span><span>' + (data.reward3 ? '✓' : '🔒') + '</span></div>' +
+          '<div class="reward' + (data.reward5 ? ' unlocked' : '') + '"><span>5° evento — ingresso gratuito</span><span>' + (data.reward5 ? '✓' : '🔒') + '</span></div>' +
+          '</div>';
+        showResult(true, data.name || "Cliente trovato", data.stamps + (data.stamps === 1 ? ' timbro' : ' timbri'), rewards);
       } else {
-        showResult(false, "Biglietto non trovato", "Controlla il codice");
+        showResult(false, "Nessun account trovato", "Controlla il numero");
       }
     } catch (e) {
       showResult(false, "Errore di rete", "Riprova");
@@ -225,7 +202,7 @@
 
   document.getElementById("manualSubmit").addEventListener("click", function(){
     var code = document.getElementById("manualCode").value;
-    checkCode(code);
+    lookupCode(code);
     document.getElementById("manualCode").value = "";
   });
   document.getElementById("manualCode").addEventListener("keydown", function(e){
@@ -238,7 +215,6 @@
     setStaffKey(k);
     keyGate.classList.add("hidden");
     startScanner();
-    refreshStats();
   });
   keyInput.addEventListener("keydown", function(e){
     if (e.key === "Enter") { document.getElementById("keySubmit").click(); }
@@ -256,23 +232,21 @@
     scanner = new Html5Qrcode("reader");
     scanner.start(
       { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 240, height: 240 } },
-      function(decodedText){ checkCode(decodedText); },
+      { fps: 10, qrbox: { width: 260, height: 140 } },
+      function(decodedText){ lookupCode(decodedText); },
       function(){ /* scan errors per frame, ignorati */ }
     ).catch(function(err){
       document.getElementById("reader").innerHTML =
-        '<p style="padding:24px; text-align:center; color:rgba(251,246,240,0.6); font-size:13.5px;">Fotocamera non disponibile (' + err + '). Usa l\'inserimento manuale del codice qui sotto.</p>';
+        '<p style="padding:24px; text-align:center; color:rgba(251,246,240,0.6); font-size:13.5px;">Fotocamera non disponibile (' + err + '). Usa l\'inserimento manuale del numero qui sotto.</p>';
     });
   }
 
   if (getStaffKey()) {
     keyGate.classList.add("hidden");
     startScanner();
-    refreshStats();
   } else {
     keyInput.focus();
   }
-  setInterval(function(){ if (getStaffKey()) refreshStats(); }, 30000);
 })();
 </script>
 
