@@ -105,16 +105,35 @@
   }
   .ap-reward.unlocked{ background:#EAF7EE; border-color:#BFE5CB; }
 
+  /* La card mostra in cima la grafica reale della loyalty card (assets/img/loyalty/front.jpg,
+     stessa immagine della pagina marketing loyalty-card.html), e sotto una fascia viola scuro
+     brandizzata con il barcode vero al posto del disegno illustrato dei timbri che c'è sul retro
+     della card fisica — i timbri reali sono già mostrati sotto, in forma di pallini. */
   .ap-barcode-card{
-    border:1.5px solid var(--line); border-radius:16px; padding:22px 18px; text-align:center;
-    background:#fff; margin-bottom:24px;
+    border-radius:18px; overflow:hidden; margin-bottom:24px;
+    box-shadow:0 14px 30px -12px rgba(30,12,44,.35);
   }
-  .ap-barcode-card img{ width:100%; max-width:320px; height:auto; display:block; margin:0 auto; }
+  .ap-barcode-banner{ width:100%; display:block; }
+  .ap-barcode-body{ background:var(--purple-deeper); padding:22px 18px 26px; text-align:center; }
+  .ap-barcode-body img{
+    width:100%; max-width:280px; height:auto; display:block; margin:0 auto;
+    background:#fff; border-radius:10px; padding:12px;
+  }
   .ap-barcode-num{
-    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; letter-spacing:.08em;
-    margin-top:10px;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; letter-spacing:.1em;
+    color:var(--yellow); margin-top:14px;
   }
-  .ap-barcode-hint{ font-size:12px; color:var(--grey); margin-top:4px; }
+  .ap-barcode-hint{ font-size:12px; color:rgba(251,246,240,.65); margin-top:6px; }
+
+  .ap-request-card{
+    border:1.5px dashed var(--line); border-radius:16px; padding:22px; margin-bottom:24px; text-align:center;
+  }
+  .ap-request-card p{ font-size:13.5px; color:var(--grey); margin-bottom:14px; }
+  .ap-request-card button{
+    padding:13px 22px; border-radius:10px; border:none; background:var(--coral); color:#fff;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13.5px; cursor:pointer;
+  }
+  .ap-request-card .ap-msg{ margin-top:12px; }
 
   .ap-claim-card{
     border:1.5px dashed var(--line); border-radius:16px; padding:18px; margin-bottom:24px;
@@ -327,21 +346,30 @@
       </div>
 
       <div class="ap-panel" data-panel-content="loyalty" hidden>
-        <div class="ap-barcode-card">
-          <img id="ap-barcode-img" src="" alt="Barcode loyalty card" style="display:none;">
-          <p class="ap-barcode-num" id="ap-barcode-num">—</p>
-          <p class="ap-barcode-hint">Fai scansionare questo codice allo staff all'ingresso per farti riconoscere.</p>
+        <div class="ap-barcode-card" id="ap-barcode-card" hidden>
+          <img src="assets/img/loyalty/front.jpg" alt="GrowMi Loyalty Card" class="ap-barcode-banner">
+          <div class="ap-barcode-body">
+            <img id="ap-barcode-img" src="" alt="Barcode loyalty card">
+            <p class="ap-barcode-num" id="ap-barcode-num">—</p>
+            <p class="ap-barcode-hint">Fai scansionare questo codice allo staff all'ingresso per farti riconoscere.</p>
+          </div>
+        </div>
+
+        <div class="ap-request-card" id="ap-request-card" hidden>
+          <p>Non hai ancora una loyalty card GrowMi. Richiedila per ottenere un codice a barre personale da far scansionare agli eventi.</p>
+          <button type="button" id="ap-request-submit">Richiedi la tua loyalty card</button>
+          <p class="ap-msg" id="ap-request-msg" hidden></p>
         </div>
 
         <div class="ap-claim-card" id="ap-claim-card" hidden>
           <p>Hai già una carta fedeltà fisica GrowMi? Inserisci il numero cliente stampato sulla card per collegarla al tuo account.</p>
           <div class="ap-claim-row">
-            <input type="text" inputmode="numeric" id="ap-claim-input" placeholder="Numero carta (1-200)" autocomplete="off">
+            <input type="text" inputmode="numeric" id="ap-claim-input" placeholder="Numero carta (1-250)" autocomplete="off">
             <button type="button" id="ap-claim-submit">Riscatta</button>
           </div>
           <p class="ap-msg" id="ap-claim-msg" hidden></p>
         </div>
-        <p class="ap-barcode-hint" id="ap-claim-done" hidden style="margin-bottom:24px;">✓ Carta fisica collegata a questo account.</p>
+        <p class="ap-msg ok" id="ap-claim-done" hidden style="margin-bottom:24px;">✓ Carta fisica collegata a questo account.</p>
 
         <p style="font-size:14.5px; color:var(--grey); margin-bottom:6px;" id="ap-loyalty-count">0 timbri</p>
         <div class="ap-stamps" id="ap-stamps"></div>
@@ -636,15 +664,38 @@
       var res = await fetch('/api/account/loyalty-barcode');
       var data = await res.json();
       if (!res.ok) return;
-      var img = document.getElementById('ap-barcode-img');
-      img.src = 'data:image/svg+xml;base64,' + data.svgBase64;
-      img.style.display = 'block';
+      document.getElementById('ap-barcode-img').src = 'data:image/svg+xml;base64,' + data.svgBase64;
       document.getElementById('ap-barcode-num').textContent = data.customerNumber || '—';
     } catch (err) { /* il barcode resta vuoto, non blocca il resto della dashboard */ }
   }
 
+  // Mostra la card col barcode solo se l'account ne ha già una (richiesta dal pulsante sotto,
+  // o carta fisica riscattata) — altrimenti mostra il pulsante per richiederla. Vedi
+  // handleRequestLoyaltyCard in src/worker.js: nessuna card assegnata più alla semplice
+  // registrazione, va richiesta esplicitamente.
+  function updateCardUI(customerNumber){
+    document.getElementById('ap-barcode-card').hidden = !customerNumber;
+    document.getElementById('ap-request-card').hidden = !!customerNumber;
+    if (customerNumber) loadBarcode();
+  }
+
+  document.getElementById('ap-request-submit').addEventListener('click', async function(){
+    var msg = document.getElementById('ap-request-msg');
+    try {
+      var res = await fetch('/api/account/request-loyalty-card', { method: 'POST' });
+      var data = await res.json();
+      if (res.ok) {
+        updateCardUI(data.customerNumber);
+        document.getElementById('ap-profile-customernum').textContent = data.customerNumber;
+      } else {
+        showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+      }
+    } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
+  });
+
   // Mostra il form "riscatta carta fisica" solo se l'account non ne ha già collegata una
-  // (numeri 1-200 delle card di carta consegnate il 4 giugno — vedi handleClaimPhysicalCard).
+  // (numeri 1-250: le 200 consegnate il 4 giugno più margine per stampe future — vedi
+  // handleClaimPhysicalCard).
   function updateClaimUI(physicalCardClaimed){
     document.getElementById('ap-claim-card').hidden = !!physicalCardClaimed;
     document.getElementById('ap-claim-done').hidden = !physicalCardClaimed;
@@ -663,7 +714,7 @@
       var data = await res.json();
       if (res.ok) {
         updateClaimUI(true);
-        loadBarcode();
+        updateCardUI(data.customerNumber);
         document.getElementById('ap-profile-customernum').textContent = data.customerNumber;
       } else {
         showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
@@ -744,7 +795,7 @@
       fillProfileForm(data.profile);
       loadTickets();
       loadLoyalty();
-      loadBarcode();
+      updateCardUI(data.customerNumber);
       updateClaimUI(data.physicalCardClaimed);
 
       // Deep link da un menu esterno (es. il menu account nell'header): ?tab=biglietti apre

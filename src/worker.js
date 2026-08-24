@@ -50,14 +50,15 @@ export default {
 
     // Endpoint di debug/admin, protetto dalla chiave staff: annulla il riscatto di una carta
     // fisica (es. riscattata per errore o solo per un test) — libera il numero e riporta
-    // l'account a un numero cliente casuale, come se non l'avesse mai riscattata.
+    // l'account a "nessuna loyalty card", come se non l'avesse mai riscattata (potrà
+    // richiederne una digitale o riscattarne un'altra fisica quando vuole).
     if (url.pathname === "/api/debug-release-physical-card" && request.method === "POST") {
       try {
         const staffKey = request.headers.get("x-staff-key");
         if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) return jsonResponse({ error: "unauthorized" }, 401);
         const body = await request.json();
         const parsed = parseInt(String(body.cardNumber || "").trim(), 10);
-        if (!Number.isInteger(parsed) || parsed < 1 || parsed > 200) {
+        if (!Number.isInteger(parsed) || parsed < 1 || parsed > 250) {
           return jsonResponse({ error: "numero carta non valido" }, 400);
         }
         const cardNumber = String(parsed).padStart(3, "0");
@@ -68,11 +69,9 @@ export default {
         const accountRaw = await env.TICKETS.get(`account:${email}`);
         if (accountRaw) {
           const account = JSON.parse(accountRaw);
-          const newCustomerNumber = String(Math.floor(100000000 + Math.random() * 900000000));
-          account.customerNumber = newCustomerNumber;
+          account.customerNumber = null;
           account.physicalCardClaimed = false;
           await env.TICKETS.put(`account:${email}`, JSON.stringify(account));
-          await env.TICKETS.put(`customernum:${newCustomerNumber}`, email);
         }
         await env.TICKETS.delete(`physicalcard:${cardNumber}`);
         await env.TICKETS.delete(`customernum:${cardNumber}`);
@@ -262,6 +261,15 @@ export default {
         return await handleAccountLoyaltyBarcode(request, env);
       } catch (err) {
         console.log("Errore account/loyalty-barcode:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/account/request-loyalty-card" && request.method === "POST") {
+      try {
+        return await handleRequestLoyaltyCard(request, env);
+      } catch (err) {
+        console.log("Errore account/request-loyalty-card:", err.stack || err.message);
         return jsonResponse({ error: err.message }, 500);
       }
     }
@@ -1329,6 +1337,19 @@ function code128Svg(text, opts) {
     `<rect x="0" y="0" width="${totalWidth}" height="${height}" fill="#fff"/>${rects}</svg>`;
 }
 
+// Numero cliente per chi richiede una loyalty card digitale (senza carta fisica): sequenziale
+// a partire da 251, per non sovrapporsi mai alle carte fisiche numerate 1-250 (200 già
+// consegnate il 4 giugno + margine fino a 250 per stampe future). Nessuna vera transazione
+// atomica su KV — un rischio di collisione esiste solo se due persone la richiedono nello
+// stesso istante esatto, accettabile ai volumi di GrowMi (stesso principio già scelto per il
+// numero cliente casuale che questa funzione sostituisce).
+async function nextSequentialCustomerNumber(env) {
+  const raw = await env.TICKETS.get("config:nextCustomerNumber");
+  const next = raw ? parseInt(raw, 10) : 251;
+  await env.TICKETS.put("config:nextCustomerNumber", String(next + 1));
+  return String(next).padStart(3, "0");
+}
+
 // Aggiunge un timbro loyalty, evitando doppioni se lo stesso biglietto viene passato due volte
 // (es. webhook Stripe rimandato). Se l'account non esiste ancora, non fa nulla: il timbro
 // arriva comunque in automatico quando la persona crea l'account (vedi handleAccountRegister).
@@ -1397,18 +1418,15 @@ async function handleAccountRegister(request, env) {
   const salt = crypto.randomUUID();
   const passwordHash = await hashPassword(password, salt);
   const verifyToken = crypto.randomUUID();
-  // Numero cliente in stile TicketOne: solo un identificativo da mostrare, non serve sia
-  // sequenziale — un numero a 9 cifre casuale è più che sufficiente ai volumi di GrowMi.
-  const customerNumber = String(Math.floor(100000000 + Math.random() * 900000000));
 
   await env.TICKETS.put(`account:${email}`, JSON.stringify({
     email, name, passwordHash, salt,
     emailVerified: false,
     verifyToken,
-    customerNumber,
-    // true solo se il numero cliente è quello di una carta fedeltà fisica già posseduta e
-    // "riscattata" dall'area personale (vedi handleClaimPhysicalCard) — altrimenti è il numero
-    // casuale generato qui sopra, mai una carta fisica.
+    // Nessun numero cliente/loyalty card alla semplice registrazione: arriva solo quando la
+    // persona lo richiede esplicitamente dall'area personale (vedi handleRequestLoyaltyCard),
+    // oppure riscatta una carta fisica già posseduta (vedi handleClaimPhysicalCard).
+    customerNumber: null,
     physicalCardClaimed: false,
     createdAt: new Date().toISOString(),
     // Dati personali estesi (sezione "Dati personali e consensi"), vuoti finché la persona non
@@ -1420,9 +1438,6 @@ async function handleAccountRegister(request, env) {
       newsletterOptin: false
     }
   }));
-  // Indice numero cliente → email: permette allo staff di cercare un account dal barcode
-  // scansionato (vedi handleLookupByCustomerNumber) senza dover scorrere tutti gli account.
-  await env.TICKETS.put(`customernum:${customerNumber}`, email);
 
   await backfillLoyaltyFromTickets(env, email);
 
@@ -1631,10 +1646,34 @@ async function handleAccountLoyaltyBarcode(request, env) {
   return jsonResponse({ customerNumber: account.customerNumber, svgBase64: btoa(svg) });
 }
 
-// Collega una carta fedeltà fisica già posseduta (numeri 1-200, consegnate una sola volta il
-// 4 giugno, mai timbrate finora) all'account online: il numero fisico diventa il "numero
-// cliente" ufficiale dell'account, così la card fisica e quella digitale sono la stessa
-// identità agli occhi dello staff. Un numero può essere riscattato una volta sola.
+// Assegna una loyalty card digitale a chi non ne ha ancora una (né fisica né richiesta prima):
+// numero sequenziale a partire da 251 (vedi nextSequentialCustomerNumber), così non si scontra
+// mai con le carte fisiche numerate 1-250. Azione esplicita dell'account loggato, niente più
+// assegnazione automatica alla semplice registrazione.
+async function handleRequestLoyaltyCard(request, env) {
+  const email = await getSessionEmail(request, env);
+  if (!email) return jsonResponse({ error: "non autenticato" }, 401);
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const accountRaw = await env.TICKETS.get(`account:${email}`);
+  if (!accountRaw) return jsonResponse({ error: "account non trovato" }, 404);
+  const account = JSON.parse(accountRaw);
+  if (account.customerNumber) {
+    return jsonResponse({ error: "hai già una loyalty card" }, 409);
+  }
+
+  const customerNumber = await nextSequentialCustomerNumber(env);
+  account.customerNumber = customerNumber;
+  await env.TICKETS.put(`account:${email}`, JSON.stringify(account));
+  await env.TICKETS.put(`customernum:${customerNumber}`, email);
+
+  return jsonResponse({ ok: true, customerNumber });
+}
+
+// Collega una carta fedeltà fisica già posseduta (numeri 1-250: le 200 consegnate il 4 giugno
+// più margine per stampe future, mai timbrate finora) all'account online: il numero fisico
+// diventa il "numero cliente" ufficiale dell'account, così la card fisica e quella digitale
+// sono la stessa identità agli occhi dello staff. Un numero può essere riscattato una volta sola.
 async function handleClaimPhysicalCard(request, env) {
   const email = await getSessionEmail(request, env);
   if (!email) return jsonResponse({ error: "non autenticato" }, 401);
@@ -1642,8 +1681,8 @@ async function handleClaimPhysicalCard(request, env) {
 
   const body = await request.json();
   const parsed = parseInt(String(body.cardNumber || "").trim(), 10);
-  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 200) {
-    return jsonResponse({ error: "numero carta non valido (deve essere tra 1 e 200)" }, 400);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 250) {
+    return jsonResponse({ error: "numero carta non valido (deve essere tra 1 e 250)" }, 400);
   }
   const cardNumber = String(parsed).padStart(3, "0");
 
@@ -1685,9 +1724,9 @@ async function handleLookupByCustomerNumber(request, env) {
   const raw = String(url.searchParams.get("number") || "").trim();
   if (!raw) return jsonResponse({ found: false });
 
-  // Il numero cliente casuale è a 9 cifre, quello di una carta fisica riscattata è 001-200
-  // (zero-paddato a 3 cifre): proviamo prima il valore così com'è, poi la versione paddata,
-  // così lo staff può anche digitare "7" a mano invece di leggerlo dal barcode.
+  // Sia il numero sequenziale digitale (251 in su) sia quello di una carta fisica riscattata
+  // (001-250) sono zero-paddati a 3 cifre: proviamo prima il valore così com'è, poi la versione
+  // paddata, così lo staff può anche digitare "7" a mano invece di leggerlo dal barcode.
   const candidates = [raw, raw.padStart(3, "0")];
   let email = null;
   for (const candidate of candidates) {

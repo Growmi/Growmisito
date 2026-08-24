@@ -177,7 +177,15 @@
   function setStaffKey(k){ localStorage.setItem(KEY_STORAGE, k); }
   function clearStaffKey(){ localStorage.removeItem(KEY_STORAGE); }
 
+  // Riquadro di inquadratura diverso per forma: quadrato per i QR dei biglietti, rettangolo
+  // largo e basso per il barcode Code128 della loyalty card (è una striscia orizzontale, un
+  // riquadro quadrato lascerebbe troppo margine sopra/sotto e renderebbe la lettura più lenta).
+  function qrboxForMode(m){
+    return m === "loyalty" ? { width: 280, height: 120 } : { width: 240, height: 240 };
+  }
+
   function setMode(m){
+    var changed = mode !== m;
     mode = m;
     document.getElementById("tabCheckin").classList.toggle("is-active", m === "checkin");
     document.getElementById("tabLoyalty").classList.toggle("is-active", m === "loyalty");
@@ -188,6 +196,7 @@
     result.className = "";
     result.innerHTML = "";
     manualCode.value = "";
+    if (changed) restartScannerForMode();
   }
   document.getElementById("tabCheckin").addEventListener("click", function(){ setMode("checkin"); });
   document.getElementById("tabLoyalty").addEventListener("click", function(){ setMode("loyalty"); });
@@ -327,13 +336,28 @@
     scanner = new Html5Qrcode("reader");
     scanner.start(
       { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 240, height: 240 } },
+      { fps: 10, qrbox: qrboxForMode(mode) },
       function(decodedText){ handleScan(decodedText); },
       function(){ /* scan errors per frame, ignorati */ }
     ).catch(function(err){
       document.getElementById("reader").innerHTML =
         '<p style="padding:24px; text-align:center; color:rgba(251,246,240,0.6); font-size:13.5px;">Fotocamera non disponibile (' + err + '). Usa l\'inserimento manuale qui sotto.</p>';
     });
+  }
+
+  // Cambiare scheda cambia anche la forma del riquadro (vedi qrboxForMode): la fotocamera resta
+  // la stessa, va solo fermata e fatta ripartire con la nuova configurazione — un'interruzione
+  // di una frazione di secondo, il permesso della fotocamera resta comunque concesso.
+  function restartScannerForMode(){
+    if (!scanner || !scanner.isScanning) return;
+    scanner.stop().then(function(){
+      scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: qrboxForMode(mode) },
+        function(decodedText){ handleScan(decodedText); },
+        function(){ /* scan errors per frame, ignorati */ }
+      );
+    }).catch(function(){ /* se il riavvio fallisce resta la fotocamera precedente, non blocca */ });
   }
 
   if (getStaffKey()) {
