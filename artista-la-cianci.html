@@ -51,7 +51,11 @@
   </nav>
 </header>
 
-<section class="ed-hero" style="padding:110px 0 80px;">
+<section class="ed-hero" style="padding:110px 0 80px; position:relative; overflow:hidden;">
+  <video class="ed-hero-video" autoplay muted loop playsinline>
+    <source src="assets/video/la-cianci-bg.mp4" type="video/mp4">
+  </video>
+  <div class="ed-hero-video-overlay"></div>
   <div class="wrap ed-wrap">
     <span class="ed-eyebrow">Artista GrowMi</span>
     <h1 style="font-size:clamp(36px,6vw,76px);">La Cianci</h1>
@@ -60,13 +64,25 @@
 </section>
 
 <section class="ed-section-tight">
-  <div class="wrap" style="max-width:720px;">
+  <div class="wrap" style="max-width:980px;">
     <div class="ed-card-media" style="aspect-ratio:16/10; margin-bottom:32px;">
       <img src="assets/img/artisti/la-cianci.jpg" alt="La Cianci">
     </div>
-    <p style="font-size:16.5px; margin-bottom:20px;" data-i18n="art_cianci_p1">CIANCI affonda le sue radici musicali nello studio del pianoforte, con un importante background in conservatorio che ne definisce la sensibilità armonica. Farsi notare sui social con un'attitudine hip hop e una spiccata fluidità di barre è solo il primo passo: nel 2021 esordisce con «8:30», ballad indie da oltre 80.000 ascolti su Spotify che intercetta subito le insicurezze della sua generazione.</p>
-    <p style="font-size:16.5px; margin-bottom:20px;" data-i18n="art_cianci_p2">Da lì, la sua cifra stilistica evolve verso un rap cantautorale: il 2026 segna la sua piena maturità artistica attraverso una trilogia di singoli speculari — Fortunata, L'ultima Parola e Musica Mia.</p>
-    <p style="font-size:16.5px;" data-i18n="art_cianci_p3">Il 4 giugno ha confermato tutto il suo talento portando sul palco di GrowMi, insieme alla sua band, un live potente e travolgente che ha conquistato il nostro pubblico.</p>
+    <div style="display:flex; gap:44px; flex-wrap:wrap; align-items:flex-start;">
+      <div style="flex:1 1 380px; min-width:280px;">
+        <p style="font-size:16.5px; margin-bottom:20px;" data-i18n="art_cianci_p1">CIANCI affonda le sue radici musicali nello studio del pianoforte, con un importante background in conservatorio che ne definisce la sensibilità armonica. Farsi notare sui social con un'attitudine hip hop e una spiccata fluidità di barre è solo il primo passo: nel 2021 esordisce con «8:30», ballad indie da oltre 80.000 ascolti su Spotify che intercetta subito le insicurezze della sua generazione.</p>
+        <p style="font-size:16.5px; margin-bottom:20px;" data-i18n="art_cianci_p2">Da lì, la sua cifra stilistica evolve verso un rap cantautorale: il 2026 segna la sua piena maturità artistica attraverso una trilogia di singoli speculari — Fortunata, L'ultima Parola e Musica Mia.</p>
+        <p style="font-size:16.5px;" data-i18n="art_cianci_p3">Il 4 giugno ha confermato tutto il suo talento portando sul palco di GrowMi, insieme alla sua band, un live potente e travolgente che ha conquistato il nostro pubblico.</p>
+      </div>
+      <div style="flex:1 1 340px; min-width:260px; max-width:480px; display:flex; flex-direction:column; gap:14px;">
+        <video controls playsinline style="width:100%; border-radius:14px; display:block; background:#000;">
+          <source src="assets/video/la-cianci-clip1.mp4" type="video/mp4">
+        </video>
+        <video controls playsinline style="width:100%; border-radius:14px; display:block; background:#000;">
+          <source src="assets/video/la-cianci-clip2.mp4" type="video/mp4">
+        </video>
+      </div>
+    </div>
   </div>
 </section>
 
