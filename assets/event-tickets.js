@@ -13,6 +13,8 @@
 //     <form data-et-reg-form>
 //       <input data-et-name> <input type="email" data-et-email>
 //       <input type="checkbox" data-et-photo-consent> <input type="checkbox" data-et-newsletter>
+//       <input data-et-coupon> (facoltativo: codice del coupon "5° evento gratis" — se compilato
+//         e valido, il prezzo del biglietto diventa €0, controllato sempre lato server)
 //       <button type="submit" data-et-reg-submit>...</button>
 //       <p data-et-reg-status hidden></p>
 //     </form>
@@ -131,6 +133,7 @@
       if (!selectedTierId) return;
       submitBtn.disabled = true;
       try {
+        var couponInput = form.querySelector("[data-et-coupon]");
         var res = await fetch("/api/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -140,7 +143,8 @@
             email: form.querySelector("[data-et-email]").value.trim(),
             termsAccepted: form.querySelector("[data-et-terms]") ? form.querySelector("[data-et-terms]").checked : false,
             photoConsent: form.querySelector("[data-et-photo-consent]").checked,
-            newsletterOptin: form.querySelector("[data-et-newsletter]") ? form.querySelector("[data-et-newsletter]").checked : false
+            newsletterOptin: form.querySelector("[data-et-newsletter]") ? form.querySelector("[data-et-newsletter]").checked : false,
+            couponCode: couponInput ? couponInput.value.trim() : ""
           })
         });
         var data = await res.json();

@@ -165,6 +165,15 @@ export default {
       }
     }
 
+    if (url.pathname === "/api/validate-coupon" && request.method === "POST") {
+      try {
+        return await handleValidateCoupon(request, env);
+      } catch (err) {
+        console.log("Errore validate-coupon:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     if (url.pathname === "/api/create-checkout-session" && request.method === "POST") {
       try {
         return await handleCreateCheckoutSession(request, env);
@@ -931,6 +940,32 @@ async function subscribeToMailerLite(env, email, name) {
 // dell'acquisto. Sostituisce Netlify Forms, oggi rotto e comunque scollegato dal pagamento
 // reale: qui i dati restano su KV e vengono ripresi dal webhook dopo il pagamento, cosi' il
 // biglietto usa davvero quello che la persona ha scritto sul sito.
+// Controlla un codice coupon (5° evento gratis) per una data email: esiste, non è scaduto, non
+// è già stato usato, ed è effettivamente di quella persona (mai fidarsi solo del codice — senza
+// il controllo email chiunque intercetti un codice altrui potrebbe usarlo). Usata sia da
+// handleRegister (al submit del form) sia da handleValidateCoupon (validazione live in pagina).
+async function validateCoupon(env, code, email) {
+  const raw = await env.TICKETS.get(`coupon:${code}`);
+  if (!raw) return { valid: false, error: "coupon non valido" };
+  const coupon = JSON.parse(raw);
+  if (coupon.email.toLowerCase() !== String(email || "").trim().toLowerCase()) {
+    return { valid: false, error: "questo coupon non è associato a questa email" };
+  }
+  if (coupon.used) return { valid: false, error: "coupon già utilizzato" };
+  if (new Date(coupon.expiresAt) < new Date()) return { valid: false, error: "coupon scaduto" };
+  return { valid: true, coupon };
+}
+
+async function handleValidateCoupon(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const code = String(body.code || "").trim().toUpperCase();
+  const email = String(body.email || "").trim();
+  if (!code || !email) return jsonResponse({ valid: false, error: "codice ed email obbligatori" }, 400);
+  const result = await validateCoupon(env, code, email);
+  return jsonResponse(result);
+}
+
 async function handleRegister(request, env) {
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
 
@@ -941,15 +976,25 @@ async function handleRegister(request, env) {
   const termsAccepted = body.termsAccepted === true;
   const photoConsent = body.photoConsent === true;
   const newsletterOptin = body.newsletterOptin === true;
+  const couponCode = String(body.couponCode || "").trim().toUpperCase();
 
   if (!EVENTS[eventSlug]) return jsonResponse({ error: "evento non valido" }, 400);
   if (!name || !email || !termsAccepted || !photoConsent) {
     return jsonResponse({ error: "nome, email, termini e condizioni e consenso foto/video sono obbligatori" }, 400);
   }
 
+  // Il coupon è facoltativo: se il campo è vuoto si procede normalmente. Se è compilato, deve
+  // essere valido — meglio bloccare qui con un errore chiaro che scoprirlo al checkout.
+  if (couponCode) {
+    const check = await validateCoupon(env, couponCode, email);
+    if (!check.valid) return jsonResponse({ error: check.error }, 400);
+  }
+
   const registrationId = crypto.randomUUID();
   await env.TICKETS.put(`registration:${registrationId}`, JSON.stringify({
-    eventSlug, name, email, termsAccepted, photoConsent, newsletterOptin, createdAt: new Date().toISOString()
+    eventSlug, name, email, termsAccepted, photoConsent, newsletterOptin,
+    couponCode: couponCode || null,
+    createdAt: new Date().toISOString()
   }));
 
   if (newsletterOptin) {
@@ -992,6 +1037,18 @@ async function handleCreateCheckoutSession(request, env) {
     return jsonResponse({ error: "fascia esaurita" }, 409);
   }
 
+  // Ricontrollo il coupon qui, non solo al momento della registrazione: è il punto più vicino
+  // possibile alla creazione della sessione di pagamento, quindi il controllo più affidabile
+  // (nel mezzo qualcun altro potrebbe averlo già usato, o potrebbe essere scaduto proprio ora).
+  let priceCents = found.option.priceCents;
+  let couponApplied = null;
+  if (registration.couponCode) {
+    const check = await validateCoupon(env, registration.couponCode, registration.email);
+    if (!check.valid) return jsonResponse({ error: "coupon non più valido: " + check.error }, 400);
+    priceCents = 0;
+    couponApplied = registration.couponCode;
+  }
+
   const stripe = new Stripe(env.STRIPE_SECRET_KEY);
   const origin = new URL(request.url).origin;
 
@@ -1004,14 +1061,15 @@ async function handleCreateCheckoutSession(request, env) {
       quantity: 1,
       price_data: {
         currency: "eur",
-        unit_amount: found.option.priceCents,
-        product_data: { name: `${found.event.name} — ${found.tier.name} — ${found.option.label}` }
+        unit_amount: priceCents,
+        product_data: { name: `${found.event.name} — ${found.tier.name} — ${found.option.label}` + (couponApplied ? " (coupon 5° evento)" : "") }
       }
     }],
     metadata: {
       event: registration.eventSlug,
       tierId,
-      optionId
+      optionId,
+      couponCode: couponApplied || ""
     },
     return_url: `${origin}/biglietto-confermato?session_id={CHECKOUT_SESSION_ID}`
   });
@@ -1110,6 +1168,22 @@ async function handleStripeWebhook(request, env) {
         createdAt: new Date().toISOString(),
         stripeSessionId: session.id
       }), { metadata: { used: false, eventSlug, tierId, email, eventName, eventDateIso, tierName } });
+
+      // Se questo acquisto ha usato un coupon (5° evento gratis), lo segno come speso solo ORA
+      // che il biglietto esiste davvero — mai prima, altrimenti un pagamento fallito/abbandonato
+      // brucerebbe comunque il coupon senza che la persona abbia ottenuto nulla in cambio.
+      const couponCode = session.metadata?.couponCode;
+      if (couponCode) {
+        const couponRaw = await env.TICKETS.get(`coupon:${couponCode}`);
+        if (couponRaw) {
+          const coupon = JSON.parse(couponRaw);
+          coupon.used = true;
+          coupon.usedAt = new Date().toISOString();
+          coupon.usedForTicketCode = ticketCode;
+          await env.TICKETS.put(`coupon:${couponCode}`, JSON.stringify(coupon));
+        }
+      }
+
       // La registrazione è servita al suo scopo (i dati sono ora sul biglietto): la rimuovo per
       // non lasciare copie sparse di dati personali su KV più a lungo del necessario.
       await env.TICKETS.delete(`registration:${registrationId}`);
@@ -1364,6 +1438,69 @@ async function nextSequentialCustomerNumber(env) {
   return String(next).padStart(3, "0");
 }
 
+// Email del coupon "5° evento gratis": stesso stile a card viola delle altre email GrowMi,
+// codice mostrato in grande dentro un riquadro cosi' è facile da leggere/copiare anche da
+// telefono, pulsante che porta dritti alla pagina eventi per usarlo subito o quando vuole.
+function buildCouponEmailHTML({ name, code, expiresLabel }) {
+  const firstName = name ? name.split(" ")[0] : "";
+  return `
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FBF6F0" style="background:#FBF6F0;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#2C0943" style="background:#2C0943; border-radius:24px; max-width:600px;">
+        <tr>
+          <td style="padding:48px 44px; font-family:Arial, Helvetica, sans-serif;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr><td align="center" style="font-size:28px; font-weight:bold; color:#F86639; padding-bottom:14px; line-height:1.3;">&#127881; Hai sbloccato il 5&deg; timbro, ${firstName}!</td></tr>
+              <tr><td align="center" style="font-size:16px; color:#FBF6F0; line-height:1.6; padding-bottom:26px;">Come promesso dalla tua loyalty card GrowMi, ecco il codice per il tuo <strong>ingresso gratuito</strong> al prossimo evento che scegli.</td></tr>
+              <tr>
+                <td align="center" style="padding-bottom:22px;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0" bgcolor="#FBF6F0" style="background:#FBF6F0; border-radius:14px; border:2px dashed #F86639;">
+                    <tr><td style="padding:18px 30px; font-family:'Courier New', monospace; font-size:28px; font-weight:bold; letter-spacing:4px; color:#2C0943;">${code}</td></tr>
+                  </table>
+                </td>
+              </tr>
+              <tr><td align="center" style="font-size:13px; color:#C9BCD6; padding-bottom:26px;">Valido fino al ${expiresLabel} &middot; utilizzabile una sola volta, per qualsiasi evento GrowMi tu scelga.</td></tr>
+              <tr>
+                <td align="center">
+                  <a href="https://growmisito.grow-mi.workers.dev/eventi" style="display:inline-block; background:#F86639; color:#FFFFFF; font-family:Arial, Helvetica, sans-serif; font-weight:bold; font-size:16px; text-decoration:none; padding:15px 34px; border-radius:12px;">Scegli il tuo evento</a>
+                </td>
+              </tr>
+              <tr><td align="center" style="font-size:13px; color:#C9BCD6; padding-top:22px;">Inseriscilo nel campo "Codice coupon" al momento dell'acquisto: il biglietto risulterà a costo zero.</td></tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+  `;
+}
+
+// Genera e manda via email il coupon per l'ingresso gratuito al 5° evento — uso singolo, valido
+// 6 mesi dall'emissione, per qualsiasi evento GrowMi scelto dal cliente (non solo il prossimo in
+// assoluto). Chiamata una volta sola da addLoyaltyStamp, esattamente al quinto timbro.
+async function issueGrowMiCoupon(env, email, name) {
+  const code = generateTicketCode();
+  const expires = new Date();
+  expires.setMonth(expires.getMonth() + 6);
+  await env.TICKETS.put(`coupon:${code}`, JSON.stringify({
+    email, name, createdAt: new Date().toISOString(), expiresAt: expires.toISOString(), used: false
+  }));
+  if (env.RESEND_API_KEY) {
+    await sendAccountEmail(env, {
+      to: email,
+      subject: "🎉 Il tuo coupon per l'ingresso gratuito — GrowMi",
+      html: buildCouponEmailHTML({
+        name,
+        code,
+        expiresLabel: expires.toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" })
+      })
+    });
+  }
+  return code;
+}
+
 // Aggiunge un timbro loyalty, evitando doppioni se lo stesso biglietto viene passato due volte
 // (es. check-in ripetuto per errore). Scatta solo alla presenza reale confermata al check-in
 // (vedi handleCheckin) — chi compra e non si presenta non riceve il timbro, cosi' il vantaggio
@@ -1376,11 +1513,21 @@ async function addLoyaltyStamp(env, email, entry) {
   if (!email) return null;
   const accountRaw = await env.TICKETS.get(`account:${email}`);
   if (!accountRaw) return null;
+  const account = JSON.parse(accountRaw);
   const raw = await env.TICKETS.get(`loyalty:${email}`);
-  const loyalty = raw ? JSON.parse(raw) : { stamps: 0, history: [] };
+  const loyalty = raw ? JSON.parse(raw) : { stamps: 0, history: [], redeemed: {} };
   if (loyalty.history.some(function(h){ return h.ticketCode === entry.ticketCode; })) return loyalty.stamps;
   loyalty.stamps += 1;
   loyalty.history.push(entry);
+  loyalty.redeemed = loyalty.redeemed || {};
+  // Il 5° timbro è "automatico": a differenza del drink al 3° (dato di persona dallo staff, vedi
+  // handleRedeemReward), qui non serve nessuna azione dello staff — il coupon parte via email da
+  // solo nell'istante esatto in cui scatta il quinto timbro. Il flag redeemed["5"] qui significa
+  // "coupon già emesso", non più "dato allo scanner".
+  if (loyalty.stamps === 5 && !loyalty.redeemed["5"]) {
+    await issueGrowMiCoupon(env, email, account.name);
+    loyalty.redeemed["5"] = new Date().toISOString();
+  }
   await env.TICKETS.put(`loyalty:${email}`, JSON.stringify(loyalty));
   return loyalty.stamps;
 }

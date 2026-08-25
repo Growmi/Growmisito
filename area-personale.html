@@ -666,17 +666,16 @@
         d.textContent = i <= stamps ? '★' : '';
         wrap.appendChild(d);
       }
-      // Tre stati: bloccato (non ancora ai timbri richiesti), sbloccato ma non ancora dato
-      // dallo staff, oppure già ricevuto — vedi handleRedeemReward in src/worker.js (lo staff
-      // lo segna "dato" dallo scanner, cosi' non si può richiedere due volte lo stesso vantaggio).
+      // Il 3° evento (drink) è dato di persona dallo staff: tre stati, bloccato/pronto/ricevuto —
+      // vedi handleRedeemReward in src/worker.js. Il 5° evento (coupon ingresso gratis) invece è
+      // automatico: appena si sblocca, il coupon è già stato mandato via email da solo (vedi
+      // issueGrowMiCoupon), quindi qui è solo bloccato oppure "inviato", mai "pronto da mostrare".
       var redeemed = data.redeemed || {};
-      function setRewardState(elId, stateId, unlocked, isRedeemed){
-        var el = document.getElementById(elId); var stateEl = document.getElementById(stateId);
-        if (isRedeemed) { el.classList.add('unlocked'); stateEl.textContent = '✓ Ricevuto'; }
-        else if (unlocked) { stateEl.textContent = '🎁 Pronto — mostralo allo staff'; }
-      }
-      setRewardState('ap-reward-3', 'ap-reward-3-state', stamps >= 3, !!redeemed['3']);
-      setRewardState('ap-reward-5', 'ap-reward-5-state', stamps >= 5, !!redeemed['5']);
+      var r3 = document.getElementById('ap-reward-3'); var r3s = document.getElementById('ap-reward-3-state');
+      if (redeemed['3']) { r3.classList.add('unlocked'); r3s.textContent = '✓ Ricevuto'; }
+      else if (stamps >= 3) { r3s.textContent = '🎁 Pronto — mostralo allo staff'; }
+      var r5 = document.getElementById('ap-reward-5'); var r5s = document.getElementById('ap-reward-5-state');
+      if (redeemed['5']) { r5.classList.add('unlocked'); r5s.textContent = '✓ Coupon inviato via email'; }
     } catch (err) { /* la card resta vuota, non blocca il resto della dashboard */ }
   }
 

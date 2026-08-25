@@ -292,18 +292,21 @@
       var data = await res.json();
       if (data.valid) {
         refreshStats();
-        // Se questo check-in ha appena sbloccato una ricompensa loyalty (3°/5° evento), lo
-        // staff lo vede subito qui e può darla sul posto — il timbro scatta solo alla presenza
-        // reale, vedi handleCheckin in src/worker.js.
+        // Se questo check-in ha appena sbloccato una ricompensa loyalty, lo staff lo vede subito
+        // qui — il timbro scatta solo alla presenza reale, vedi handleCheckin in src/worker.js.
+        // Il 3° evento (drink) va dato di persona: pulsante per confermarlo. Il 5° evento (coupon
+        // ingresso gratis) parte già da solo via email nello stesso istante del timbro — niente
+        // pulsante, solo un avviso informativo (vedi issueGrowMiCoupon in src/worker.js).
         var rewardBanner = "";
-        if (data.reward3 || data.reward5) {
-          var label = data.reward3 ? "🎉 3° evento — drink offerto dalla casa!" : "🎉 5° evento — ingresso gratuito sbloccato!";
-          rewardBanner = '<div class="reward unlocked" style="margin-top:12px;"><span>' + label + '</span><button type="button" class="redeem-btn" id="redeemNowBtn">Segna come dato</button></div>';
+        if (data.reward3) {
+          rewardBanner = '<div class="reward unlocked" style="margin-top:12px;"><span>🎉 3° evento — drink offerto dalla casa!</span><button type="button" class="redeem-btn" id="redeemNowBtn">Segna come dato</button></div>';
+        } else if (data.reward5) {
+          rewardBanner = '<div class="reward unlocked" style="margin-top:12px;"><span>🎉 5° evento — coupon ingresso gratis inviato via email!</span></div>';
         }
         showResult(true, data.eventName || "Ingresso valido", [data.name, data.email, data.tierName].filter(Boolean).join(" — "), rewardBanner);
-        if (data.reward3 || data.reward5) {
+        if (data.reward3) {
           document.getElementById("redeemNowBtn").addEventListener("click", function(){
-            redeemReward(this, data.email, true, data.reward3 ? "3" : "5");
+            redeemReward(this, data.email, true, "3");
           });
         }
       } else if (data.reason === "already_used") {
@@ -324,15 +327,18 @@
       if (res.status === 401) { onUnauthorized(); return; }
       var data = await res.json();
       if (data.found) {
-        function rewardRow(unlocked, redeemed, label, reward){
-          var state = redeemed ? "✓ Dato" : (unlocked ? '<button type="button" class="redeem-btn redeem-row-btn" data-reward="' + reward + '">Segna come dato</button>' : "🔒");
-          return '<div class="reward' + (unlocked ? ' unlocked' : '') + '"><span>' + label + '</span><span>' + state + '</span></div>';
+        // Il 3° evento (drink) lo staff lo dà di persona: pulsante finché non lo segna. Il 5°
+        // evento (coupon) è sempre e solo informativo qui — parte da solo via email al momento
+        // del timbro, non c'è nulla da "dare" allo scanner.
+        function rewardRow3(unlocked, redeemed){
+          var state = redeemed ? "✓ Dato" : (unlocked ? '<button type="button" class="redeem-btn redeem-row-btn" data-reward="3">Segna come dato</button>' : "🔒");
+          return '<div class="reward' + (unlocked ? ' unlocked' : '') + '"><span>3° evento — drink offerto</span><span>' + state + '</span></div>';
         }
-        var rewards =
-          '<div class="rewards">' +
-          rewardRow(data.reward3, data.reward3Redeemed, "3° evento — drink offerto", "3") +
-          rewardRow(data.reward5, data.reward5Redeemed, "5° evento — ingresso gratuito", "5") +
-          '</div>';
+        function rewardRow5(unlocked){
+          var state = unlocked ? "✓ Coupon inviato" : "🔒";
+          return '<div class="reward' + (unlocked ? ' unlocked' : '') + '"><span>5° evento — ingresso gratuito</span><span>' + state + '</span></div>';
+        }
+        var rewards = '<div class="rewards">' + rewardRow3(data.reward3, data.reward3Redeemed) + rewardRow5(data.reward5) + '</div>';
         showResult(true, data.name || "Cliente trovato", data.stamps + (data.stamps === 1 ? ' timbro' : ' timbri'), rewards);
         result.querySelectorAll(".redeem-row-btn").forEach(function(btn){
           btn.addEventListener("click", function(){ redeemReward(btn, number, false, btn.dataset.reward); });
