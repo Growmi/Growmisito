@@ -78,6 +78,11 @@
     border-radius:10px; background:rgba(251,246,240,0.08); font-size:13.5px;
   }
   #result .reward.unlocked{ background:rgba(46,204,113,0.18); }
+  #result .redeem-btn{
+    padding:6px 12px; border-radius:8px; border:none; background:var(--coral); color:#fff;
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:12px; cursor:pointer;
+  }
+  #result .redeem-btn:disabled{ opacity:.6; cursor:default; }
 
   .stats{ text-align:center; font-size:12.5px; color:rgba(251,246,240,0.5); }
 
@@ -246,6 +251,36 @@
     beep(ok ? [880] : [330, 330], ok ? 0.15 : 0.12);
   }
 
+  // Bottone "Segna come dato": chiama /api/redeem-reward una volta sola per timbro/ricompensa,
+  // cosi' la stessa card non può far ottenere due volte lo stesso drink/ingresso gratuito
+  // mostrandola di nuovo allo staff. Identifica il cliente per email (dal check-in appena fatto)
+  // o per numero cliente (dalla ricerca loyalty) — vedi handleRedeemReward in src/worker.js.
+  async function redeemReward(btn, identifier, isEmail, reward){
+    btn.disabled = true;
+    btn.textContent = "…";
+    try {
+      var body = { reward: reward };
+      body[isEmail ? "email" : "number"] = identifier;
+      var res = await fetch("/api/redeem-reward", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Staff-Key": getStaffKey() },
+        body: JSON.stringify(body)
+      });
+      var data = await res.json();
+      if (res.ok) {
+        btn.outerHTML = "✓ Dato";
+      } else {
+        btn.disabled = false;
+        btn.textContent = "Segna come dato";
+        alert(data.error || "Qualcosa è andato storto.");
+      }
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = "Segna come dato";
+      alert("Errore di rete, riprova.");
+    }
+  }
+
   async function checkTicket(code){
     try {
       var res = await fetch("/api/checkin", {
@@ -261,9 +296,16 @@
         // staff lo vede subito qui e può darla sul posto — il timbro scatta solo alla presenza
         // reale, vedi handleCheckin in src/worker.js.
         var rewardBanner = "";
-        if (data.reward3) rewardBanner = '<div class="reward unlocked" style="margin-top:12px;"><span>🎉 3° evento — drink offerto dalla casa!</span></div>';
-        else if (data.reward5) rewardBanner = '<div class="reward unlocked" style="margin-top:12px;"><span>🎉 5° evento — ingresso gratuito sbloccato!</span></div>';
+        if (data.reward3 || data.reward5) {
+          var label = data.reward3 ? "🎉 3° evento — drink offerto dalla casa!" : "🎉 5° evento — ingresso gratuito sbloccato!";
+          rewardBanner = '<div class="reward unlocked" style="margin-top:12px;"><span>' + label + '</span><button type="button" class="redeem-btn" id="redeemNowBtn">Segna come dato</button></div>';
+        }
         showResult(true, data.eventName || "Ingresso valido", [data.name, data.email, data.tierName].filter(Boolean).join(" — "), rewardBanner);
+        if (data.reward3 || data.reward5) {
+          document.getElementById("redeemNowBtn").addEventListener("click", function(){
+            redeemReward(this, data.email, true, data.reward3 ? "3" : "5");
+          });
+        }
       } else if (data.reason === "already_used") {
         showResult(false, "Già usato", data.usedAt ? ("Usato il " + new Date(data.usedAt).toLocaleString("it-IT")) : "");
       } else {
@@ -282,12 +324,19 @@
       if (res.status === 401) { onUnauthorized(); return; }
       var data = await res.json();
       if (data.found) {
+        function rewardRow(unlocked, redeemed, label, reward){
+          var state = redeemed ? "✓ Dato" : (unlocked ? '<button type="button" class="redeem-btn redeem-row-btn" data-reward="' + reward + '">Segna come dato</button>' : "🔒");
+          return '<div class="reward' + (unlocked ? ' unlocked' : '') + '"><span>' + label + '</span><span>' + state + '</span></div>';
+        }
         var rewards =
           '<div class="rewards">' +
-          '<div class="reward' + (data.reward3 ? ' unlocked' : '') + '"><span>3° evento — drink offerto</span><span>' + (data.reward3 ? '✓' : '🔒') + '</span></div>' +
-          '<div class="reward' + (data.reward5 ? ' unlocked' : '') + '"><span>5° evento — ingresso gratuito</span><span>' + (data.reward5 ? '✓' : '🔒') + '</span></div>' +
+          rewardRow(data.reward3, data.reward3Redeemed, "3° evento — drink offerto", "3") +
+          rewardRow(data.reward5, data.reward5Redeemed, "5° evento — ingresso gratuito", "5") +
           '</div>';
         showResult(true, data.name || "Cliente trovato", data.stamps + (data.stamps === 1 ? ' timbro' : ' timbri'), rewards);
+        result.querySelectorAll(".redeem-row-btn").forEach(function(btn){
+          btn.addEventListener("click", function(){ redeemReward(btn, number, false, btn.dataset.reward); });
+        });
       } else {
         showResult(false, "Nessun account trovato", "Controlla il numero");
       }

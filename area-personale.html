@@ -180,6 +180,7 @@
       <a href="eventi.html" data-i18n="nav_eventi">Eventi</a>
       <a href="artisti.html" data-i18n="nav_artisti">Artisti</a>
       <a href="loyalty-card.html" data-i18n="nav_loyalty">Loyalty Card</a>
+      <a href="area-personale.html" data-i18n="nav_areapersonale">Area personale</a>
       <a href="financial-supporters.html" data-i18n="nav_supporters">Financial Supporters</a>
       <a href="chi-siamo.html" data-i18n="nav_chisiamo">Chi siamo</a>
       <a href="contatti.html" data-i18n="nav_contatti">Contatti</a>
@@ -665,10 +666,17 @@
         d.textContent = i <= stamps ? '★' : '';
         wrap.appendChild(d);
       }
-      var r3 = document.getElementById('ap-reward-3'); var r3s = document.getElementById('ap-reward-3-state');
-      var r5 = document.getElementById('ap-reward-5'); var r5s = document.getElementById('ap-reward-5-state');
-      if (stamps >= 3) { r3.classList.add('unlocked'); r3s.textContent = '✓'; }
-      if (stamps >= 5) { r5.classList.add('unlocked'); r5s.textContent = '✓'; }
+      // Tre stati: bloccato (non ancora ai timbri richiesti), sbloccato ma non ancora dato
+      // dallo staff, oppure già ricevuto — vedi handleRedeemReward in src/worker.js (lo staff
+      // lo segna "dato" dallo scanner, cosi' non si può richiedere due volte lo stesso vantaggio).
+      var redeemed = data.redeemed || {};
+      function setRewardState(elId, stateId, unlocked, isRedeemed){
+        var el = document.getElementById(elId); var stateEl = document.getElementById(stateId);
+        if (isRedeemed) { el.classList.add('unlocked'); stateEl.textContent = '✓ Ricevuto'; }
+        else if (unlocked) { stateEl.textContent = '🎁 Pronto — mostralo allo staff'; }
+      }
+      setRewardState('ap-reward-3', 'ap-reward-3-state', stamps >= 3, !!redeemed['3']);
+      setRewardState('ap-reward-5', 'ap-reward-5-state', stamps >= 5, !!redeemed['5']);
     } catch (err) { /* la card resta vuota, non blocca il resto della dashboard */ }
   }
 

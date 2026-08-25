@@ -292,6 +292,15 @@ export default {
       }
     }
 
+    if (url.pathname === "/api/redeem-reward" && request.method === "POST") {
+      try {
+        return await handleRedeemReward(request, env);
+      } catch (err) {
+        console.log("Errore redeem-reward:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     if (url.pathname === "/api/account/forgot-password" && request.method === "POST") {
       try {
         return await handleAccountForgotPassword(request, env);
@@ -1725,6 +1734,18 @@ async function handleClaimPhysicalCard(request, env) {
   return jsonResponse({ ok: true, customerNumber: cardNumber });
 }
 
+// Sia il numero sequenziale digitale (251 in su) sia quello di una carta fisica riscattata
+// (001-250) sono zero-paddati a 3 cifre: proviamo prima il valore così com'è, poi la versione
+// paddata, così lo staff può anche digitare "7" a mano invece di leggerlo dal barcode.
+async function resolveEmailByCustomerNumber(env, raw) {
+  const candidates = [raw, raw.padStart(3, "0")];
+  for (const candidate of candidates) {
+    const email = await env.TICKETS.get(`customernum:${candidate}`);
+    if (email) return email;
+  }
+  return null;
+}
+
 // Cerca un account dal numero cliente scansionato (barcode digitale o carta fisica riscattata):
 // mostra allo staff chi è e a che punto è con la loyalty card. Sola lettura, nessun timbro —
 // protetta dalla stessa chiave staff dello scanner biglietti, stesso principio di handleCheckin.
@@ -1739,15 +1760,7 @@ async function handleLookupByCustomerNumber(request, env) {
   const raw = String(url.searchParams.get("number") || "").trim();
   if (!raw) return jsonResponse({ found: false });
 
-  // Sia il numero sequenziale digitale (251 in su) sia quello di una carta fisica riscattata
-  // (001-250) sono zero-paddati a 3 cifre: proviamo prima il valore così com'è, poi la versione
-  // paddata, così lo staff può anche digitare "7" a mano invece di leggerlo dal barcode.
-  const candidates = [raw, raw.padStart(3, "0")];
-  let email = null;
-  for (const candidate of candidates) {
-    email = await env.TICKETS.get(`customernum:${candidate}`);
-    if (email) break;
-  }
+  const email = await resolveEmailByCustomerNumber(env, raw);
   if (!email) return jsonResponse({ found: false });
 
   const accountRaw = await env.TICKETS.get(`account:${email}`);
@@ -1755,7 +1768,8 @@ async function handleLookupByCustomerNumber(request, env) {
   const account = JSON.parse(accountRaw);
 
   const loyaltyRaw = await env.TICKETS.get(`loyalty:${email}`);
-  const loyalty = loyaltyRaw ? JSON.parse(loyaltyRaw) : { stamps: 0 };
+  const loyalty = loyaltyRaw ? JSON.parse(loyaltyRaw) : { stamps: 0, redeemed: {} };
+  const redeemed = loyalty.redeemed || {};
 
   return jsonResponse({
     found: true,
@@ -1765,8 +1779,55 @@ async function handleLookupByCustomerNumber(request, env) {
     physicalCardClaimed: !!account.physicalCardClaimed,
     stamps: loyalty.stamps || 0,
     reward3: (loyalty.stamps || 0) >= 3,
-    reward5: (loyalty.stamps || 0) >= 5
+    reward3Redeemed: !!redeemed["3"],
+    reward5: (loyalty.stamps || 0) >= 5,
+    reward5Redeemed: !!redeemed["5"]
   });
+}
+
+// Segna una ricompensa (drink al 3° evento, ingresso gratis al 5°) come "data" dallo staff —
+// una volta sola, cosi' non si può rivendicare due volte lo stesso vantaggio mostrando di nuovo
+// la card. Protetta dalla stessa chiave staff, sola scrittura su un flag, nessun timbro toccato.
+async function handleRedeemReward(request, env) {
+  const staffKey = request.headers.get("x-staff-key");
+  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
+    return jsonResponse({ error: "unauthorized" }, 401);
+  }
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const body = await request.json();
+  const reward = String(body.reward || "").trim();
+  if (reward !== "3" && reward !== "5") {
+    return jsonResponse({ error: "parametri mancanti o non validi" }, 400);
+  }
+
+  // Accetta l'email diretta (lo scanner biglietti la conosce già dal check-in appena fatto,
+  // non serve richiedere di nuovo il numero cliente) oppure il numero cliente/carta (lo usa la
+  // ricerca loyalty, che parte solo dal numero scansionato).
+  let email = String(body.email || "").trim().toLowerCase();
+  if (!email) {
+    const raw = String(body.number || "").trim();
+    if (!raw) return jsonResponse({ error: "parametri mancanti o non validi" }, 400);
+    email = await resolveEmailByCustomerNumber(env, raw);
+  }
+  if (!email) return jsonResponse({ error: "cliente non trovato" }, 404);
+
+  const loyaltyRaw = await env.TICKETS.get(`loyalty:${email}`);
+  const loyalty = loyaltyRaw ? JSON.parse(loyaltyRaw) : { stamps: 0, history: [], redeemed: {} };
+  loyalty.redeemed = loyalty.redeemed || {};
+
+  const threshold = reward === "3" ? 3 : 5;
+  if ((loyalty.stamps || 0) < threshold) {
+    return jsonResponse({ error: "non ha ancora abbastanza timbri per questa ricompensa" }, 409);
+  }
+  if (loyalty.redeemed[reward]) {
+    return jsonResponse({ error: "ricompensa già data in precedenza" }, 409);
+  }
+
+  loyalty.redeemed[reward] = new Date().toISOString();
+  await env.TICKETS.put(`loyalty:${email}`, JSON.stringify(loyalty));
+
+  return jsonResponse({ ok: true, reward });
 }
 
 async function handleAccountForgotPassword(request, env) {
