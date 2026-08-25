@@ -52,7 +52,11 @@
   </nav>
 </header>
 
-<section class="ed-hero" style="padding:110px 0 80px;">
+<section class="ed-hero" style="padding:110px 0 80px; position:relative; overflow:hidden;">
+  <video class="ed-hero-video" autoplay muted loop playsinline>
+    <source src="assets/video/lorenzo-caratozzolo-bg.mp4" type="video/mp4">
+  </video>
+  <div class="ed-hero-video-overlay"></div>
   <div class="wrap ed-wrap">
     <span class="ed-eyebrow">Artista GrowMi</span>
     <h1 style="font-size:clamp(36px,6vw,76px);">Lorenzo Caratozzolo</h1>
@@ -61,11 +65,23 @@
 </section>
 
 <section class="ed-section-tight">
-  <div class="wrap" style="max-width:720px;">
-    <div class="ed-card-media" style="aspect-ratio:16/10; margin-bottom:32px;">
+  <div class="wrap" style="max-width:980px;">
+    <div class="ed-card-media" style="aspect-ratio:16/10; margin-bottom:32px; max-width:720px;">
       <img src="assets/img/artisti/lorenzo-caratozzolo.jpg" alt="Lorenzo Caratozzolo">
     </div>
-    <div class="empty-state">Descrizione in arrivo.</div>
+    <div style="display:flex; gap:44px; flex-wrap:wrap; align-items:flex-start;">
+      <div style="flex:1 1 380px; min-width:280px;">
+        <div class="empty-state">Descrizione in arrivo.</div>
+      </div>
+      <div style="flex:1 1 340px; min-width:260px; max-width:480px; display:flex; flex-direction:column; gap:14px;">
+        <video controls playsinline style="width:100%; border-radius:14px; display:block; background:#000;">
+          <source src="assets/video/lorenzo-caratozzolo-clip1.mp4" type="video/mp4">
+        </video>
+        <video controls playsinline style="width:220px; max-width:60%; border-radius:14px; display:block; background:#000;">
+          <source src="assets/video/lorenzo-caratozzolo-clip2.mp4" type="video/mp4">
+        </video>
+      </div>
+    </div>
   </div>
 </section>
 

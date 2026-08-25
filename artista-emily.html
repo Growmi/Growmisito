@@ -52,7 +52,11 @@
   </nav>
 </header>
 
-<section class="ed-hero" style="padding:110px 0 80px;">
+<section class="ed-hero" style="padding:110px 0 80px; position:relative; overflow:hidden;">
+  <video class="ed-hero-video" autoplay muted loop playsinline>
+    <source src="assets/video/emily-bg.mp4" type="video/mp4">
+  </video>
+  <div class="ed-hero-video-overlay"></div>
   <div class="wrap ed-wrap">
     <span class="ed-eyebrow">Artista GrowMi</span>
     <h1 style="font-size:clamp(36px,6vw,76px);">Emily</h1>
@@ -61,8 +65,29 @@
 </section>
 
 <section class="ed-section-tight">
-  <div class="wrap" style="max-width:720px;">
-    <div class="empty-state">Descrizione in arrivo.</div>
+  <div class="wrap" style="max-width:980px;">
+    <div style="display:flex; gap:44px; flex-wrap:wrap; align-items:flex-start;">
+      <div style="flex:1 1 380px; min-width:280px;">
+        <p style="font-size:16.5px; margin-bottom:20px;" data-i18n="art_emily_p1">Nata in Ecuador e arrivata a Milano nel 2003, sono cresciuta sospesa tra le mie radici e il caos frenetico di una città che corre sempre, dove spesso è difficile fermarsi ad osservare i momenti importanti. Da piccola ho sempre disegnato, coltivando una passione viscerale che non mi ha mai abbandonata.</p>
+        <p style="font-size:16.5px; margin-bottom:20px;" data-i18n="art_emily_p2">Dopo il diploma in grafica pubblicitaria, ho scelto la concretezza: mi sono tuffata per dieci anni nella ristorazione, affrontando ritmi pesanti e orari notturni. È proprio in quegli anni, tra un turno e l'altro, tra varie storie d'amore e disamore, che l'urgenza di creare ha trovato i suoi canali più spontanei. I miei schizzi prendevano vita dove capitava: sui blocchi delle comande, sulla carta da fritti, sui tovaglioli e tra gli aloni degli avanzi di caffè, nati da un narcisismo timido e dal bisogno di rimettere al centro i ricordi.</p>
+        <p style="font-size:16.5px; margin-bottom:20px;" data-i18n="art_emily_p3">Pian piano, con coraggio, ho trasformato quel lavoro in un part-time per potermi formare come tatuatrice, fino a conquistare uno studio tutto mio. È lì, tra la pelle, la pittura e la scultura, che oggi do pieno sfogo a qualsiasi cosa desideri creare. Nel mio immaginario colgo sensazioni, impressioni e ricordi, esprimendoli nella forma che l'istinto mi suggerisce, purché prendano corpo ed esaltino la complessità del corpo femminile attraverso un erotismo tacito e istintivo.</p>
+        <p style="font-size:16.5px;" data-i18n="art_emily_p4">Il mio nome d'arte EMPAT nasce da un connubio tra il gioco di parole dei miei due nomi e l'empatia, di cui ancora non sono sicura di essere dotata.</p>
+      </div>
+      <!-- Tutti e 5 i media sono verticali (nessun orizzontale da far prevalere a piena
+           larghezza, come già visto su Federico Zaccuri): li lasciamo semplicemente affiancare
+           nella griglia auto-fit, che si adatta da sola anche su schermi stretti. -->
+      <div style="flex:1 1 340px; min-width:260px; max-width:480px; display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:14px; align-content:start;">
+        <video controls playsinline style="width:100%; border-radius:14px; display:block; background:#000;">
+          <source src="assets/video/emily-clip1.mp4" type="video/mp4">
+        </video>
+        <video controls playsinline style="width:100%; border-radius:14px; display:block; background:#000;">
+          <source src="assets/video/emily-clip2.mp4" type="video/mp4">
+        </video>
+        <img src="assets/img/artisti/emily-clip1.jpg" alt="Emily" style="width:100%; border-radius:14px; display:block;">
+        <img src="assets/img/artisti/emily-clip2.jpg" alt="Emily" style="width:100%; border-radius:14px; display:block;">
+        <img src="assets/img/artisti/emily-clip3.jpg" alt="Emily" style="width:100%; border-radius:14px; display:block;">
+      </div>
+    </div>
   </div>
 </section>
 
