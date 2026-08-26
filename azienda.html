@@ -2,25 +2,55 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<script>if(performance.getEntriesByType("navigation")[0]&&performance.getEntriesByType("navigation")[0].type==="back_forward"){document.documentElement.classList.add("nav-back");}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sezione aziendale — GrowMi</title>
 <meta name="robots" content="noindex, nofollow">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<meta name="theme-color" content="#1E0C2C">
+<link rel="apple-touch-icon" href="assets/img/staff-icon.png">
+<link rel="icon" href="assets/img/staff-icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/style.css">
-<link rel="stylesheet" href="assets/redesign.css">
-<link rel="stylesheet" href="assets/interactive.css">
 <style>
-  .az-wrap{ max-width:760px; }
-  .az-tabs{ display:flex; gap:8px; margin-bottom:28px; }
+  :root{
+    --purple-deep:#3E0D5D; --purple-deeper:#2C0943; --coral:#F86639; --yellow:#FDC631;
+    --cream:#FBF6F0; --ink:#1E0C2C; --line:#E4DCD2; --grey:#6E6478;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--cream); color:var(--ink); font-family:'Inter', system-ui, sans-serif;
+    min-height:100vh; min-height:100dvh;
+  }
+
+  /* Header minimale, apposta SEPARATO dalla navigazione del sito pubblico — questa è
+     un'applicazione interna, non una pagina del sito con cui ci si aspetta di navigare avanti
+     e indietro tra Home/Eventi/ecc. */
+  .az-topbar{
+    background:var(--purple-deeper); color:var(--cream); padding:16px 24px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .az-topbar .brand{ display:flex; align-items:center; gap:10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; }
+  .az-topbar .brand img{ height:26px; width:auto; }
+  .az-topbar .logout{
+    background:none; border:1.5px solid rgba(251,246,240,0.35); color:var(--cream); padding:8px 16px;
+    border-radius:10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12.5px; cursor:pointer;
+  }
+
+  .az-page{ max-width:960px; margin:0 auto; padding:40px 24px 60px; }
+  .az-hero{ margin-bottom:32px; }
+  .az-hero .eyebrow{
+    font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:700; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--coral); margin-bottom:8px; display:block;
+  }
+  .az-hero h1{ font-family:'Space Grotesk',sans-serif; font-size:clamp(26px,4vw,38px); font-weight:700; margin-bottom:6px; }
+  .az-hero p{ color:var(--grey); font-size:14.5px; }
+
+  .az-tabs{ display:flex; gap:8px; margin-bottom:28px; max-width:420px; }
   .az-tab-btn{
     flex:1; padding:12px; border-radius:12px; border:1.5px solid var(--line); background:#fff;
     font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; cursor:pointer; color:var(--ink);
   }
   .az-tab-btn.is-active{ background:var(--purple-deeper); border-color:var(--purple-deeper); color:#fff; }
-  .az-form{ display:flex; flex-direction:column; gap:16px; max-width:420px; }
+  .az-form{ display:flex; flex-direction:column; gap:16px; max-width:380px; }
   .az-form[hidden]{ display:none; }
   .az-field label{ display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:8px; }
   .az-field input{
@@ -37,14 +67,8 @@
   .az-msg{ font-size:13.5px; padding:12px 14px; border-radius:10px; }
   .az-msg.ok{ background:#EAF7EE; color:#1E7A3A; }
   .az-msg.error{ background:#FDE8E0; color:#B4400F; }
-  .az-link-btn{
-    background:none; border:none; color:var(--coral); font-size:13px; cursor:pointer;
-    text-decoration:underline; padding:0; font-family:'Inter',sans-serif; text-align:left;
-  }
 
-  .az-dash-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:28px; flex-wrap:wrap; gap:12px; }
-  .az-dash-head h1{ font-size:24px; margin:0; }
-  .az-dash-menu{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:32px; }
+  .az-dash-menu{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:28px; }
   .az-dash-menu button, .az-dash-menu a{
     padding:10px 16px; border-radius:20px; border:1.5px solid var(--line); background:#fff;
     font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; cursor:pointer; color:var(--ink);
@@ -54,224 +78,172 @@
   .az-panel[hidden]{ display:none; }
 
   .az-stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .az-stat{ background:#F7F2EC; border-radius:16px; padding:20px 18px; }
+  .az-stat{ background:#fff; border:1.5px solid var(--line); border-radius:16px; padding:20px 18px; }
   .az-stat.wide{ grid-column:1 / -1; }
   .az-stat .n{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:28px; display:block; margin-bottom:4px; }
   .az-stat .l{ font-size:12.5px; color:var(--grey); }
 
   .az-search{
-    width:100%; padding:13px 15px; border-radius:10px; border:1.5px solid var(--line);
-    font-family:'Inter',sans-serif; font-size:14.5px; margin-bottom:14px;
+    width:100%; max-width:340px; padding:12px 14px; border-radius:10px; border:1.5px solid var(--line);
+    font-family:'Inter',sans-serif; font-size:14px; margin-bottom:14px;
   }
   .az-search:focus{ outline:none; border-color:var(--coral); }
-  .az-toolbar{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+  .az-toolbar{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
+  .az-toolbar .actions{ display:flex; gap:10px; flex-wrap:wrap; }
   .az-toolbar button{
-    padding:11px 18px; border-radius:10px; border:1.5px solid var(--ink); background:#fff; color:var(--ink);
-    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; cursor:pointer;
+    padding:10px 16px; border-radius:10px; border:1.5px solid var(--ink); background:#fff; color:var(--ink);
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12.5px; cursor:pointer;
   }
   .az-toolbar button.primary{ background:var(--ink); color:#fff; }
   .az-toolbar button:disabled{ opacity:.6; cursor:default; }
-  .az-count{ font-size:13px; color:var(--grey); margin-bottom:14px; }
+  .az-count{ font-size:12.5px; color:var(--grey); }
 
-  .az-row{
-    display:flex; justify-content:space-between; align-items:center; gap:10px;
-    padding:14px 16px; border-radius:12px; border:1.5px solid var(--line); margin-bottom:8px; background:#fff;
+  /* Vera tabella stile foglio elettronico: intestazioni fisse, righe zebrate, celle allineate —
+     non più una lista di card, così i dati si scorrono e confrontano come in Excel. */
+  .az-table-wrap{ overflow-x:auto; border:1.5px solid var(--line); border-radius:14px; background:#fff; }
+  table.az-table{ width:100%; border-collapse:collapse; font-size:13.5px; white-space:nowrap; }
+  table.az-table th{
+    text-align:left; padding:12px 14px; background:#F3ECE3; font-family:'Space Grotesk',sans-serif;
+    font-weight:700; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--grey);
+    border-bottom:1.5px solid var(--line); position:sticky; top:0;
   }
-  .az-row .name{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:15px; }
-  .az-row .sub{ font-size:12.5px; color:var(--grey); margin-top:2px; }
-  .az-row .right{ text-align:right; white-space:nowrap; font-size:12px; color:var(--grey); }
-  .az-badge{
-    display:inline-block; margin-top:4px; padding:2px 9px; border-radius:20px; font-size:10.5px;
+  table.az-table td{ padding:11px 14px; border-bottom:1px solid var(--line); }
+  table.az-table tbody tr:last-child td{ border-bottom:none; }
+  table.az-table tbody tr:nth-child(even){ background:#FBF8F4; }
+  table.az-table td.wrap{ white-space:normal; min-width:160px; }
+  .az-pill{
+    display:inline-block; padding:2px 9px; border-radius:20px; font-size:10.5px;
     font-family:'Space Grotesk', sans-serif; font-weight:700; text-transform:uppercase; letter-spacing:.03em;
   }
-  .az-badge.card{ background:#FDF1E4; color:#B4720F; }
-  .az-badge.newsletter{ background:#EAF7EE; color:#1E7A3A; margin-left:4px; }
-
-  .az-fb-card{ border:1.5px solid var(--line); border-radius:14px; padding:16px 18px; margin-bottom:12px; }
-  .az-fb-card .top-row{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:8px; }
-  .az-fb-card .stars{ color:var(--coral); font-size:15px; white-space:nowrap; }
-  .az-fb-card .field{ margin-top:10px; font-size:13.5px; line-height:1.5; }
-  .az-fb-card .field b{ display:block; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--grey); margin-bottom:3px; }
-  .az-fb-card .time{ font-size:11.5px; color:var(--grey); margin-top:10px; }
+  .az-pill.card{ background:#FDF1E4; color:#B4720F; }
+  .az-pill.newsletter{ background:#EAF7EE; color:#1E7A3A; }
+  .az-pill.yes{ background:#EAF7EE; color:#1E7A3A; }
+  .az-pill.no{ background:#F3ECE3; color:var(--grey); }
 
   .az-empty{ color:var(--grey); font-size:14px; text-align:center; padding:30px 0; }
 </style>
 </head>
 <body>
 
-<header>
-  <nav class="wrap">
-    <a class="logo" href="index.html"><img src="assets/img/logo-growmi.png" alt="GrowMi"></a>
-    <div class="navlinks">
-      <a href="index.html" data-i18n="nav_home">Home</a>
-      <a href="eventi.html" data-i18n="nav_eventi">Eventi</a>
-      <a href="artisti.html" data-i18n="nav_artisti">Artisti</a>
-      <a href="loyalty-card.html" data-i18n="nav_loyalty">Loyalty Card</a>
-      <a href="financial-supporters.html" data-i18n="nav_supporters">Financial Supporters</a>
-      <a href="chi-siamo.html" data-i18n="nav_chisiamo">Chi siamo</a>
-      <a href="contatti.html" data-i18n="nav_contatti">Contatti</a>
-      <div class="lang-switch mobile-lang-switch">
-        <button data-lang="it">IT</button>
-        <button data-lang="en">EN</button>
-      </div>
-    </div>
-    <div class="navright">
-      <div class="lang-switch">
-        <button data-lang="it">IT</button>
-        <button data-lang="en">EN</button>
-      </div>
-      <div class="nav-tickets"><a class="btn coral small nav-tickets-toggle" href="eventi.html" data-i18n="nav_cta" aria-haspopup="true" aria-expanded="false">Biglietti</a><div class="nav-tickets-menu"></div></div>
-    </div>
-    <button type="button" class="nav-toggle" aria-label="Menu" aria-expanded="false">
-      <span></span><span></span><span></span>
-    </button>
-  </nav>
-</header>
+<div class="az-topbar">
+  <div class="brand"><img src="assets/img/logo-growmi.png" alt="GrowMi"> Sezione aziendale</div>
+  <button type="button" class="logout" id="az-logout" hidden>Esci</button>
+</div>
 
-<section class="ed-hero" style="padding:100px 0 50px;">
-  <div class="wrap ed-wrap">
-    <span class="ed-eyebrow">Sezione aziendale</span>
-    <h1 id="az-hero-title" style="font-size:clamp(30px,5vw,52px);">Accesso riservato allo staff</h1>
-    <p class="ed-lead" id="az-hero-lead">Riservata a chi possiede una mail @growmi.it.</p>
+<div class="az-page">
+
+  <div class="az-hero">
+    <span class="eyebrow">Riservato allo staff</span>
+    <h1 id="az-hero-title">Accesso riservato</h1>
+    <p id="az-hero-lead">Riservata a chi possiede una mail @growmi.it.</p>
   </div>
-</section>
 
-<section class="ed-section-tight">
-  <div class="wrap az-wrap">
-
-    <!-- AUTH -->
-    <div id="az-auth">
-      <div class="az-tabs" id="az-auth-tabs">
-        <button type="button" class="az-tab-btn is-active" data-auth-tab="login">Accedi</button>
-        <button type="button" class="az-tab-btn" data-auth-tab="register">Registrati</button>
-      </div>
-
-      <form class="az-form" id="az-login-form">
-        <div class="az-field"><label for="az-login-email">Mail aziendale</label><input type="email" id="az-login-email" placeholder="nome@growmi.it" required></div>
-        <div class="az-field"><label for="az-login-password">Password</label><input type="password" id="az-login-password" required></div>
-        <button type="submit" class="az-submit">Accedi</button>
-        <p class="az-msg" id="az-login-msg" hidden></p>
-      </form>
-
-      <form class="az-form" id="az-register-form" hidden>
-        <div class="az-field"><label for="az-reg-name">Nome</label><input type="text" id="az-reg-name" required></div>
-        <div class="az-field"><label for="az-reg-email">Mail aziendale</label><input type="email" id="az-reg-email" placeholder="nome@growmi.it" required></div>
-        <div class="az-field">
-          <label for="az-reg-password">Password</label>
-          <input type="password" id="az-reg-password" required minlength="8">
-          <p class="hint">Almeno 8 caratteri.</p>
-        </div>
-        <button type="submit" class="az-submit">Crea account</button>
-        <p class="az-msg" id="az-register-msg" hidden></p>
-      </form>
+  <!-- AUTH -->
+  <div id="az-auth">
+    <div class="az-tabs" id="az-auth-tabs">
+      <button type="button" class="az-tab-btn is-active" data-auth-tab="login">Accedi</button>
+      <button type="button" class="az-tab-btn" data-auth-tab="register">Registrati</button>
     </div>
 
-    <!-- DASHBOARD -->
-    <div id="az-dash" hidden>
-      <div class="az-dash-head">
-        <h1 id="az-dash-hello">Ciao!</h1>
-        <button type="button" class="az-link-btn" id="az-logout">Esci</button>
-      </div>
-      <div class="az-dash-menu">
-        <button type="button" class="is-active" data-panel="dashboard">📊 Dashboard</button>
-        <button type="button" data-panel="clienti">🧑‍🤝‍🧑 Clienti</button>
-        <button type="button" data-panel="presenti">👥 Presenti</button>
-        <button type="button" data-panel="feedback">💬 Feedback</button>
-        <a href="staff-checkin">📷 Check-in</a>
-      </div>
+    <form class="az-form" id="az-login-form">
+      <div class="az-field"><label for="az-login-email">Mail aziendale</label><input type="email" id="az-login-email" placeholder="nome@growmi.it" required></div>
+      <div class="az-field"><label for="az-login-password">Password</label><input type="password" id="az-login-password" required></div>
+      <button type="submit" class="az-submit">Accedi</button>
+      <p class="az-msg" id="az-login-msg" hidden></p>
+    </form>
 
-      <!-- Dashboard -->
-      <div class="az-panel" data-panel-content="dashboard">
-        <div class="az-stat-grid">
-          <div class="az-stat wide"><span class="n" id="az-stat-revenue">—</span><span class="l">Incasso totale biglietti</span></div>
-          <div class="az-stat"><span class="n" id="az-stat-sold">—</span><span class="l">Biglietti venduti</span></div>
-          <div class="az-stat"><span class="n" id="az-stat-checkedin">—</span><span class="l">Entrati</span></div>
-          <div class="az-stat"><span class="n" id="az-stat-accounts">—</span><span class="l">Account registrati</span></div>
-          <div class="az-stat"><span class="n" id="az-stat-newsletter">—</span><span class="l">Iscritti newsletter</span></div>
-          <div class="az-stat"><span class="n" id="az-stat-fbcount">—</span><span class="l">Feedback ricevuti</span></div>
-          <div class="az-stat"><span class="n" id="az-stat-avgrating">—</span><span class="l">Valutazione media</span></div>
-        </div>
+    <form class="az-form" id="az-register-form" hidden>
+      <div class="az-field"><label for="az-reg-name">Nome</label><input type="text" id="az-reg-name" required></div>
+      <div class="az-field"><label for="az-reg-email">Mail aziendale</label><input type="email" id="az-reg-email" placeholder="nome@growmi.it" required></div>
+      <div class="az-field">
+        <label for="az-reg-password">Password</label>
+        <input type="password" id="az-reg-password" required minlength="8">
+        <p class="hint">Almeno 8 caratteri.</p>
       </div>
+      <button type="submit" class="az-submit">Crea account</button>
+      <p class="az-msg" id="az-register-msg" hidden></p>
+    </form>
+  </div>
 
-      <!-- Clienti -->
-      <div class="az-panel" data-panel-content="clienti" hidden>
-        <div class="az-toolbar"><button type="button" class="primary" id="az-customers-export">💾 Scarica elenco (CSV)</button></div>
+  <!-- DASHBOARD -->
+  <div id="az-dash" hidden>
+    <div class="az-dash-menu">
+      <button type="button" class="is-active" data-panel="dashboard">📊 Dashboard</button>
+      <button type="button" data-panel="clienti">🧑‍🤝‍🧑 Clienti</button>
+      <button type="button" data-panel="presenti">👥 Presenti</button>
+      <button type="button" data-panel="feedback">💬 Feedback</button>
+      <a href="staff-checkin">📷 Check-in</a>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="az-panel" data-panel-content="dashboard">
+      <div class="az-stat-grid">
+        <div class="az-stat wide"><span class="n" id="az-stat-revenue">—</span><span class="l">Incasso totale biglietti</span></div>
+        <div class="az-stat"><span class="n" id="az-stat-sold">—</span><span class="l">Biglietti venduti</span></div>
+        <div class="az-stat"><span class="n" id="az-stat-checkedin">—</span><span class="l">Entrati</span></div>
+        <div class="az-stat"><span class="n" id="az-stat-accounts">—</span><span class="l">Account registrati</span></div>
+        <div class="az-stat"><span class="n" id="az-stat-newsletter">—</span><span class="l">Iscritti newsletter</span></div>
+        <div class="az-stat"><span class="n" id="az-stat-fbcount">—</span><span class="l">Feedback ricevuti</span></div>
+        <div class="az-stat"><span class="n" id="az-stat-avgrating">—</span><span class="l">Valutazione media</span></div>
+      </div>
+    </div>
+
+    <!-- Clienti -->
+    <div class="az-panel" data-panel-content="clienti" hidden>
+      <div class="az-toolbar">
         <input type="text" class="az-search" id="az-customers-search" placeholder="Cerca per nome o email...">
-        <p class="az-count" id="az-customers-count"></p>
-        <div id="az-customers-list"></div>
-        <p class="az-empty" id="az-customers-empty" hidden>Nessun cliente trovato.</p>
-      </div>
-
-      <!-- Presenti -->
-      <div class="az-panel" data-panel-content="presenti" hidden>
-        <div class="az-toolbar">
-          <button type="button" class="primary" id="az-attendees-export">💾 Scarica elenco (CSV)</button>
-          <button type="button" id="az-send-feedback">📧 Manda email feedback a tutti i presenti</button>
+        <div class="actions">
+          <span class="az-count" id="az-customers-count"></span>
+          <button type="button" class="primary" id="az-customers-export">💾 Esporta CSV</button>
         </div>
+      </div>
+      <div class="az-table-wrap">
+        <table class="az-table">
+          <thead><tr><th>Nome</th><th>Email</th><th>Numero cliente</th><th>Carta fisica</th><th>Newsletter</th><th>Timbri</th></tr></thead>
+          <tbody id="az-customers-tbody"></tbody>
+        </table>
+      </div>
+      <p class="az-empty" id="az-customers-empty" hidden>Nessun cliente trovato.</p>
+    </div>
+
+    <!-- Presenti -->
+    <div class="az-panel" data-panel-content="presenti" hidden>
+      <div class="az-toolbar">
         <input type="text" class="az-search" id="az-attendees-search" placeholder="Cerca per nome...">
-        <p class="az-count" id="az-attendees-count"></p>
-        <div id="az-attendees-list"></div>
-        <p class="az-empty" id="az-attendees-empty" hidden>Nessun nominativo trovato.</p>
+        <div class="actions">
+          <span class="az-count" id="az-attendees-count"></span>
+          <button type="button" id="az-send-feedback">📧 Manda feedback a tutti</button>
+          <button type="button" class="primary" id="az-attendees-export">💾 Esporta CSV</button>
+        </div>
       </div>
-
-      <!-- Feedback -->
-      <div class="az-panel" data-panel-content="feedback" hidden>
-        <div class="az-toolbar"><button type="button" class="primary" id="az-feedback-export">💾 Scarica risposte (CSV)</button></div>
-        <p class="az-count" id="az-feedback-count"></p>
-        <div id="az-feedback-list"></div>
-        <p class="az-empty" id="az-feedback-empty" hidden>Nessuna risposta ricevuta finora.</p>
+      <div class="az-table-wrap">
+        <table class="az-table">
+          <thead><tr><th>Nome</th><th>Email</th><th>Fascia</th><th>Check-in</th><th>Tipo</th></tr></thead>
+          <tbody id="az-attendees-tbody"></tbody>
+        </table>
       </div>
+      <p class="az-empty" id="az-attendees-empty" hidden>Nessun nominativo trovato.</p>
     </div>
 
-  </div>
-</section>
-
-<footer>
-  <div class="wrap">
-    <div class="foot-grid">
-      <div><a class="foot-logo" href="index.html"><img src="assets/img/logo-growmi.png" alt="GrowMi"></a></div>
-      <div>
-        <h4 data-i18n="foot_sito">Sito</h4>
-        <ul>
-          <li><a href="eventi.html" data-i18n="nav_eventi">Eventi</a></li>
-          <li><a href="artisti.html" data-i18n="nav_artisti">Artisti</a></li>
-          <li><a href="chi-siamo.html" data-i18n="nav_chisiamo">Chi siamo</a></li>
-          <li><a href="loyalty-card.html">Loyalty Card</a></li>
-          <li><a href="financial-supporters.html">Financial Supporters</a></li>
-        </ul>
+    <!-- Feedback -->
+    <div class="az-panel" data-panel-content="feedback" hidden>
+      <div class="az-toolbar">
+        <span></span>
+        <div class="actions">
+          <span class="az-count" id="az-feedback-count"></span>
+          <button type="button" class="primary" id="az-feedback-export">💾 Esporta CSV</button>
+        </div>
       </div>
-      <div>
-        <h4 data-i18n="foot_contatti">Contatti</h4>
-        <ul>
-          <li><a href="mailto:grow.mi@outlook.it">grow.mi@outlook.it</a></li>
-          <li><a href="contatti.html" data-i18n="nav_contatti">Contatti</a></li>
-        </ul>
+      <div class="az-table-wrap">
+        <table class="az-table">
+          <thead><tr><th>Nome</th><th>Email</th><th>Evento</th><th>Voto</th><th>Consiglia</th><th>Piaciuto</th><th>Da migliorare</th><th>Altro</th><th>Data</th></tr></thead>
+          <tbody id="az-feedback-tbody"></tbody>
+        </table>
       </div>
-      <div>
-        <h4 data-i18n="foot_social">Social</h4>
-        <ul>
-          <li><a href="https://www.instagram.com/growmiii/" target="_blank" rel="noopener">Instagram</a></li>
-          <li><a href="https://www.tiktok.com/@growmii_" target="_blank" rel="noopener">TikTok</a></li>
-          <li><a href="https://www.youtube.com/@GrowMiii" target="_blank" rel="noopener">YouTube</a></li>
-          <li><a href="https://www.linkedin.com/company/growmiagency/" target="_blank" rel="noopener">LinkedIn</a></li>
-        </ul>
-      </div>
-    </div>
-    <div class="foot-bottom">
-      <span data-i18n="foot_rights">© 2026 GrowMi. Milano.</span>
-      <span data-i18n="foot_madewith">Sito in fase di sviluppo</span>
+      <p class="az-empty" id="az-feedback-empty" hidden>Nessuna risposta ricevuta finora.</p>
     </div>
   </div>
-</footer>
 
-<div class="tickets-overlay" id="tickets-overlay" hidden>
-  <div class="tickets-overlay-backdrop" data-tickets-close></div>
-  <div class="tickets-overlay-panel">
-    <button type="button" class="tickets-overlay-close" data-tickets-close aria-label="Chiudi">&times;</button>
-    <p class="eyebrow">Biglietti</p>
-    <h2>Eventi disponibili</h2>
-    <div class="ed-grid tickets-overlay-grid" id="tickets-overlay-grid"></div>
-  </div>
 </div>
 
 <script>
@@ -280,6 +252,7 @@
   var dashBox = document.getElementById('az-dash');
   var heroTitle = document.getElementById('az-hero-title');
   var heroLead = document.getElementById('az-hero-lead');
+  var logoutBtn = document.getElementById('az-logout');
 
   function showMsg(el, text, isError){
     el.textContent = text;
@@ -346,7 +319,7 @@
     } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
   });
 
-  document.getElementById('az-logout').addEventListener('click', async function(){
+  logoutBtn.addEventListener('click', async function(){
     await fetch('/api/staff-account/logout', { method: 'POST' });
     window.location.reload();
   });
@@ -388,25 +361,24 @@
   }
   panelLoaders.dashboard = { loaded: false, load: loadDashboardStats };
 
-  // ---- Clienti ----
+  // ---- Clienti (tabella) ----
   var allCustomers = [];
   function renderCustomers(items){
-    var list = document.getElementById('az-customers-list');
+    var tbody = document.getElementById('az-customers-tbody');
     var empty = document.getElementById('az-customers-empty');
-    list.innerHTML = '';
+    tbody.innerHTML = '';
     empty.hidden = !!items.length;
     document.getElementById('az-customers-count').textContent = items.length + (items.length === 1 ? ' cliente' : ' clienti');
     items.forEach(function(c){
-      var row = document.createElement('div');
-      row.className = 'az-row';
-      var badges = (c.physicalCardClaimed ? '<span class="az-badge card">🪪 Carta fisica</span>' : '') +
-        (c.newsletterOptin ? '<span class="az-badge newsletter">📩 Newsletter</span>' : '');
-      row.innerHTML =
-        '<div><div class="name">' + esc(c.name || 'Senza nome') + '</div>' +
-        '<div class="sub">' + [esc(c.email), c.customerNumber ? ('#' + c.customerNumber) : null].filter(Boolean).join(' — ') + '</div>' +
-        (badges ? '<div>' + badges + '</div>' : '') + '</div>' +
-        '<div class="right">' + c.stamps + ' timbri</div>';
-      list.appendChild(row);
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + esc(c.name || '—') + '</td>' +
+        '<td>' + esc(c.email) + '</td>' +
+        '<td>' + (c.customerNumber || '—') + '</td>' +
+        '<td>' + (c.physicalCardClaimed ? '<span class="az-pill card">Sì</span>' : '<span class="az-pill no">No</span>') + '</td>' +
+        '<td>' + (c.newsletterOptin ? '<span class="az-pill newsletter">Sì</span>' : '<span class="az-pill no">No</span>') + '</td>' +
+        '<td>' + c.stamps + '</td>';
+      tbody.appendChild(tr);
     });
   }
   function applyCustomersFilter(){
@@ -427,30 +399,28 @@
   }
   panelLoaders.clienti = { loaded: false, load: loadCustomers };
   document.getElementById('az-customers-export').addEventListener('click', async function(){
-    await downloadCsv('/api/export-customers', 'growmi-clienti.csv', this, '💾 Scarica elenco (CSV)');
+    await downloadCsv('/api/export-customers', 'growmi-clienti.csv', this, '💾 Esporta CSV');
   });
 
-  // ---- Presenti ----
+  // ---- Presenti (tabella) ----
   var allAttendees = [];
   function renderAttendees(items){
-    var list = document.getElementById('az-attendees-list');
+    var tbody = document.getElementById('az-attendees-tbody');
     var empty = document.getElementById('az-attendees-empty');
-    list.innerHTML = '';
+    tbody.innerHTML = '';
     empty.hidden = !!items.length;
     document.getElementById('az-attendees-count').textContent = items.length + (items.length === 1 ? ' persona entrata' : ' persone entrate');
     items.forEach(function(a){
-      var row = document.createElement('div');
-      row.className = 'az-row';
-      var time = a.usedAt ? new Date(a.usedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '';
-      var badge = a.physicalCardClaimed
-        ? '<span class="az-badge card">🪪 Carta fisica</span>'
-        : (a.hasLoyaltyAccount ? '<span class="az-badge newsletter">⭐ Loyalty</span>' : '');
-      row.innerHTML =
-        '<div><div class="name">' + esc(a.name || 'Senza nome') + '</div>' +
-        '<div class="sub">' + [esc(a.email), esc(a.tierName)].filter(Boolean).join(' — ') + '</div>' +
-        (badge ? '<div>' + badge + '</div>' : '') + '</div>' +
-        '<div class="right">' + time + '</div>';
-      list.appendChild(row);
+      var tr = document.createElement('tr');
+      var time = a.usedAt ? new Date(a.usedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '—';
+      var tipo = a.physicalCardClaimed ? '<span class="az-pill card">Carta fisica</span>' : (a.hasLoyaltyAccount ? '<span class="az-pill newsletter">Loyalty</span>' : '<span class="az-pill no">Ospite</span>');
+      tr.innerHTML =
+        '<td>' + esc(a.name || '—') + '</td>' +
+        '<td>' + esc(a.email) + '</td>' +
+        '<td>' + esc(a.tierName || '—') + '</td>' +
+        '<td>' + time + '</td>' +
+        '<td>' + tipo + '</td>';
+      tbody.appendChild(tr);
     });
   }
   function applyAttendeesFilter(){
@@ -469,7 +439,7 @@
   }
   panelLoaders.presenti = { loaded: false, load: loadAttendees };
   document.getElementById('az-attendees-export').addEventListener('click', async function(){
-    await downloadCsv('/api/export-attendees', 'growmi-partecipanti.csv', this, '💾 Scarica elenco (CSV)');
+    await downloadCsv('/api/export-attendees', 'growmi-partecipanti.csv', this, '💾 Esporta CSV');
   });
   document.getElementById('az-send-feedback').addEventListener('click', async function(){
     if (!allAttendees.length) { alert('Nessun presente a cui mandare il feedback.'); return; }
@@ -484,35 +454,30 @@
       else alert('Errore: ' + (data.error || res.status));
     } catch (err) { alert('Errore di rete: ' + err.message); }
     btn.disabled = false;
-    btn.textContent = '📧 Manda email feedback a tutti i presenti';
+    btn.textContent = '📧 Manda feedback a tutti';
   });
 
-  // ---- Feedback ----
-  function stars(n){
-    var s = '';
-    for (var i = 1; i <= 5; i++) s += (i <= n ? '★' : '☆');
-    return s;
-  }
+  // ---- Feedback (tabella) ----
   function renderFeedback(items){
-    var list = document.getElementById('az-feedback-list');
+    var tbody = document.getElementById('az-feedback-tbody');
     var empty = document.getElementById('az-feedback-empty');
-    list.innerHTML = '';
+    tbody.innerHTML = '';
     empty.hidden = !!items.length;
     document.getElementById('az-feedback-count').textContent = items.length + (items.length === 1 ? ' risposta' : ' risposte');
     items.forEach(function(r){
-      var card = document.createElement('div');
-      card.className = 'az-fb-card';
-      var time = r.submittedAt ? new Date(r.submittedAt).toLocaleString('it-IT') : '';
-      var html =
-        '<div class="top-row"><div><div class="name">' + esc(r.name || 'Anonimo') + '</div>' +
-        '<div class="sub">' + [esc(r.email), esc(r.eventName)].filter(Boolean).join(' — ') + '</div></div>' +
-        '<div class="stars">' + stars(r.rating) + '</div></div>';
-      if (r.liked) html += '<div class="field"><b>Cosa è piaciuto</b>' + esc(r.liked) + '</div>';
-      if (r.improve) html += '<div class="field"><b>Cosa migliorare</b>' + esc(r.improve) + '</div>';
-      if (r.comments) html += '<div class="field"><b>Altro</b>' + esc(r.comments) + '</div>';
-      html += '<div class="time">' + time + '</div>';
-      card.innerHTML = html;
-      list.appendChild(card);
+      var tr = document.createElement('tr');
+      var time = r.submittedAt ? new Date(r.submittedAt).toLocaleString('it-IT') : '—';
+      tr.innerHTML =
+        '<td>' + esc(r.name || 'Anonimo') + '</td>' +
+        '<td>' + esc(r.email || '—') + '</td>' +
+        '<td>' + esc(r.eventName || '—') + '</td>' +
+        '<td>' + (r.rating || '—') + ' / 5</td>' +
+        '<td>' + (r.wouldRecommend ? '<span class="az-pill yes">Sì</span>' : '<span class="az-pill no">No</span>') + '</td>' +
+        '<td class="wrap">' + esc(r.liked || '—') + '</td>' +
+        '<td class="wrap">' + esc(r.improve || '—') + '</td>' +
+        '<td class="wrap">' + esc(r.comments || '—') + '</td>' +
+        '<td>' + time + '</td>';
+      tbody.appendChild(tr);
     });
   }
   async function loadFeedback(){
@@ -524,13 +489,13 @@
   }
   panelLoaders.feedback = { loaded: false, load: loadFeedback };
   document.getElementById('az-feedback-export').addEventListener('click', async function(){
-    await downloadCsv('/api/export-feedback', 'growmi-feedback.csv', this, '💾 Scarica risposte (CSV)');
+    await downloadCsv('/api/export-feedback', 'growmi-feedback.csv', this, '💾 Esporta CSV');
   });
 
   // ---- helper download CSV comune ----
   async function downloadCsv(url, filename, btn, restoreLabel){
     btn.disabled = true;
-    btn.textContent = 'Preparazione file...';
+    btn.textContent = 'Preparazione...';
     try {
       var res = await fetch(url);
       if (res.ok) {
@@ -554,19 +519,17 @@
   async function loadDashboard(){
     try {
       var res = await fetch('/api/staff-account/me');
-      if (!res.ok) { authBox.hidden = false; dashBox.hidden = true; return; }
+      if (!res.ok) { authBox.hidden = false; dashBox.hidden = true; logoutBtn.hidden = true; return; }
       var data = await res.json();
       authBox.hidden = true;
       dashBox.hidden = false;
+      logoutBtn.hidden = false;
       var firstName = data.name ? data.name.split(' ')[0] : '';
       heroTitle.textContent = 'Ciao, ' + firstName + '!';
       heroLead.textContent = 'Ecco cosa succede su GrowMi.';
-      document.getElementById('az-dash-hello').textContent = 'Ciao, ' + firstName + '!';
       loadDashboardStats();
       panelLoaders.dashboard.loaded = true;
 
-      // Deep link (es. da staff.html o da un vecchio bookmark): ?panel=clienti apre subito
-      // quel pannello invece di partire sempre da "Dashboard".
       var wantedPanel = new URLSearchParams(window.location.search).get('panel');
       if (wantedPanel) {
         var panelBtn = document.querySelector('.az-dash-menu button[data-panel="' + wantedPanel + '"]');
@@ -579,8 +542,5 @@
 })();
 </script>
 
-<script src="assets/events-data.js"></script>
-<script src="assets/i18n.js"></script>
-<script src="assets/interactive.js"></script>
 </body>
 </html>
