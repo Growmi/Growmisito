@@ -7,6 +7,36 @@ import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 // serve automaticamente i file statici dalla root del repo.
 export default {
   async fetch(request, env, ctx) {
+    const response = await handleFetch(request, env, ctx);
+    return withSecurityHeaders(response);
+  },
+
+  // Cron giornaliero (vedi [triggers] in wrangler.toml): manda il feedback in automatico agli
+  // eventi finiti ieri. Avvolto in try/catch perché un'eccezione qui non ha nessuno a cui
+  // rispondere con un errore (non è una richiesta HTTP) — finirebbe solo nei log di Cloudflare.
+  async scheduled(event, env, ctx) {
+    try {
+      await runScheduledFeedback(env);
+    } catch (err) {
+      console.log("Errore cron feedback:", err.stack || err.message);
+    }
+  }
+};
+
+// Aggiunge gli header di sicurezza standard a ogni risposta (API e asset statici). Niente
+// Content-Security-Policy qui: il sito carica script/embed da diversi domini terzi (Stripe,
+// MailerLite, Google Fonts/reCAPTCHA) su ~20 pagine diverse, una CSP scritta senza controllare
+// ogni pagina rischierebbe di rompere silenziosamente uno di questi imbed.
+function withSecurityHeaders(response) {
+  const headers = new Headers(response.headers);
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("X-Frame-Options", "DENY");
+  headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+  headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
+async function handleFetch(request, env, ctx) {
     const url = new URL(request.url);
 
     if (url.pathname === "/api/health") {
@@ -329,19 +359,7 @@ export default {
     }
 
     return env.ASSETS.fetch(request);
-  },
-
-  // Cron giornaliero (vedi [triggers] in wrangler.toml): manda il feedback in automatico agli
-  // eventi finiti ieri. Avvolto in try/catch perché un'eccezione qui non ha nessuno a cui
-  // rispondere con un errore (non è una richiesta HTTP) — finirebbe solo nei log di Cloudflare.
-  async scheduled(event, env, ctx) {
-    try {
-      await runScheduledFeedback(env);
-    } catch (err) {
-      console.log("Errore cron feedback:", err.stack || err.message);
-    }
-  }
-};
+}
 
 // Registro eventi: fonte di verità server-side per nome/data/location e fasce prezzo con
 // capacità. Aggiungere un evento nuovo = aggiungere una voce qui (slug → dati), niente Payment

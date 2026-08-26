@@ -6,6 +6,10 @@ compatibility_flags = ["nodejs_compat"]
 [assets]
 directory = "./"
 binding = "ASSETS"
+# Senza questo, Cloudflare serve le pagine statiche direttamente senza passare dal Worker,
+# quindi gli header di sicurezza aggiunti in withSecurityHeaders() non verrebbero applicati
+# alla stragrande maggioranza delle richieste (tutte le pagine .html, css, js, immagini).
+run_worker_first = true
 
 [[kv_namespaces]]
 binding = "TICKETS"
