@@ -10,6 +10,9 @@ binding = "ASSETS"
 # quindi gli header di sicurezza aggiunti in withSecurityHeaders() non verrebbero applicati
 # alla stragrande maggioranza delle richieste (tutte le pagine .html, css, js, immagini).
 run_worker_first = true
+# Pagina 404 personalizzata: qualsiasi richiesta a un file/percorso statico inesistente
+# riceve 404.html invece della pagina di errore generica di Cloudflare.
+not_found_handling = "404-page"
 
 [[kv_namespaces]]
 binding = "TICKETS"
