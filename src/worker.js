@@ -974,6 +974,7 @@ async function handleRegister(request, env) {
   const body = await request.json();
   const eventSlug = String(body.eventSlug || "");
   const name = String(body.name || "").trim().slice(0, 200);
+  const phone = String(body.phone || "").trim().slice(0, 40);
   const email = String(body.email || "").trim().slice(0, 200);
   const termsAccepted = body.termsAccepted === true;
   const photoConsent = body.photoConsent === true;
@@ -981,8 +982,8 @@ async function handleRegister(request, env) {
   const couponCode = String(body.couponCode || "").trim().toUpperCase();
 
   if (!EVENTS[eventSlug]) return jsonResponse({ error: "evento non valido" }, 400);
-  if (!name || !email || !termsAccepted || !photoConsent) {
-    return jsonResponse({ error: "nome, email, termini e condizioni e consenso foto/video sono obbligatori" }, 400);
+  if (!name || !phone || !email || !termsAccepted || !photoConsent) {
+    return jsonResponse({ error: "nome, telefono, email, termini e condizioni e consenso foto/video sono obbligatori" }, 400);
   }
 
   // Il coupon è facoltativo: se il campo è vuoto si procede normalmente. Se è compilato, deve
@@ -994,7 +995,7 @@ async function handleRegister(request, env) {
 
   const registrationId = crypto.randomUUID();
   await env.TICKETS.put(`registration:${registrationId}`, JSON.stringify({
-    eventSlug, name, email, termsAccepted, photoConsent, newsletterOptin,
+    eventSlug, name, phone, email, termsAccepted, photoConsent, newsletterOptin,
     couponCode: couponCode || null,
     createdAt: new Date().toISOString()
   }));
@@ -1134,6 +1135,7 @@ async function handleStripeWebhook(request, env) {
 
       const email = registration.email;
       const customerName = registration.name;
+      const customerPhone = registration.phone;
       const eventName = eventInfo?.name || "GrowMi";
       const eventDate = eventInfo?.dateDisplay || "";
       const eventLocation = eventInfo?.location || "";
@@ -1153,6 +1155,7 @@ async function handleStripeWebhook(request, env) {
       await env.TICKETS.put(`ticket:${ticketCode}`, JSON.stringify({
         email,
         name: customerName,
+        phone: customerPhone,
         eventName,
         eventDate,
         eventDateIso,

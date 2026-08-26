@@ -13,6 +13,13 @@
   background:rgba(255,255,255,.05); color:#fff; font-family:'Inter',sans-serif; font-size:14.5px;
 }
 .et-reg-field input:focus{ outline:none; border-color:#E7222E; }
+.et-reg-phone-group{ display:flex; gap:8px; }
+.et-reg-phone-group select{
+  flex:0 0 110px; padding:13px 8px; border-radius:10px; border:1.5px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.05); color:#fff; font-family:'Inter',sans-serif; font-size:14.5px;
+}
+.et-reg-phone-group select:focus{ outline:none; border-color:#E7222E; }
+.et-reg-phone-group input{ flex:1; min-width:0; }
 .et-reg-checkbox{ display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#C9C4D1; line-height:1.5; }
 .et-reg-checkbox input{ margin-top:3px; flex-shrink:0; width:16px; height:16px; accent-color:#E7222E; }
 .et-reg-checkbox strong{ color:#fff; }

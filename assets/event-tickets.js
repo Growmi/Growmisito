@@ -11,7 +11,9 @@
 //   <div data-et-reg-step hidden>
 //     <strong data-et-selection-label></strong>
 //     <form data-et-reg-form>
-//       <input data-et-name> <input type="email" data-et-email>
+//       <input data-et-firstname> <input data-et-lastname>
+//       <select data-et-phone-prefix> <input data-et-phone>
+//       <input type="email" data-et-email>
 //       <input type="checkbox" data-et-photo-consent> <input type="checkbox" data-et-newsletter>
 //       <input data-et-coupon> (facoltativo: codice del coupon "5° evento gratis" — se compilato
 //         e valido, il prezzo del biglietto diventa €0, controllato sempre lato server)
@@ -134,12 +136,18 @@
       submitBtn.disabled = true;
       try {
         var couponInput = form.querySelector("[data-et-coupon]");
+        var firstName = form.querySelector("[data-et-firstname]").value.trim();
+        var lastName = form.querySelector("[data-et-lastname]").value.trim();
+        var phonePrefixEl = form.querySelector("[data-et-phone-prefix]");
+        var phonePrefix = phonePrefixEl ? phonePrefixEl.value : "";
+        var phoneNumber = form.querySelector("[data-et-phone]").value.trim();
         var res = await fetch("/api/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             eventSlug: slug,
-            name: form.querySelector("[data-et-name]").value.trim(),
+            name: (firstName + " " + lastName).trim(),
+            phone: (phonePrefix + " " + phoneNumber).trim(),
             email: form.querySelector("[data-et-email]").value.trim(),
             termsAccepted: form.querySelector("[data-et-terms]") ? form.querySelector("[data-et-terms]").checked : false,
             photoConsent: form.querySelector("[data-et-photo-consent]").checked,
