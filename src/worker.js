@@ -12,13 +12,19 @@ export default {
   },
 
   // Cron giornaliero (vedi [triggers] in wrangler.toml): manda il feedback in automatico agli
-  // eventi finiti ieri. Avvolto in try/catch perché un'eccezione qui non ha nessuno a cui
-  // rispondere con un errore (non è una richiesta HTTP) — finirebbe solo nei log di Cloudflare.
+  // eventi finiti ieri, poi il backup dei dati. Ogni job nel suo try/catch, cosi' se uno fallisce
+  // l'altro parte comunque — un'eccezione qui non ha nessuno a cui rispondere con un errore (non
+  // è una richiesta HTTP), finirebbe solo nei log di Cloudflare.
   async scheduled(event, env, ctx) {
     try {
       await runScheduledFeedback(env);
     } catch (err) {
       console.log("Errore cron feedback:", err.stack || err.message);
+    }
+    try {
+      await sendKVBackupEmail(env);
+    } catch (err) {
+      console.log("Errore cron backup:", err.stack || err.message);
     }
   }
 };
@@ -121,6 +127,21 @@ async function handleFetch(request, env, ctx) {
         await env.TICKETS.delete(`customernum:${cardNumber}`);
         return jsonResponse({ ok: true, releasedFrom: email });
       } catch (err) {
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    // Backup manuale su richiesta, protetto dalla chiave staff — stesso backup del cron
+    // giornaliero (vedi sendKVBackupEmail), utile per uno snapshot immediato prima di un'
+    // operazione delicata o solo per verificare che l'invio funzioni.
+    if (url.pathname === "/api/admin-backup-now" && request.method === "POST") {
+      try {
+        const staffKey = request.headers.get("x-staff-key");
+        if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) return jsonResponse({ error: "unauthorized" }, 401);
+        const result = await sendKVBackupEmail(env);
+        return jsonResponse(result);
+      } catch (err) {
+        console.log("Errore admin-backup-now:", err.stack || err.message);
         return jsonResponse({ error: err.message }, 500);
       }
     }
@@ -1237,6 +1258,73 @@ async function runScheduledFeedback(env) {
     await env.TICKETS.put(sentMarkerKey, JSON.stringify({ ...result, sentAt: new Date().toISOString() }));
     console.log(`Feedback automatico per "${eventName}": ${result.sent} inviate, ${result.failed} fallite`);
   }
+}
+
+// Prefissi con dati veri e duraturi da salvare nel backup. Esclude di proposito: session:/
+// staffsession: (token di login effimeri, si rigenerano da soli), evt:/feedback_sent: (marker
+// interni di dedup, non dati), registration: (esiste solo tra form e pagamento riuscito, viene
+// cancellata appena il webhook Stripe conferma — se esiste ancora è un acquisto abbandonato).
+const BACKUP_PREFIXES = ["ticket:", "account:", "staffaccount:", "loyalty:", "coupon:", "customernum:", "physicalcard:", "feedback:"];
+
+// Scarica per intero ogni prefisso in BACKUP_PREFIXES (list() dà solo le chiavi, serve una get()
+// per ogni valore) più il contatore progressivo dei numeri cliente. Ritorna un oggetto pronto per
+// JSON.stringify, organizzato per prefisso così un ripristino manuale sa subito dove rimettere
+// ogni voce (env.TICKETS.put(chiave, valore) per ciascuna riga).
+async function buildKVBackup(env) {
+  const dump = {};
+  for (const prefix of BACKUP_PREFIXES) {
+    const records = {};
+    let cursor = undefined;
+    do {
+      const page = await env.TICKETS.list({ prefix, cursor });
+      for (const key of page.keys) {
+        const value = await env.TICKETS.get(key.name);
+        if (value !== null) records[key.name] = value;
+      }
+      cursor = page.list_complete ? undefined : page.cursor;
+    } while (cursor);
+    dump[prefix] = records;
+  }
+  const counterRaw = await env.TICKETS.get("config:nextCustomerNumber");
+  if (counterRaw !== null) dump["config:nextCustomerNumber"] = counterRaw;
+  return dump;
+}
+
+// Manda il backup completo via email (allegato JSON) a info@growmi.it: fuori dall'account
+// Cloudflare, cosi' un problema con KV o con l'account non si porta via anche il backup. Usata
+// sia dal cron giornaliero sia dall'endpoint manuale /api/admin-backup-now.
+async function sendKVBackupEmail(env) {
+  if (!env.TICKETS || !env.RESEND_API_KEY) return { ok: false, reason: "binding mancante" };
+
+  const dump = await buildKVBackup(env);
+  const counts = {};
+  for (const prefix of BACKUP_PREFIXES) counts[prefix] = Object.keys(dump[prefix]).length;
+
+  const json = JSON.stringify(dump, null, 2);
+  const base64 = Buffer.from(json).toString("base64");
+  const today = new Date().toISOString().slice(0, 10);
+
+  const summaryRows = Object.entries(counts).map(([prefix, n]) => `<li>${prefix} ${n}</li>`).join("");
+  const resendRes = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${env.RESEND_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      from: "GrowMi <noreply@growmi.it>",
+      to: "info@growmi.it",
+      subject: `Backup dati GrowMi — ${today}`,
+      html: `<p>Backup automatico del database in allegato (JSON).</p><ul>${summaryRows}</ul>`,
+      attachments: [{ filename: `growmi-backup-${today}.json`, content: base64 }]
+    })
+  });
+
+  if (!resendRes.ok) {
+    console.log("Errore invio backup:", resendRes.status, await resendRes.text());
+    return { ok: false, counts };
+  }
+  return { ok: true, counts };
 }
 
 // Stato reale delle fasce prezzo di un evento: conta i biglietti già venduti per fascia
