@@ -204,6 +204,15 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    if (url.pathname === "/api/export-feedback" && request.method === "GET") {
+      try {
+        return await handleExportFeedback(request, env);
+      } catch (err) {
+        console.log("Errore export-feedback:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     if (url.pathname === "/api/event-tiers" && request.method === "GET") {
       try {
         return await handleEventTiers(request, env);
@@ -1054,6 +1063,49 @@ async function handleFeedbackList(request, env) {
   responses.sort(function(a, b){ return (b.submittedAt || "").localeCompare(a.submittedAt || ""); });
 
   return jsonResponse({ responses });
+}
+
+// Stesso principio di handleExportAttendees: esporta tutte le risposte feedback in CSV, si apre
+// diretto in Excel/Numbers.
+async function handleExportFeedback(request, env) {
+  const staffKey = request.headers.get("x-staff-key");
+  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
+    return jsonResponse({ error: "unauthorized" }, 401);
+  }
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const responses = [];
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "feedback:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      if (raw) responses.push(JSON.parse(raw));
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  responses.sort(function(a, b){ return (b.submittedAt || "").localeCompare(a.submittedAt || ""); });
+
+  const rows = [[
+    "Nome", "Email", "Evento", "Valutazione (1-5)", "Consiglierebbe GrowMi",
+    "Cosa è piaciuto", "Cosa migliorare", "Altro", "Data invio"
+  ]];
+  for (const r of responses) {
+    rows.push([
+      r.name, r.email, r.eventName, r.rating, r.wouldRecommend ? "Sì" : "No",
+      r.liked, r.improve, r.comments,
+      r.submittedAt ? new Date(r.submittedAt).toLocaleString("it-IT") : ""
+    ]);
+  }
+
+  const csv = "﻿" + rows.map(function(row){ return row.map(csvEscape).join(","); }).join("\r\n");
+  return new Response(csv, {
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": 'attachment; filename="growmi-feedback.csv"'
+    }
+  });
 }
 
 // Cron giornaliero (vedi [triggers] in wrangler.toml): controlla se qualche evento è finito

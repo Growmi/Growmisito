@@ -65,6 +65,11 @@
     width:100%; padding:14px; border-radius:12px; border:none; background:var(--coral); color:#fff;
     font-weight:700; font-family:'Space Grotesk', sans-serif; cursor:pointer; font-size:14px;
   }
+  #exportCsvBtn{
+    width:100%; padding:14px; border-radius:12px; border:1.5px solid rgba(251,246,240,0.25);
+    background:rgba(251,246,240,0.06); color:var(--cream); font-family:'Space Grotesk', sans-serif;
+    font-weight:700; font-size:14px; cursor:pointer; margin-bottom:16px;
+  }
 </style>
 </head>
 <body>
@@ -81,12 +86,14 @@
 <header>
   <div class="top">
     <h1>Feedback ricevuti</h1>
-    <a class="back" href="staff-attendees">&larr; Presenti</a>
+    <a class="back" href="staff">Staff</a>
+    <a class="back" href="staff-attendees" style="margin-left:10px;">&larr; Presenti</a>
   </div>
   <p>Tutte le risposte inviate dal form di feedback</p>
 </header>
 
 <main>
+  <button type="button" id="exportCsvBtn">💾 Scarica tutte le risposte (Excel/CSV)</button>
   <p id="count"></p>
   <div id="list"></div>
   <p id="empty" style="display:none;">Nessuna risposta ricevuta finora.</p>
@@ -157,6 +164,29 @@
       count.textContent = "Errore di connessione, riprova.";
     }
   }
+
+  document.getElementById("exportCsvBtn").addEventListener("click", async function(){
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = "Preparazione file...";
+    try {
+      var res = await fetch("/api/export-feedback", { headers: { "X-Staff-Key": getStaffKey() } });
+      if (!res.ok) { alert("Errore nel generare il file."); return; }
+      var blob = await res.blob();
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "growmi-feedback.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("Errore di rete: " + e.message);
+    }
+    btn.disabled = false;
+    btn.textContent = "💾 Scarica tutte le risposte (Excel/CSV)";
+  });
 
   document.getElementById("keySubmit").addEventListener("click", function(){
     var k = keyInput.value.trim();
