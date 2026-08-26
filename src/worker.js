@@ -2523,6 +2523,16 @@ async function handleClaimPhysicalCard(request, env) {
   account.physicalCardClaimed = true;
   await env.TICKETS.put(`account:${email}`, JSON.stringify(account));
 
+  // Chi possiede una carta fisica l'ha ricevuta di persona all'evento del 4 giugno 2026: il
+  // timbro per quell'evento non è mai stato dato perché il sistema digitale non esisteva ancora,
+  // quindi lo aggiungiamo ora, al momento del collegamento carta-account. ticketCode sintetico
+  // (univoco per numero carta) solo per riusare la stessa dedup logic di addLoyaltyStamp.
+  await addLoyaltyStamp(env, email, {
+    eventName: "GrowMi — 4 giugno 2026",
+    ticketCode: `physcard-${cardNumber}`,
+    stampedAt: "2026-06-04T00:00:00.000Z"
+  });
+
   return jsonResponse({ ok: true, customerNumber: cardNumber });
 }
 
