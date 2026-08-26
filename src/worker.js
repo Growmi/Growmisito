@@ -416,6 +416,35 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    // Pannello gestione eventi (sezione aziendale): elenco, creazione, modifica. Stessa
+    // autenticazione (account @growmi.it) delle altre rotte /api/admin* e /api/*-customers.
+    if (url.pathname === "/api/admin/events" && request.method === "GET") {
+      try {
+        return await handleAdminListEvents(request, env);
+      } catch (err) {
+        console.log("Errore admin/events GET:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/admin/events" && request.method === "POST") {
+      try {
+        return await handleAdminCreateEvent(request, env);
+      } catch (err) {
+        console.log("Errore admin/events POST:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/admin/events" && request.method === "PUT") {
+      try {
+        return await handleAdminUpdateEvent(request, env);
+      } catch (err) {
+        console.log("Errore admin/events PUT:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     if (url.pathname === "/api/account/profile" && request.method === "POST") {
       try {
         return await handleAccountProfile(request, env);
@@ -526,7 +555,12 @@ async function handleFetch(request, env, ctx) {
 // capacità. Aggiungere un evento nuovo = aggiungere una voce qui (slug → dati), niente Payment
 // Link esterni da creare uno per uno né HTML da riscrivere per il blocco acquisto. Le capacità
 // sono numeri semplici: si alzano/abbassano modificandoli qui, nessuna logica da toccare.
-const EVENTS = {
+// Eventi "di serie": la fonte di verità originale, da codice, di prima che esistesse il pannello
+// eventi nell'area aziendale. Restano qui solo come fallback — vedi getEvent() — cosi' l'evento
+// già live continua a funzionare esattamente come prima anche se non viene mai toccato dal
+// pannello. Un evento creato o modificato dal pannello vive invece in KV (event:<slug>) e da quel
+// momento ha sempre la precedenza su quanto scritto qui.
+const DEFAULT_EVENTS = {
   "miseducation-2026-09-10": {
     name: "The Miseducation of GrowMi",
     dateDisplay: "Giovedì 10 settembre 2026 · Apertura 19:00",
@@ -559,8 +593,31 @@ const EVENTS = {
   }
 };
 
-function findTierOption(eventSlug, tierId, optionId) {
-  const event = EVENTS[eventSlug];
+// Un evento creato/modificato dal pannello vive in KV sotto event:<slug> e ha sempre la
+// precedenza; se non c'è ancora in KV, cade sul fallback DEFAULT_EVENTS (vedi sopra). Cosi' ogni
+// punto del codice che leggeva EVENTS[slug] continua a funzionare identico, solo ora async.
+async function getEvent(env, slug) {
+  const raw = await env.TICKETS.get(`event:${slug}`);
+  if (raw) return JSON.parse(raw);
+  return DEFAULT_EVENTS[slug] || null;
+}
+
+// Unisce gli slug "di serie" (DEFAULT_EVENTS) con quelli creati/modificati dal pannello (chiavi
+// event:* in KV), senza doppioni — serve a chi deve elencare tutti gli eventi esistenti
+// (handleEventsList, il pannello eventi) senza sapere a priori dove vive ciascuno.
+async function listAllEventSlugs(env) {
+  const slugs = new Set(Object.keys(DEFAULT_EVENTS));
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "event:", cursor });
+    for (const key of page.keys) slugs.add(key.name.slice("event:".length));
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  return Array.from(slugs);
+}
+
+async function findTierOption(env, eventSlug, tierId, optionId) {
+  const event = await getEvent(env, eventSlug);
   const tier = event?.tiers.find(function(t){ return t.id === tierId; });
   const option = tier?.options.find(function(o){ return o.id === optionId; });
   if (!event || !tier || !option) return null;
@@ -821,15 +878,19 @@ async function handleStats(request, env) {
 }
 
 // Elenco eventi per il menu dello scanner (staff-checkin.html): stessa fonte di verità già usata
-// per prezzi/fasce, zero manutenzione — ogni evento nuovo aggiunto a EVENTS compare qui da solo.
+// per prezzi/fasce (DEFAULT_EVENTS + quelli creati dal pannello in KV), zero manutenzione — ogni
+// evento nuovo compare qui da solo, che sia di serie o creato dal pannello.
 async function handleEventsList(request, env) {
   const staffKey = request.headers.get("x-staff-key");
   if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
     return jsonResponse({ error: "unauthorized" }, 401);
   }
-  const events = Object.keys(EVENTS).map(function(slug){
-    return { slug, name: EVENTS[slug].name, dateDisplay: EVENTS[slug].dateDisplay };
-  });
+  const slugs = await listAllEventSlugs(env);
+  const events = [];
+  for (const slug of slugs) {
+    const event = await getEvent(env, slug);
+    if (event) events.push({ slug, name: event.name, dateDisplay: event.dateDisplay });
+  }
   return jsonResponse({ events });
 }
 
@@ -848,7 +909,8 @@ async function handleEventHistory(request, env) {
 
   const url = new URL(request.url);
   const eventSlug = url.searchParams.get("event");
-  if (!eventSlug || !EVENTS[eventSlug]) return jsonResponse({ error: "evento non valido" }, 400);
+  const event = eventSlug ? await getEvent(env, eventSlug) : null;
+  if (!eventSlug || !event) return jsonResponse({ error: "evento non valido" }, 400);
 
   let sold = 0;
   let checkedIn = 0;
@@ -885,13 +947,13 @@ async function handleEventHistory(request, env) {
       const history = loyalty.history || [];
       // history[2] (indice 2, 3° timbro) e history[4] (indice 4, 5° timbro) sono i timbri che
       // hanno sbloccato ciascun premio — se sono di questo evento, il premio è "nato" qui.
-      if (history[2] && history[2].eventName === EVENTS[eventSlug].name) reward3Given++;
-      if (history[4] && history[4].eventName === EVENTS[eventSlug].name) reward5Given++;
+      if (history[2] && history[2].eventName === event.name) reward3Given++;
+      if (history[4] && history[4].eventName === event.name) reward5Given++;
     }
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
 
-  return jsonResponse({ eventSlug, eventName: EVENTS[eventSlug].name, sold, checkedIn, withLoyaltyCard, reward3Given, reward5Given });
+  return jsonResponse({ eventSlug, eventName: event.name, sold, checkedIn, withLoyaltyCard, reward3Given, reward5Given });
 }
 
 // Elenco di chi è entrato davvero (per la pagina staff-attendees.html), letto dalla metadata
@@ -1264,7 +1326,7 @@ async function runScheduledFeedback(env) {
 // staffsession: (token di login effimeri, si rigenerano da soli), evt:/feedback_sent: (marker
 // interni di dedup, non dati), registration: (esiste solo tra form e pagamento riuscito, viene
 // cancellata appena il webhook Stripe conferma — se esiste ancora è un acquisto abbandonato).
-const BACKUP_PREFIXES = ["ticket:", "account:", "staffaccount:", "loyalty:", "coupon:", "customernum:", "physicalcard:", "feedback:"];
+const BACKUP_PREFIXES = ["ticket:", "account:", "staffaccount:", "loyalty:", "coupon:", "customernum:", "physicalcard:", "feedback:", "event:"];
 
 // Scarica per intero ogni prefisso in BACKUP_PREFIXES (list() dà solo le chiavi, serve una get()
 // per ogni valore) più il contatore progressivo dei numeri cliente. Ritorna un oggetto pronto per
@@ -1334,9 +1396,9 @@ async function sendKVBackupEmail(env) {
 async function handleEventTiers(request, env) {
   const url = new URL(request.url);
   const slug = url.searchParams.get("event");
-  const event = EVENTS[slug];
-  if (!event) return jsonResponse({ error: "evento non trovato" }, 404);
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const event = await getEvent(env, slug);
+  if (!event) return jsonResponse({ error: "evento non trovato" }, 404);
 
   const soldByTier = {};
   let cursor = undefined;
@@ -1430,7 +1492,7 @@ async function handleRegister(request, env) {
   const newsletterOptin = body.newsletterOptin === true;
   const couponCode = String(body.couponCode || "").trim().toUpperCase();
 
-  if (!EVENTS[eventSlug]) return jsonResponse({ error: "evento non valido" }, 400);
+  if (!await getEvent(env, eventSlug)) return jsonResponse({ error: "evento non valido" }, 400);
   if (!name || !phone || !email || !termsAccepted || !photoConsent) {
     return jsonResponse({ error: "nome, telefono, email, termini e condizioni e consenso foto/video sono obbligatori" }, 400);
   }
@@ -1470,7 +1532,7 @@ async function handleCreateCheckoutSession(request, env) {
   if (!rawReg) return jsonResponse({ error: "registrazione non trovata o scaduta" }, 400);
   const registration = JSON.parse(rawReg);
 
-  const found = findTierOption(registration.eventSlug, tierId, optionId);
+  const found = await findTierOption(env, registration.eventSlug, tierId, optionId);
   if (!found) return jsonResponse({ error: "fascia o opzione non valida" }, 400);
 
   // Ricontrollo la capacità qui, non solo lato UI: se nel frattempo la fascia si è esaurita
@@ -1579,8 +1641,8 @@ async function handleStripeWebhook(request, env) {
       const eventSlug = session.metadata?.event || registration.eventSlug;
       const tierId = session.metadata?.tierId;
       const optionId = session.metadata?.optionId;
-      const found = findTierOption(eventSlug, tierId, optionId);
-      const eventInfo = found?.event || EVENTS[eventSlug];
+      const found = await findTierOption(env, eventSlug, tierId, optionId);
+      const eventInfo = found?.event || await getEvent(env, eventSlug);
 
       const email = registration.email;
       const customerName = registration.name;
@@ -2445,6 +2507,201 @@ async function handleExportCustomers(request, env) {
   return new Response(csv, {
     headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="growmi-clienti.csv"' }
   });
+}
+
+// Trasforma un'etichetta libera in un id sicuro da usare in URL/chiavi KV (minuscolo, solo
+// lettere/numeri/trattini) — usato per generare slug evento e id di fascia/opzione quando il
+// pannello non ne manda uno esplicito.
+function slugify(text) {
+  return String(text || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
+// Per ogni fascia/opzione dell'evento, quanti biglietti sono già stati venduti — serve alla
+// validazione delle modifiche (handleAdminUpdateEvent): non si può abbassare la capienza sotto i
+// biglietti già venduti, né togliere una fascia/opzione che ha già vendite.
+async function countSoldByTierOption(env, eventSlug) {
+  const byTier = {};
+  const byTierOption = {};
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "ticket:", cursor });
+    for (const key of page.keys) {
+      const m = key.metadata;
+      if (m?.eventSlug !== eventSlug || !m.tierId) continue;
+      byTier[m.tierId] = (byTier[m.tierId] || 0) + 1;
+      if (m.optionId) {
+        const k = `${m.tierId}:${m.optionId}`;
+        byTierOption[k] = (byTierOption[k] || 0) + 1;
+      }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  return { byTier, byTierOption };
+}
+
+// Valida e normalizza il payload di un evento mandato dal pannello (creazione o modifica).
+// existingTiers è l'array di fasce già salvate (null se è una creazione): serve a proteggere id
+// di fascia/opzione già usati da biglietti venduti, cosi' una modifica non può mai invalidare
+// silenziosamente uno storico di vendita esistente. Ritorna { ok:true, event } oppure
+// { ok:false, error }.
+function validateEventPayload(body, existingTiers, sold) {
+  const name = String(body.name || "").trim().slice(0, 200);
+  const dateDisplay = String(body.dateDisplay || "").trim().slice(0, 200);
+  const dateIso = String(body.dateIso || "").trim();
+  const location = String(body.location || "").trim().slice(0, 200);
+  const teaser = String(body.teaser || "").trim().slice(0, 500);
+
+  if (!name) return { ok: false, error: "il nome dell'evento è obbligatorio" };
+  if (!dateDisplay) return { ok: false, error: "la data da mostrare (es. \"Giovedì 10 settembre · Apertura 19:00\") è obbligatoria" };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso) || isNaN(new Date(dateIso).getTime())) {
+    return { ok: false, error: "data evento non valida (formato AAAA-MM-GG)" };
+  }
+  if (!location) return { ok: false, error: "il luogo è obbligatorio" };
+
+  const inputTiers = Array.isArray(body.tiers) ? body.tiers : [];
+  if (!inputTiers.length) return { ok: false, error: "serve almeno una fascia biglietti" };
+
+  const existingTierIds = new Set((existingTiers || []).map(function(t){ return t.id; }));
+  const existingOptionIds = {}; // tierId -> Set(optionId)
+  (existingTiers || []).forEach(function(t){
+    existingOptionIds[t.id] = new Set(t.options.map(function(o){ return o.id; }));
+  });
+
+  const seenTierIds = new Set();
+  const tiers = [];
+  for (const rawTier of inputTiers) {
+    const tierName = String(rawTier.name || "").trim().slice(0, 200);
+    if (!tierName) return { ok: false, error: "ogni fascia deve avere un nome" };
+    let tierId = String(rawTier.id || "").trim() || slugify(tierName);
+    if (!/^[a-z0-9-]+$/.test(tierId)) return { ok: false, error: `id fascia non valido: "${tierId}"` };
+    if (seenTierIds.has(tierId)) return { ok: false, error: `id fascia duplicato: "${tierId}"` };
+    seenTierIds.add(tierId);
+
+    const capacity = parseInt(rawTier.capacity, 10);
+    if (!Number.isInteger(capacity) || capacity < 1) {
+      return { ok: false, error: `capienza non valida per la fascia "${tierName}"` };
+    }
+    const soldForTier = sold.byTier[tierId] || 0;
+    if (capacity < soldForTier) {
+      return { ok: false, error: `la fascia "${tierName}" ha già ${soldForTier} biglietti venduti: non puoi impostare una capienza inferiore` };
+    }
+
+    const inputOptions = Array.isArray(rawTier.options) ? rawTier.options : [];
+    if (!inputOptions.length) return { ok: false, error: `la fascia "${tierName}" deve avere almeno un'opzione` };
+
+    const seenOptionIds = new Set();
+    const options = [];
+    for (const rawOption of inputOptions) {
+      const label = String(rawOption.label || "").trim().slice(0, 200);
+      if (!label) return { ok: false, error: `ogni opzione della fascia "${tierName}" deve avere un'etichetta` };
+      let optionId = String(rawOption.id || "").trim() || slugify(label);
+      if (!/^[a-z0-9-]+$/.test(optionId)) return { ok: false, error: `id opzione non valido: "${optionId}"` };
+      if (seenOptionIds.has(optionId)) return { ok: false, error: `id opzione duplicato nella fascia "${tierName}": "${optionId}"` };
+      seenOptionIds.add(optionId);
+
+      const priceCents = parseInt(rawOption.priceCents, 10);
+      if (!Number.isInteger(priceCents) || priceCents < 0) {
+        return { ok: false, error: `prezzo non valido per "${label}" (in centesimi, es. 1200 = 12,00€)` };
+      }
+      options.push({ id: optionId, label, priceCents });
+    }
+
+    // Un'opzione già venduta non può sparire dalla fascia: invaliderebbe i biglietti già emessi
+    // con quell'id. Si può rinominare/ricaricare di prezzo, ma non rimuovere.
+    if (existingOptionIds[tierId]) {
+      for (const oldOptionId of existingOptionIds[tierId]) {
+        const soldKey = `${tierId}:${oldOptionId}`;
+        if ((sold.byTierOption[soldKey] || 0) > 0 && !seenOptionIds.has(oldOptionId)) {
+          return { ok: false, error: `non puoi rimuovere l'opzione "${oldOptionId}" dalla fascia "${tierName}": ha già vendite` };
+        }
+      }
+    }
+
+    tiers.push({ id: tierId, name: tierName, sub: String(rawTier.sub || "").trim().slice(0, 200), capacity, options });
+  }
+
+  // Stessa protezione, a livello di fascia intera: non si può far sparire una fascia che ha già
+  // venduto biglietti (capiterebbe rimuovendola dal payload invece di modificarla).
+  for (const oldTierId of existingTierIds) {
+    if ((sold.byTier[oldTierId] || 0) > 0 && !seenTierIds.has(oldTierId)) {
+      return { ok: false, error: `non puoi rimuovere la fascia "${oldTierId}": ha già biglietti venduti` };
+    }
+  }
+
+  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers } };
+}
+
+// Elenco completo eventi per il pannello aziendale (dettaglio pieno, non solo nome/data come
+// /api/events-list che serve solo lo scanner) — include quanti biglietti sono già venduti per
+// fascia, cosi' l'interfaccia può disabilitare/spiegare i campi non più modificabili.
+async function handleAdminListEvents(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const slugs = await listAllEventSlugs(env);
+  const events = [];
+  for (const slug of slugs) {
+    const event = await getEvent(env, slug);
+    if (!event) continue;
+    const sold = await countSoldByTierOption(env, slug);
+    events.push({ slug, ...event, soldByTier: sold.byTier });
+  }
+  events.sort(function(a, b){ return a.dateIso < b.dateIso ? -1 : 1; });
+  return jsonResponse({ events });
+}
+
+// Crea un evento nuovo: genera lo slug da nome+data (con suffisso numerico se già esistente) e
+// salva direttamente in KV — da quel momento ha sempre la precedenza su DEFAULT_EVENTS (che tanto
+// non lo conosce nemmeno). Nessun biglietto può esisterci già, quindi validazione senza vincoli
+// di "vendite pregresse" (sold sempre a zero).
+async function handleAdminCreateEvent(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const body = await request.json();
+  const validated = validateEventPayload(body, null, { byTier: {}, byTierOption: {} });
+  if (!validated.ok) return jsonResponse({ error: validated.error }, 400);
+
+  const dateIso = validated.event.dateIso;
+  let baseSlug = slugify(body.slug || `${validated.event.name}-${dateIso}`);
+  if (!baseSlug) baseSlug = `evento-${dateIso}`;
+  let slug = baseSlug;
+  let suffix = 2;
+  while (await getEvent(env, slug)) {
+    slug = `${baseSlug}-${suffix}`;
+    suffix++;
+  }
+
+  await env.TICKETS.put(`event:${slug}`, JSON.stringify(validated.event));
+  return jsonResponse({ ok: true, slug, event: validated.event });
+}
+
+// Modifica un evento esistente (di serie o già creato dal pannello): la validazione blocca
+// qualunque cambio che invaliderebbe biglietti già venduti (vedi validateEventPayload). Lo slug
+// non cambia mai qui — rinominare l'evento vuol dire cambiare il campo "name", non l'URL/slug.
+async function handleAdminUpdateEvent(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const body = await request.json();
+  const slug = String(body.slug || "").trim();
+  const existing = slug ? await getEvent(env, slug) : null;
+  if (!existing) return jsonResponse({ error: "evento non trovato" }, 404);
+
+  const sold = await countSoldByTierOption(env, slug);
+  const validated = validateEventPayload(body, existing.tiers, sold);
+  if (!validated.ok) return jsonResponse({ error: validated.error }, 400);
+
+  await env.TICKETS.put(`event:${slug}`, JSON.stringify(validated.event));
+  return jsonResponse({ ok: true, slug, event: validated.event });
 }
 
 // Salva la scheda "Dati personali e consensi" — stesso account, campi in più (numero cliente
