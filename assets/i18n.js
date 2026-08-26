@@ -3,6 +3,8 @@ const GROWMI_I18N = {
     nav_home:"Home", nav_eventi:"Eventi", nav_artisti:"Artisti", nav_chisiamo:"Chi siamo", nav_contatti:"Contatti", nav_cta:"Biglietti",
     nav_loyalty:"Carta fedeltà", nav_supporters:"Supportaci", nav_account:"Accedi", nav_areapersonale:"Area personale",
     foot_sito:"Sito", foot_contatti:"Contatti", foot_social:"Social", foot_rights:"© 2026 GrowMi. Milano.", foot_madewith:"Sito in fase di sviluppo",
+    cookie_banner_text:"Usiamo solo cookie tecnici necessari al funzionamento del sito (es. per il login) — nessun cookie di tracciamento o pubblicità.",
+    cookie_banner_link:"Scopri di più", cookie_banner_ok:"Ho capito",
 
     home_eyebrow:"Milano · eventi dal vivo",
     home_marquee:"MILANO ★ EVENTI DAL VIVO ★ ARTISTI EMERGENTI ★ ESPRESSIONE E ORIGINALITÀ ★",
@@ -158,6 +160,8 @@ const GROWMI_I18N = {
     nav_home:"Home", nav_eventi:"Events", nav_artisti:"Artists", nav_chisiamo:"About", nav_contatti:"Contact", nav_cta:"Tickets",
     nav_loyalty:"Loyalty Card", nav_supporters:"Support us", nav_account:"Sign in", nav_areapersonale:"My account",
     foot_sito:"Site", foot_contatti:"Contact", foot_social:"Social", foot_rights:"© 2026 GrowMi. Milan.", foot_madewith:"Site in development",
+    cookie_banner_text:"We only use technical cookies necessary for the site to work (e.g. for login) — no tracking or advertising cookies.",
+    cookie_banner_link:"Learn more", cookie_banner_ok:"Got it",
 
     home_eyebrow:"Milan · live events",
     home_marquee:"MILAN ★ LIVE EVENTS ★ EMERGING ARTISTS ★ EXPRESSION AND ORIGINALITY ★",
