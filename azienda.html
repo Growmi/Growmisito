@@ -121,6 +121,35 @@
   .az-pill.no{ background:#F3ECE3; color:var(--grey); }
 
   .az-empty{ color:var(--grey); font-size:14px; text-align:center; padding:30px 0; }
+
+  /* Pannello eventi: scheda riepilogo per evento + form creazione/modifica con fasce/opzioni
+     ripetibili. Stile coerente col resto del pannello (stessi radius/colori), ma componenti
+     nuovi perché non esisteva ancora nulla di "ripetibile" nelle altre schede. */
+  .az-ev-card{ background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:18px 20px; margin-bottom:14px; }
+  .az-ev-card h4{ font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px; }
+  .az-ev-card .meta{ font-size:12.5px; color:var(--grey); margin-bottom:12px; }
+  .az-ev-tierrow{ display:flex; justify-content:space-between; font-size:13px; padding:7px 0; border-top:1px solid var(--line); gap:10px; }
+  .az-ev-tierrow .opts{ color:var(--grey); font-size:12px; }
+  .az-ev-card .edit-btn{
+    margin-top:14px; padding:9px 16px; border-radius:10px; border:1.5px solid var(--ink); background:#fff;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12.5px; cursor:pointer; color:var(--ink);
+  }
+  .az-tier-block{ border:1.5px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; background:#FBF8F4; }
+  .az-tier-block .row2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
+  .az-tier-block .row-cap{ margin-bottom:12px; }
+  .az-tier-block input{
+    padding:10px 12px; border-radius:8px; border:1.5px solid var(--line);
+    font-family:'Inter',sans-serif; font-size:13.5px; width:100%;
+  }
+  .az-tier-block input:focus{ outline:none; border-color:var(--coral); }
+  .az-opt-row{ display:grid; grid-template-columns:2fr 1fr auto; gap:8px; margin-bottom:8px; align-items:center; }
+  .az-mini-btn{
+    padding:9px 13px; border-radius:8px; border:1.5px solid var(--line); background:#fff;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12px; cursor:pointer; white-space:nowrap; color:var(--ink);
+  }
+  .az-mini-btn.danger{ border-color:#D9534F; color:#D9534F; }
+  .az-tier-block-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+  .az-tier-block-head span{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; color:var(--grey); }
 </style>
 </head>
 <body>
@@ -172,6 +201,7 @@
       <button type="button" data-panel="clienti">🧑‍🤝‍🧑 Clienti</button>
       <button type="button" data-panel="presenti">👥 Presenti</button>
       <button type="button" data-panel="feedback">💬 Feedback</button>
+      <button type="button" data-panel="eventi">🎫 Eventi</button>
       <a href="staff-checkin">📷 Check-in</a>
     </div>
 
@@ -241,6 +271,45 @@
         </table>
       </div>
       <p class="az-empty" id="az-feedback-empty" hidden>Nessuna risposta ricevuta finora.</p>
+    </div>
+
+    <!-- Eventi -->
+    <div class="az-panel" data-panel-content="eventi" hidden>
+      <div class="az-toolbar">
+        <span></span>
+        <div class="actions">
+          <button type="button" class="primary" id="az-event-new">+ Nuovo evento</button>
+        </div>
+      </div>
+      <div id="az-events-list"></div>
+      <p class="az-empty" id="az-events-empty" hidden>Nessun evento ancora.</p>
+
+      <div id="az-event-form-wrap" hidden>
+        <h3 id="az-event-form-title" style="font-family:'Space Grotesk',sans-serif; font-size:18px; margin:24px 0 16px;">Nuovo evento</h3>
+        <form id="az-event-form" style="max-width:600px; display:flex; flex-direction:column; gap:16px;">
+          <input type="hidden" id="az-ev-slug">
+          <div class="az-field"><label for="az-ev-name">Nome evento</label><input type="text" id="az-ev-name" required></div>
+          <div class="az-field">
+            <label for="az-ev-datedisplay">Data da mostrare sul sito</label>
+            <input type="text" id="az-ev-datedisplay" placeholder='es. "Giovedì 10 settembre 2026 · Apertura 19:00"' required>
+          </div>
+          <div class="az-field"><label for="az-ev-dateiso">Data evento</label><input type="date" id="az-ev-dateiso" required></div>
+          <div class="az-field"><label for="az-ev-location">Luogo</label><input type="text" id="az-ev-location" required></div>
+          <div class="az-field"><label for="az-ev-teaser">Descrizione breve</label><input type="text" id="az-ev-teaser"></div>
+
+          <div>
+            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:10px;">Fasce biglietti</label>
+            <div id="az-ev-tiers"></div>
+            <button type="button" class="az-mini-btn" id="az-ev-add-tier">+ Aggiungi fascia</button>
+          </div>
+
+          <div style="display:flex; gap:10px; align-items:center;">
+            <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Salva evento</button>
+            <button type="button" class="az-mini-btn" id="az-ev-cancel">Annulla</button>
+          </div>
+          <p class="az-msg" id="az-event-msg" hidden></p>
+        </form>
+      </div>
     </div>
   </div>
 
@@ -490,6 +559,194 @@
   panelLoaders.feedback = { loaded: false, load: loadFeedback };
   document.getElementById('az-feedback-export').addEventListener('click', async function(){
     await downloadCsv('/api/export-feedback', 'growmi-feedback.csv', this, '💾 Esporta CSV');
+  });
+
+  // ---- Eventi (pannello gestione eventi) ----
+  var allEvents = [];
+  function eurosToCents(str){
+    var n = parseFloat(String(str || '0').replace(',', '.'));
+    if (isNaN(n) || n < 0) return null;
+    return Math.round(n * 100);
+  }
+  function centsToEuros(cents){
+    return (cents / 100).toFixed(2).replace('.', ',');
+  }
+
+  function renderEventsList(events){
+    var wrap = document.getElementById('az-events-list');
+    var empty = document.getElementById('az-events-empty');
+    wrap.innerHTML = '';
+    empty.hidden = !!events.length;
+    events.forEach(function(ev){
+      var card = document.createElement('div');
+      card.className = 'az-ev-card';
+      var tierRows = ev.tiers.map(function(t){
+        var sold = (ev.soldByTier && ev.soldByTier[t.id]) || 0;
+        var optsLabel = t.options.map(function(o){ return o.label + ' ' + euro(o.priceCents); }).join(' · ');
+        return '<div class="az-ev-tierrow"><span>' + esc(t.name) + ' — ' + sold + '/' + t.capacity + '</span><span class="opts">' + esc(optsLabel) + '</span></div>';
+      }).join('');
+      card.innerHTML =
+        '<h4>' + esc(ev.name) + '</h4>' +
+        '<div class="meta">' + esc(ev.dateDisplay) + ' · ' + esc(ev.location) + '</div>' +
+        tierRows +
+        '<button type="button" class="edit-btn">✏️ Modifica</button>';
+      card.querySelector('.edit-btn').addEventListener('click', function(){ openEventForm(ev); });
+      wrap.appendChild(card);
+    });
+  }
+
+  async function loadEvents(){
+    try {
+      var res = await fetch('/api/admin/events');
+      var data = await res.json();
+      allEvents = data.events || [];
+      renderEventsList(allEvents);
+    } catch (err) { document.getElementById('az-events-empty').hidden = false; }
+  }
+  panelLoaders.eventi = { loaded: false, load: loadEvents };
+
+  // I valori vengono assegnati con .value dopo aver creato gli elementi, mai interpolati dentro
+  // l'HTML come attributo value="..." — esc() serve a testo dentro tag, non ad attributi: un
+  // nome evento con una virgoletta dentro (es. Serata "Speciale") romperebbe l'attributo se
+  // interpolato a stringa, qui invece è sempre sicuro qualunque carattere contenga.
+  function addOptionRow(tierBlock, opt){
+    var row = document.createElement('div');
+    row.className = 'az-opt-row';
+    row.setAttribute('data-option-id', (opt && opt.id) || '');
+    row.innerHTML =
+      '<input type="text" class="opt-label" placeholder="Etichetta (es. Solo ingresso)" required>' +
+      '<input type="text" class="opt-price" placeholder="Prezzo €" required>' +
+      '<button type="button" class="az-mini-btn danger">✕</button>';
+    row.querySelector('.opt-label').value = opt ? opt.label : '';
+    row.querySelector('.opt-price').value = opt ? centsToEuros(opt.priceCents) : '';
+    row.querySelector('.danger').addEventListener('click', function(){ row.remove(); });
+    tierBlock.querySelector('.az-opts').appendChild(row);
+  }
+
+  function addTierBlock(tier){
+    var container = document.getElementById('az-ev-tiers');
+    var block = document.createElement('div');
+    block.className = 'az-tier-block';
+    block.setAttribute('data-tier-id', (tier && tier.id) || '');
+    block.innerHTML =
+      '<div class="az-tier-block-head"><span>Fascia</span><button type="button" class="az-mini-btn danger remove-tier">Rimuovi fascia</button></div>' +
+      '<div class="row2">' +
+        '<input type="text" class="tier-name" placeholder="Nome fascia (es. Prima fascia)" required>' +
+        '<input type="text" class="tier-sub" placeholder="Sottotitolo (es. Posti limitati)">' +
+      '</div>' +
+      '<div class="row-cap"><input type="number" min="1" class="tier-capacity" placeholder="Capienza (numero posti)" required></div>' +
+      '<div class="az-opts"></div>' +
+      '<button type="button" class="az-mini-btn add-option">+ Aggiungi opzione</button>';
+    block.querySelector('.tier-name').value = tier ? tier.name : '';
+    block.querySelector('.tier-sub').value = tier ? tier.sub : '';
+    block.querySelector('.tier-capacity').value = tier ? tier.capacity : '';
+    block.querySelector('.remove-tier').addEventListener('click', function(){ block.remove(); });
+    block.querySelector('.add-option').addEventListener('click', function(){ addOptionRow(block, null); });
+    container.appendChild(block);
+    if (tier && tier.options) {
+      tier.options.forEach(function(o){ addOptionRow(block, o); });
+    } else {
+      addOptionRow(block, null);
+    }
+  }
+
+  function openEventForm(event){
+    document.getElementById('az-event-form-wrap').hidden = false;
+    document.getElementById('az-events-list').hidden = true;
+    document.getElementById('az-events-empty').hidden = true;
+    document.getElementById('az-event-form-title').textContent = event ? 'Modifica evento' : 'Nuovo evento';
+    document.getElementById('az-event-msg').hidden = true;
+    document.getElementById('az-ev-slug').value = event ? event.slug : '';
+    document.getElementById('az-ev-name').value = event ? event.name : '';
+    document.getElementById('az-ev-datedisplay').value = event ? event.dateDisplay : '';
+    document.getElementById('az-ev-dateiso').value = event ? event.dateIso : '';
+    document.getElementById('az-ev-location').value = event ? event.location : '';
+    document.getElementById('az-ev-teaser').value = event ? (event.teaser || '') : '';
+    document.getElementById('az-ev-tiers').innerHTML = '';
+    if (event) {
+      event.tiers.forEach(function(t){ addTierBlock(t); });
+    } else {
+      addTierBlock(null);
+    }
+  }
+  function closeEventForm(){
+    document.getElementById('az-event-form-wrap').hidden = true;
+    document.getElementById('az-events-list').hidden = false;
+    renderEventsList(allEvents);
+  }
+  document.getElementById('az-event-new').addEventListener('click', function(){ openEventForm(null); });
+  document.getElementById('az-ev-cancel').addEventListener('click', closeEventForm);
+  document.getElementById('az-ev-add-tier').addEventListener('click', function(){ addTierBlock(null); });
+
+  document.getElementById('az-event-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var msg = document.getElementById('az-event-msg');
+    msg.hidden = true;
+
+    var tierBlocks = Array.prototype.slice.call(document.querySelectorAll('#az-ev-tiers .az-tier-block'));
+    if (!tierBlocks.length) { showMsg(msg, 'Serve almeno una fascia biglietti.', true); return; }
+
+    var tiers = [];
+    for (var i = 0; i < tierBlocks.length; i++) {
+      var tb = tierBlocks[i];
+      var optRows = Array.prototype.slice.call(tb.querySelectorAll('.az-opt-row'));
+      if (!optRows.length) { showMsg(msg, 'Ogni fascia deve avere almeno un\'opzione.', true); return; }
+      var options = [];
+      for (var j = 0; j < optRows.length; j++) {
+        var or_ = optRows[j];
+        var priceCents = eurosToCents(or_.querySelector('.opt-price').value);
+        if (priceCents === null) { showMsg(msg, 'Prezzo non valido in una delle opzioni.', true); return; }
+        options.push({
+          id: or_.getAttribute('data-option-id') || '',
+          label: or_.querySelector('.opt-label').value.trim(),
+          priceCents: priceCents
+        });
+      }
+      tiers.push({
+        id: tb.getAttribute('data-tier-id') || '',
+        name: tb.querySelector('.tier-name').value.trim(),
+        sub: tb.querySelector('.tier-sub').value.trim(),
+        capacity: parseInt(tb.querySelector('.tier-capacity').value, 10),
+        options: options
+      });
+    }
+
+    var payload = {
+      name: document.getElementById('az-ev-name').value.trim(),
+      dateDisplay: document.getElementById('az-ev-datedisplay').value.trim(),
+      dateIso: document.getElementById('az-ev-dateiso').value,
+      location: document.getElementById('az-ev-location').value.trim(),
+      teaser: document.getElementById('az-ev-teaser').value.trim(),
+      tiers: tiers
+    };
+    var slug = document.getElementById('az-ev-slug').value;
+    var isEdit = !!slug;
+    if (isEdit) payload.slug = slug;
+
+    if (!confirm(isEdit ? 'Confermi le modifiche a questo evento? Sarà subito live sul sito.' : 'Confermi la creazione di questo evento? Sarà subito acquistabile sul sito.')) return;
+
+    var submitBtn = document.querySelector('#az-event-form .az-submit');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Salvataggio...';
+    try {
+      var res = await fetch('/api/admin/events', {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      var data = await res.json();
+      if (res.ok) {
+        closeEventForm();
+        panelLoaders.eventi.loaded = true;
+        loadEvents();
+      } else {
+        showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+      }
+    } catch (err) {
+      showMsg(msg, 'Errore di connessione.', true);
+    }
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Salva evento';
   });
 
   // ---- helper download CSV comune ----
