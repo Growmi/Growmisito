@@ -141,6 +141,24 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    if (url.pathname === "/api/events-list" && request.method === "GET") {
+      try {
+        return await handleEventsList(request, env);
+      } catch (err) {
+        console.log("Errore events-list:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/event-history" && request.method === "GET") {
+      try {
+        return await handleEventHistory(request, env);
+      } catch (err) {
+        console.log("Errore event-history:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     if (url.pathname === "/api/attendees" && request.method === "GET") {
       try {
         return await handleAttendees(request, env);
@@ -587,7 +605,7 @@ async function handleCheckin(request, env) {
 
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
 
-  const { code } = await request.json();
+  const { code, eventSlug } = await request.json();
   const ticketCode = String(code || "").trim().toUpperCase();
   if (!ticketCode) {
     return jsonResponse({ error: "missing code" }, 400);
@@ -602,6 +620,13 @@ async function handleCheckin(request, env) {
   const ticket = JSON.parse(raw);
   if (ticket.used) {
     return jsonResponse({ valid: false, reason: "already_used", usedAt: ticket.usedAt, email: ticket.email });
+  }
+
+  // Scanner "bloccato" su un evento specifico (vedi selezione evento in staff-checkin.html): un
+  // biglietto di un altro evento viene rifiutato subito, prima ancora di marcarlo come usato,
+  // così lo stesso codice resta valido per lo scanner giusto.
+  if (eventSlug && ticket.eventSlug && ticket.eventSlug !== eventSlug) {
+    return jsonResponse({ valid: false, reason: "wrong_event", eventName: ticket.eventName });
   }
 
   ticket.used = true;
@@ -642,12 +667,16 @@ async function handleStats(request, env) {
   }
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
 
+  const url = new URL(request.url);
+  const eventSlug = url.searchParams.get("event");
+
   let total = 0;
   let checkedIn = 0;
   let cursor = undefined;
   do {
     const page = await env.TICKETS.list({ prefix: "ticket:", cursor });
     for (const key of page.keys) {
+      if (eventSlug && key.metadata?.eventSlug !== eventSlug) continue;
       total++;
       if (key.metadata?.used) checkedIn++;
     }
@@ -655,6 +684,80 @@ async function handleStats(request, env) {
   } while (cursor);
 
   return jsonResponse({ total, checkedIn });
+}
+
+// Elenco eventi per il menu dello scanner (staff-checkin.html): stessa fonte di verità già usata
+// per prezzi/fasce, zero manutenzione — ogni evento nuovo aggiunto a EVENTS compare qui da solo.
+async function handleEventsList(request, env) {
+  const staffKey = request.headers.get("x-staff-key");
+  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
+    return jsonResponse({ error: "unauthorized" }, 401);
+  }
+  const events = Object.keys(EVENTS).map(function(slug){
+    return { slug, name: EVENTS[slug].name, dateDisplay: EVENTS[slug].dateDisplay };
+  });
+  return jsonResponse({ events });
+}
+
+// Storico completo di UN evento: venduti, entrati, quanti degli entrati hanno una loyalty card, e
+// quanti premi (3°/5° evento) sono scattati proprio grazie a un timbro preso a questo evento.
+// L'ultimo dato non è indicizzato da nessuna parte: va ricostruito leggendo ogni loyalty:* e
+// guardando, nello storico timbri di ognuno, se il timbro che ha fatto scattare quota 3 o 5 porta
+// il nome di questo evento — accettabile per una vista di sola consultazione, non il check-in vero
+// e proprio (quello resta O(1) per singola scansione, vedi handleCheckin).
+async function handleEventHistory(request, env) {
+  const staffKey = request.headers.get("x-staff-key");
+  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
+    return jsonResponse({ error: "unauthorized" }, 401);
+  }
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const url = new URL(request.url);
+  const eventSlug = url.searchParams.get("event");
+  if (!eventSlug || !EVENTS[eventSlug]) return jsonResponse({ error: "evento non valido" }, 400);
+
+  let sold = 0;
+  let checkedIn = 0;
+  let withLoyaltyCard = 0;
+  let cursor = undefined;
+  const accountCache = new Map();
+  do {
+    const page = await env.TICKETS.list({ prefix: "ticket:", cursor });
+    for (const key of page.keys) {
+      if (key.metadata?.eventSlug !== eventSlug) continue;
+      sold++;
+      if (!key.metadata?.used) continue;
+      checkedIn++;
+      const email = (key.metadata.email || "").toLowerCase();
+      if (!email) continue;
+      if (!accountCache.has(email)) {
+        const raw = await env.TICKETS.get(`account:${email}`);
+        accountCache.set(email, !!raw);
+      }
+      if (accountCache.get(email)) withLoyaltyCard++;
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  let reward3Given = 0;
+  let reward5Given = 0;
+  cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "loyalty:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      if (!raw) continue;
+      const loyalty = JSON.parse(raw);
+      const history = loyalty.history || [];
+      // history[2] (indice 2, 3° timbro) e history[4] (indice 4, 5° timbro) sono i timbri che
+      // hanno sbloccato ciascun premio — se sono di questo evento, il premio è "nato" qui.
+      if (history[2] && history[2].eventName === EVENTS[eventSlug].name) reward3Given++;
+      if (history[4] && history[4].eventName === EVENTS[eventSlug].name) reward5Given++;
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  return jsonResponse({ eventSlug, eventName: EVENTS[eventSlug].name, sold, checkedIn, withLoyaltyCard, reward3Given, reward5Given });
 }
 
 // Elenco di chi è entrato davvero (per la pagina staff-attendees.html), letto dalla metadata

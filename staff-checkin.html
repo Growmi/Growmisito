@@ -116,6 +116,46 @@
     text-align:center; font-size:12px; color:rgba(251,246,240,0.4); text-decoration:underline;
     background:none; border:none; cursor:pointer; padding:8px;
   }
+
+  .header-row{ display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid rgba(251,246,240,0.12); }
+  .menu-btn{
+    flex-shrink:0; width:38px; height:38px; border-radius:10px; border:1.5px solid rgba(251,246,240,0.2);
+    background:none; color:var(--cream); font-size:18px; cursor:pointer;
+  }
+  .header-row .titles{ flex:1; text-align:center; }
+  .header-row .titles h1{ font-family:'Space Grotesk', sans-serif; font-size:16px; font-weight:700; }
+  .header-row .titles p{ font-size:11.5px; color:rgba(251,246,240,0.6); margin-top:2px; }
+  .header-row .spacer{ width:38px; flex-shrink:0; }
+
+  .event-drawer-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:20; opacity:0; pointer-events:none;
+    transition:opacity .2s;
+  }
+  .event-drawer-backdrop.open{ opacity:1; pointer-events:auto; }
+  .event-drawer{
+    position:fixed; top:0; left:0; bottom:0; width:280px; max-width:82vw; background:var(--purple-deeper);
+    z-index:21; transform:translateX(-100%); transition:transform .25s ease; overflow-y:auto;
+    padding:20px 16px; display:flex; flex-direction:column; gap:6px;
+  }
+  .event-drawer.open{ transform:translateX(0); }
+  .event-drawer h2{ font-family:'Space Grotesk', sans-serif; font-size:15px; margin-bottom:10px; }
+  .event-drawer-item{
+    text-align:left; padding:12px 14px; border-radius:10px; border:none; background:rgba(251,246,240,0.06);
+    color:var(--cream); font-family:'Inter', sans-serif; font-size:13.5px; cursor:pointer;
+  }
+  .event-drawer-item.is-active{ background:var(--coral); font-weight:700; }
+  .event-drawer-item .sub{ display:block; font-size:11px; color:rgba(251,246,240,0.55); margin-top:2px; }
+  .event-drawer-item.is-active .sub{ color:rgba(255,255,255,0.8); }
+
+  .history-link{
+    text-align:center; font-size:12px; color:rgba(251,246,240,0.55); text-decoration:underline;
+    background:none; border:none; cursor:pointer; padding:6px; width:100%;
+  }
+  .history-box{
+    display:none; padding:14px 20px; border-bottom:1px solid rgba(251,246,240,0.12);
+    grid-template-columns:repeat(3, 1fr); gap:10px;
+  }
+  .history-box.open{ display:grid; }
 </style>
 </head>
 <body>
@@ -129,10 +169,21 @@
   </div>
 </div>
 
-<header>
-  <h1 id="pageTitle">Check-in biglietti</h1>
-  <p id="pageSub">Scanner GrowMi — valido per qualsiasi evento</p>
-</header>
+<div class="event-drawer-backdrop" id="eventDrawerBackdrop"></div>
+<div class="event-drawer" id="eventDrawer">
+  <h2>Scegli evento</h2>
+  <button type="button" class="event-drawer-item is-active" data-slug="" id="eventDrawerAll">Tutti gli eventi</button>
+  <div id="eventDrawerList"></div>
+</div>
+
+<div class="header-row">
+  <button type="button" class="menu-btn" id="menuBtn" aria-label="Menu eventi">☰</button>
+  <div class="titles">
+    <h1 id="pageTitle">Check-in biglietti</h1>
+    <p id="pageSub">Scanner GrowMi — valido per qualsiasi evento</p>
+  </div>
+  <div class="spacer"></div>
+</div>
 
 <div class="mode-tabs">
   <button type="button" class="is-active" id="tabCheckin" data-mode="checkin">Biglietti</button>
@@ -142,6 +193,12 @@
 <div class="stats-bar" id="statsBar">
   <a class="stats-box" href="staff-attendees" style="text-decoration:none; color:inherit;"><span class="n" id="statTotal">—</span><span class="l">Venduti</span></a>
   <a class="stats-box" href="staff-attendees" style="text-decoration:none; color:inherit;"><span class="n" id="statCheckedIn">—</span><span class="l">Entrati &rarr; elenco</span></a>
+</div>
+<button type="button" class="history-link" id="historyLink" hidden>📊 Storico evento</button>
+<div class="history-box" id="historyBox">
+  <div class="stats-box"><span class="n" id="histCard">—</span><span class="l">Con card</span></div>
+  <div class="stats-box"><span class="n" id="histReward3">—</span><span class="l">Premi 3°</span></div>
+  <div class="stats-box"><span class="n" id="histReward5">—</span><span class="l">Premi 5°</span></div>
 </div>
 
 <main>
@@ -161,8 +218,13 @@
 <script>
 (function(){
   var KEY_STORAGE = "growmi_staff_key";
+  var EVENT_STORAGE = "growmi_staff_event";
   var scanner = null;
   var busy = false;
+  var selectedEvent = localStorage.getItem(EVENT_STORAGE) || "";
+  var selectedEventName = "";
+  var eventsLoaded = [];
+  var historyOpen = false;
   // "checkin" (biglietti, QR) o "loyalty" (numero cliente, barcode) — un solo scanner fotocamera
   // condiviso tra le due modalità, cambia solo dove viene mandato il testo decodificato, così
   // non serve riavviare la fotocamera passando da una scheda all'altra.
@@ -189,20 +251,98 @@
     return m === "loyalty" ? { width: 280, height: 120 } : { width: 240, height: 240 };
   }
 
+  function eventSubtitle(){
+    if (mode !== "checkin") return "Cerca un cliente dal barcode della loyalty card";
+    return selectedEvent ? ("Scanner bloccato su: " + selectedEventName) : "Scanner GrowMi — valido per qualsiasi evento";
+  }
+
   function setMode(m){
     var changed = mode !== m;
     mode = m;
     document.getElementById("tabCheckin").classList.toggle("is-active", m === "checkin");
     document.getElementById("tabLoyalty").classList.toggle("is-active", m === "loyalty");
     statsBar.hidden = m !== "checkin";
+    document.getElementById("historyLink").hidden = m !== "checkin" || !selectedEvent;
+    document.getElementById("historyBox").classList.remove("open");
+    historyOpen = false;
     manualCode.placeholder = m === "checkin" ? "Codice biglietto" : "Numero cliente";
     pageTitle.textContent = m === "checkin" ? "Check-in biglietti" : "Ricerca loyalty";
-    pageSub.textContent = m === "checkin" ? "Scanner GrowMi — valido per qualsiasi evento" : "Cerca un cliente dal barcode della loyalty card";
+    pageSub.textContent = eventSubtitle();
     result.className = "";
     result.innerHTML = "";
     manualCode.value = "";
     if (changed) restartScannerForMode();
   }
+
+  // --- Menu evento a scomparsa da sinistra: scegliere un evento "blocca" lo scanner (i biglietti
+  // di altri eventi vengono rifiutati, vedi checkTicket) e filtra le statistiche solo su quello.
+  var eventDrawer = document.getElementById("eventDrawer");
+  var eventDrawerBackdrop = document.getElementById("eventDrawerBackdrop");
+
+  function openDrawer(){ eventDrawer.classList.add("open"); eventDrawerBackdrop.classList.add("open"); }
+  function closeDrawer(){ eventDrawer.classList.remove("open"); eventDrawerBackdrop.classList.remove("open"); }
+  document.getElementById("menuBtn").addEventListener("click", openDrawer);
+  eventDrawerBackdrop.addEventListener("click", closeDrawer);
+
+  function selectEvent(slug, name){
+    selectedEvent = slug || "";
+    selectedEventName = name || "";
+    if (slug) localStorage.setItem(EVENT_STORAGE, slug); else localStorage.removeItem(EVENT_STORAGE);
+    document.querySelectorAll(".event-drawer-item").forEach(function(btn){
+      btn.classList.toggle("is-active", btn.dataset.slug === selectedEvent);
+    });
+    pageSub.textContent = eventSubtitle();
+    document.getElementById("historyLink").hidden = mode !== "checkin" || !selectedEvent;
+    document.getElementById("historyBox").classList.remove("open");
+    historyOpen = false;
+    refreshStats();
+    closeDrawer();
+  }
+
+  document.getElementById("eventDrawerAll").addEventListener("click", function(){ selectEvent("", ""); });
+
+  async function loadEventsList(){
+    try {
+      var res = await fetch("/api/events-list", { headers: { "X-Staff-Key": getStaffKey() } });
+      if (!res.ok) return;
+      var data = await res.json();
+      eventsLoaded = data.events || [];
+      var list = document.getElementById("eventDrawerList");
+      list.innerHTML = "";
+      eventsLoaded.forEach(function(ev){
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "event-drawer-item";
+        btn.dataset.slug = ev.slug;
+        btn.innerHTML = ev.name + '<span class="sub">' + (ev.dateDisplay || "") + '</span>';
+        btn.addEventListener("click", function(){ selectEvent(ev.slug, ev.name); });
+        list.appendChild(btn);
+      });
+      if (selectedEvent) {
+        var match = eventsLoaded.find(function(ev){ return ev.slug === selectedEvent; });
+        if (match) selectEvent(match.slug, match.name);
+        else selectEvent("", "");
+      }
+      document.querySelectorAll(".event-drawer-item").forEach(function(btn){
+        btn.classList.toggle("is-active", btn.dataset.slug === selectedEvent);
+      });
+    } catch (e) { /* rete assente: il menu resta con solo "Tutti gli eventi" */ }
+  }
+
+  document.getElementById("historyLink").addEventListener("click", async function(){
+    var box = document.getElementById("historyBox");
+    historyOpen = !historyOpen;
+    box.classList.toggle("open", historyOpen);
+    if (!historyOpen || !selectedEvent) return;
+    try {
+      var res = await fetch("/api/event-history?event=" + encodeURIComponent(selectedEvent), { headers: { "X-Staff-Key": getStaffKey() } });
+      if (!res.ok) return;
+      var data = await res.json();
+      document.getElementById("histCard").textContent = data.withLoyaltyCard;
+      document.getElementById("histReward3").textContent = data.reward3Given;
+      document.getElementById("histReward5").textContent = data.reward5Given;
+    } catch (e) { /* connessione assente */ }
+  });
   document.getElementById("tabCheckin").addEventListener("click", function(){ setMode("checkin"); });
   document.getElementById("tabLoyalty").addEventListener("click", function(){ setMode("loyalty"); });
 
@@ -210,7 +350,8 @@
   // riuscita — non un conteggio locale che si azzera cambiando dispositivo o ricaricando.
   async function refreshStats(){
     try {
-      var res = await fetch("/api/stats", { headers: { "X-Staff-Key": getStaffKey() } });
+      var qs = selectedEvent ? ("?event=" + encodeURIComponent(selectedEvent)) : "";
+      var res = await fetch("/api/stats" + qs, { headers: { "X-Staff-Key": getStaffKey() } });
       if (!res.ok) return;
       var data = await res.json();
       statTotal.textContent = data.total;
@@ -286,7 +427,7 @@
       var res = await fetch("/api/checkin", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Staff-Key": getStaffKey() },
-        body: JSON.stringify({ code: code })
+        body: JSON.stringify({ code: code, eventSlug: selectedEvent || undefined })
       });
       if (res.status === 401) { onUnauthorized(); return; }
       var data = await res.json();
@@ -311,6 +452,8 @@
         }
       } else if (data.reason === "already_used") {
         showResult(false, "Già usato", data.usedAt ? ("Usato il " + new Date(data.usedAt).toLocaleString("it-IT")) : "");
+      } else if (data.reason === "wrong_event") {
+        showResult(false, "Evento sbagliato", "Questo biglietto è per: " + (data.eventName || "un altro evento"));
       } else {
         showResult(false, "Biglietto non trovato", "Controlla il codice");
       }
@@ -380,6 +523,7 @@
     keyGate.classList.add("hidden");
     startScanner();
     refreshStats();
+    loadEventsList();
   });
   keyInput.addEventListener("keydown", function(e){
     if (e.key === "Enter") { document.getElementById("keySubmit").click(); }
@@ -425,6 +569,7 @@
     keyGate.classList.add("hidden");
     startScanner();
     refreshStats();
+    loadEventsList();
   } else {
     keyInput.focus();
   }
