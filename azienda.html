@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Accesso aziendale — GrowMi</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1E0C2C">
+<link rel="apple-touch-icon" href="assets/img/staff-icon.png">
+<link rel="icon" href="assets/img/staff-icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --purple-deep:#3E0D5D; --purple-deeper:#2C0943; --coral:#F86639; --yellow:#FDC631;
+    --cream:#FBF6F0; --ink:#1E0C2C;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--ink); color:var(--cream); font-family:'Inter', system-ui, sans-serif;
+    display:flex; align-items:center; justify-content:center; min-height:100vh; min-height:100dvh;
+    padding:24px;
+  }
+  .card{ max-width:380px; width:100%; }
+  h1{ font-family:'Space Grotesk', sans-serif; font-size:22px; margin-bottom:6px; text-align:center; }
+  .sub{ font-size:13.5px; color:rgba(251,246,240,0.6); text-align:center; margin-bottom:28px; }
+
+  .tabs{ display:flex; gap:8px; margin-bottom:22px; }
+  .tabs button{
+    flex:1; padding:11px; border-radius:12px; border:1.5px solid rgba(251,246,240,0.2);
+    background:none; color:rgba(251,246,240,0.7); font-family:'Space Grotesk', sans-serif;
+    font-weight:700; font-size:13.5px; cursor:pointer;
+  }
+  .tabs button.is-active{ background:var(--coral); border-color:var(--coral); color:#fff; }
+
+  form{ display:flex; flex-direction:column; gap:12px; }
+  form[hidden]{ display:none; }
+  label{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:12.5px; }
+  input{
+    width:100%; padding:13px 15px; border-radius:12px; border:1.5px solid rgba(251,246,240,0.25);
+    background:rgba(251,246,240,0.06); color:var(--cream); font-size:14.5px;
+  }
+  input::placeholder{ color:rgba(251,246,240,0.35); }
+  button[type="submit"]{
+    margin-top:6px; padding:14px; border-radius:12px; border:none; background:var(--coral);
+    color:#fff; font-weight:700; font-family:'Space Grotesk', sans-serif; cursor:pointer; font-size:14px;
+  }
+  button[type="submit"]:disabled{ opacity:.6; cursor:default; }
+  .msg{ font-size:13.5px; margin-top:4px; text-align:center; }
+  .msg.error{ color:#F792C0; }
+  .msg.ok{ color:#6EE7A8; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h1>Sezione aziendale</h1>
+  <p class="sub">Riservata a chi possiede una mail @growmi.it</p>
+
+  <div class="tabs">
+    <button type="button" class="is-active" id="tabLogin">Accedi</button>
+    <button type="button" id="tabRegister">Registrati</button>
+  </div>
+
+  <form id="loginForm">
+    <div>
+      <label for="loginEmail">Mail aziendale</label>
+      <input type="email" id="loginEmail" placeholder="nome@growmi.it" autocomplete="username" required>
+    </div>
+    <div>
+      <label for="loginPassword">Password</label>
+      <input type="password" id="loginPassword" autocomplete="current-password" required>
+    </div>
+    <button type="submit" id="loginSubmit">Accedi</button>
+    <p class="msg" id="loginMsg" hidden></p>
+  </form>
+
+  <form id="registerForm" hidden>
+    <div>
+      <label for="regName">Nome</label>
+      <input type="text" id="regName" required>
+    </div>
+    <div>
+      <label for="regEmail">Mail aziendale</label>
+      <input type="email" id="regEmail" placeholder="nome@growmi.it" autocomplete="username" required>
+    </div>
+    <div>
+      <label for="regPassword">Password</label>
+      <input type="password" id="regPassword" autocomplete="new-password" minlength="8" required>
+    </div>
+    <button type="submit" id="registerSubmit">Crea account</button>
+    <p class="msg" id="registerMsg" hidden></p>
+  </form>
+</div>
+
+<script>
+(function(){
+  var tabLogin = document.getElementById("tabLogin");
+  var tabRegister = document.getElementById("tabRegister");
+  var loginForm = document.getElementById("loginForm");
+  var registerForm = document.getElementById("registerForm");
+
+  tabLogin.addEventListener("click", function(){
+    tabLogin.classList.add("is-active"); tabRegister.classList.remove("is-active");
+    loginForm.hidden = false; registerForm.hidden = true;
+  });
+  tabRegister.addEventListener("click", function(){
+    tabRegister.classList.add("is-active"); tabLogin.classList.remove("is-active");
+    registerForm.hidden = false; loginForm.hidden = true;
+  });
+
+  function showMsg(el, text, ok){
+    el.textContent = text;
+    el.className = "msg " + (ok ? "ok" : "error");
+    el.hidden = false;
+  }
+
+  var redirectTo = new URLSearchParams(location.search).get("next") || "staff-attendees";
+
+  loginForm.addEventListener("submit", async function(e){
+    e.preventDefault();
+    var btn = document.getElementById("loginSubmit");
+    btn.disabled = true;
+    try {
+      var res = await fetch("/api/staff-account/login", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: document.getElementById("loginEmail").value.trim(),
+          password: document.getElementById("loginPassword").value
+        })
+      });
+      var data = await res.json();
+      if (res.ok) {
+        location.href = redirectTo;
+      } else {
+        showMsg(document.getElementById("loginMsg"), data.error || "Errore, riprova.", false);
+      }
+    } catch (err) {
+      showMsg(document.getElementById("loginMsg"), "Errore di rete, riprova.", false);
+    }
+    btn.disabled = false;
+  });
+
+  registerForm.addEventListener("submit", async function(e){
+    e.preventDefault();
+    var btn = document.getElementById("registerSubmit");
+    btn.disabled = true;
+    try {
+      var res = await fetch("/api/staff-account/register", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: document.getElementById("regName").value.trim(),
+          email: document.getElementById("regEmail").value.trim(),
+          password: document.getElementById("regPassword").value
+        })
+      });
+      var data = await res.json();
+      if (res.ok) {
+        showMsg(document.getElementById("registerMsg"), data.message || "Controlla la tua email per confermare.", true);
+        registerForm.reset();
+      } else {
+        showMsg(document.getElementById("registerMsg"), data.error || "Errore, riprova.", false);
+      }
+    } catch (err) {
+      showMsg(document.getElementById("registerMsg"), "Errore di rete, riprova.", false);
+    }
+    btn.disabled = false;
+  });
+})();
+</script>
+
+</body>
+</html>

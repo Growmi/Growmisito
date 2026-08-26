@@ -53,34 +53,16 @@
 
   #empty{ text-align:center; color:rgba(251,246,240,0.5); font-size:14px; padding:40px 0; }
 
-  .key-gate{
+  .gate-loading{
     position:fixed; inset:0; background:var(--ink); display:flex; align-items:center;
-    justify-content:center; padding:24px; z-index:10;
+    justify-content:center; padding:24px; z-index:10; font-size:13.5px; color:rgba(251,246,240,0.5);
   }
-  .key-gate.hidden{ display:none; }
-  .key-card{ max-width:340px; width:100%; text-align:center; }
-  .key-card h2{ font-family:'Space Grotesk', sans-serif; font-size:20px; margin-bottom:10px; }
-  .key-card p{ font-size:13.5px; color:rgba(251,246,240,0.6); margin-bottom:18px; }
-  .key-card input{
-    width:100%; padding:14px 16px; border-radius:12px; border:1.5px solid rgba(251,246,240,0.25);
-    background:rgba(251,246,240,0.06); color:var(--cream); font-size:15px; margin-bottom:12px;
-  }
-  .key-card button{
-    width:100%; padding:14px; border-radius:12px; border:none; background:var(--coral); color:#fff;
-    font-weight:700; font-family:'Space Grotesk', sans-serif; cursor:pointer; font-size:14px;
-  }
+  .gate-loading.hidden{ display:none; }
 </style>
 </head>
 <body>
 
-<div class="key-gate" id="keyGate">
-  <div class="key-card">
-    <h2>Elenco presenti</h2>
-    <p>Inserisci la chiave staff per vedere l'elenco.</p>
-    <input type="password" id="keyInput" placeholder="Chiave staff" autocomplete="off">
-    <button type="button" id="keySubmit">Entra</button>
-  </div>
-</div>
+<div class="gate-loading" id="gateLoading">Verifica accesso…</div>
 
 <header>
   <div class="top">
@@ -105,18 +87,16 @@
 
 <script>
 (function(){
-  var KEY_STORAGE = "growmi_staff_key";
-  var keyGate = document.getElementById("keyGate");
-  var keyInput = document.getElementById("keyInput");
+  var gateLoading = document.getElementById("gateLoading");
   var list = document.getElementById("list");
   var count = document.getElementById("count");
   var empty = document.getElementById("empty");
   var search = document.getElementById("search");
   var allAttendees = [];
 
-  function getStaffKey(){ return localStorage.getItem(KEY_STORAGE); }
-  function setStaffKey(k){ localStorage.setItem(KEY_STORAGE, k); }
-  function clearStaffKey(){ localStorage.removeItem(KEY_STORAGE); }
+  function goToLogin(){
+    location.href = "azienda?next=" + encodeURIComponent(location.pathname.replace(/^\//, ""));
+  }
 
   function render(items){
     list.innerHTML = "";
@@ -152,12 +132,8 @@
 
   async function loadAttendees(){
     try {
-      var res = await fetch("/api/attendees", { headers: { "X-Staff-Key": getStaffKey() } });
-      if (res.status === 401) {
-        clearStaffKey();
-        keyGate.classList.remove("hidden");
-        return;
-      }
+      var res = await fetch("/api/attendees");
+      if (res.status === 401) { goToLogin(); return; }
       var data = await res.json();
       allAttendees = data.attendees || [];
       applyFilter();
@@ -168,23 +144,13 @@
 
   search.addEventListener("input", applyFilter);
 
-  document.getElementById("keySubmit").addEventListener("click", function(){
-    var k = keyInput.value.trim();
-    if (!k) return;
-    setStaffKey(k);
-    keyGate.classList.add("hidden");
-    loadAttendees();
-  });
-  keyInput.addEventListener("keydown", function(e){
-    if (e.key === "Enter") { document.getElementById("keySubmit").click(); }
-  });
-
   document.getElementById("exportCsvBtn").addEventListener("click", async function(){
     var btn = this;
     btn.disabled = true;
     btn.textContent = "Preparazione file...";
     try {
-      var res = await fetch("/api/export-attendees", { headers: { "X-Staff-Key": getStaffKey() } });
+      var res = await fetch("/api/export-attendees");
+      if (res.status === 401) { goToLogin(); return; }
       if (!res.ok) { alert("Errore nel generare il file."); return; }
       var blob = await res.blob();
       var url = URL.createObjectURL(blob);
@@ -211,9 +177,10 @@
     try {
       var res = await fetch("/api/send-feedback", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Staff-Key": getStaffKey() },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({})
       });
+      if (res.status === 401) { goToLogin(); return; }
       var data = await res.json();
       if (res.ok) {
         alert("Fatto: " + data.sent + " email mandate su " + data.totalAttendees + " (" + data.failed + " fallite).");
@@ -227,14 +194,9 @@
     btn.textContent = "📧 Manda email di feedback a tutti i presenti";
   });
 
-  if (getStaffKey()) {
-    keyGate.classList.add("hidden");
-    loadAttendees();
-  } else {
-    keyInput.focus();
-  }
+  loadAttendees().then(function(){ gateLoading.classList.add("hidden"); });
 
-  setInterval(function(){ if (getStaffKey()) loadAttendees(); }, 30000);
+  setInterval(loadAttendees, 30000);
 })();
 </script>
 

@@ -295,6 +295,51 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    if (url.pathname === "/api/staff-account/register" && request.method === "POST") {
+      try {
+        return await handleStaffAccountRegister(request, env);
+      } catch (err) {
+        console.log("Errore staff-account/register:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/staff-account/verify" && request.method === "GET") {
+      try {
+        return await handleStaffAccountVerify(request, env);
+      } catch (err) {
+        console.log("Errore staff-account/verify:", err.stack || err.message);
+        return new Response("Errore interno: " + err.message, { status: 500 });
+      }
+    }
+
+    if (url.pathname === "/api/staff-account/login" && request.method === "POST") {
+      try {
+        return await handleStaffAccountLogin(request, env);
+      } catch (err) {
+        console.log("Errore staff-account/login:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/staff-account/logout" && request.method === "POST") {
+      try {
+        return await handleStaffAccountLogout(request, env);
+      } catch (err) {
+        console.log("Errore staff-account/logout:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/staff-account/me" && request.method === "GET") {
+      try {
+        return await handleStaffAccountMe(request, env);
+      } catch (err) {
+        console.log("Errore staff-account/me:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     if (url.pathname === "/api/account/profile" && request.method === "POST") {
       try {
         return await handleAccountProfile(request, env);
@@ -773,10 +818,8 @@ async function handleEventHistory(request, env) {
 // delle chiavi già entrate — nessuna lettura dei singoli biglietti, veloce anche con centinaia
 // di persone. Stessa chiave staff dello scanner.
 async function handleAttendees(request, env) {
-  const staffKey = request.headers.get("x-staff-key");
-  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
-    return jsonResponse({ error: "unauthorized" }, 401);
-  }
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
 
   const attendees = [];
@@ -829,10 +872,8 @@ function csvEscape(value) {
 }
 
 async function handleExportAttendees(request, env) {
-  const staffKey = request.headers.get("x-staff-key");
-  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
-    return jsonResponse({ error: "unauthorized" }, 401);
-  }
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
 
   const tickets = [];
@@ -998,10 +1039,8 @@ async function sendFeedbackEmails(env, attendees) {
 // anche con l'invio automatico attivo, per rimandare o testare senza aspettare il cron. Il link
 // nell'email punta sempre al form nativo del sito (feedback.html), niente più Google Form.
 async function handleSendFeedback(request, env) {
-  const staffKey = request.headers.get("x-staff-key");
-  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
-    return jsonResponse({ error: "unauthorized" }, 401);
-  }
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
   if (!env.RESEND_API_KEY) throw new Error("RESEND_API_KEY non configurato");
 
@@ -1043,10 +1082,8 @@ async function handleFeedbackSubmit(request, env) {
 // Legge tutte le risposte al form di feedback da KV (prefisso "feedback:"), più recenti prima.
 // Protetta da STAFF_KEY come le altre rotte staff — vista di sola lettura per lo staff.
 async function handleFeedbackList(request, env) {
-  const staffKey = request.headers.get("x-staff-key");
-  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
-    return jsonResponse({ error: "unauthorized" }, 401);
-  }
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
 
   const responses = [];
@@ -1068,10 +1105,8 @@ async function handleFeedbackList(request, env) {
 // Stesso principio di handleExportAttendees: esporta tutte le risposte feedback in CSV, si apre
 // diretto in Excel/Numbers.
 async function handleExportFeedback(request, env) {
-  const staffKey = request.headers.get("x-staff-key");
-  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
-    return jsonResponse({ error: "unauthorized" }, 401);
-  }
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
 
   const responses = [];
@@ -1984,6 +2019,164 @@ async function handleAccountMe(request, env) {
     physicalCardClaimed: !!account.physicalCardClaimed,
     profile: account.profile || {}
   });
+}
+
+// ============================================================================
+// Account aziendale (sezione staff con dati sensibili — presenti/feedback): login vero con
+// mail @growmi.it + password, separato dagli account cliente (account:<email>) e dalla chiave
+// staff condivisa dello scanner (quella resta invariata per staff-checkin.html). Stessi
+// meccanismi di sicurezza già collaudati per gli account cliente (PBKDF2, sessione via cookie
+// httpOnly, verifica email), solo prefissi/cookie diversi per tenerli separati.
+// ============================================================================
+
+const STAFF_EMAIL_DOMAIN = "@growmi.it";
+
+function staffSessionCookieHeader(token, maxAgeSeconds) {
+  return `growmi_staff_session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAgeSeconds}`;
+}
+function clearStaffSessionCookieHeader() {
+  return "growmi_staff_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0";
+}
+async function getStaffSessionEmail(request, env) {
+  const cookies = parseCookies(request);
+  const token = cookies["growmi_staff_session"];
+  if (!token) return null;
+  const raw = await env.TICKETS.get(`staffsession:${token}`);
+  if (!raw) return null;
+  const session = JSON.parse(raw);
+  if (new Date(session.expiresAt) < new Date()) {
+    await env.TICKETS.delete(`staffsession:${token}`);
+    return null;
+  }
+  return session.email;
+}
+// Usata da ogni endpoint della sezione aziendale al posto del controllo "X-Staff-Key": richiede
+// una sessione valida invece di una password condivisa, restituisce l'email o una risposta 401
+// pronta da ritornare subito.
+async function requireStaffAccount(request, env) {
+  const email = await getStaffSessionEmail(request, env);
+  if (!email) return { error: jsonResponse({ error: "non autenticato" }, 401) };
+  return { email };
+}
+
+async function handleStaffAccountRegister(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const email = String(body.email || "").trim().toLowerCase().slice(0, 200);
+  const password = String(body.password || "");
+  const name = String(body.name || "").trim().slice(0, 200);
+
+  if (!email.endsWith(STAFF_EMAIL_DOMAIN)) {
+    return jsonResponse({ error: `serve una mail ${STAFF_EMAIL_DOMAIN}` }, 400);
+  }
+  if (!name) return jsonResponse({ error: "il nome è obbligatorio" }, 400);
+  if (password.length < 8) return jsonResponse({ error: "la password deve avere almeno 8 caratteri" }, 400);
+  if (await env.TICKETS.get(`staffaccount:${email}`)) {
+    return jsonResponse({ error: "esiste già un account con questa email" }, 409);
+  }
+
+  const salt = crypto.randomUUID();
+  const passwordHash = await hashPassword(password, salt);
+  const verifyToken = crypto.randomUUID();
+
+  await env.TICKETS.put(`staffaccount:${email}`, JSON.stringify({
+    email, name, passwordHash, salt, emailVerified: false, verifyToken,
+    createdAt: new Date().toISOString()
+  }));
+
+  const origin = new URL(request.url).origin;
+  const verifyUrl = `${origin}/api/staff-account/verify?token=${verifyToken}`;
+  await sendAccountEmail(env, {
+    to: email,
+    subject: "Conferma il tuo account aziendale — GrowMi",
+    html: buildAccountEmailHTML({
+      title: `Ciao ${name.split(" ")[0] || ""}!`,
+      lead: "Conferma la tua email per attivare l'accesso alla sezione aziendale di GrowMi.",
+      buttonLabel: "Conferma email",
+      buttonUrl: verifyUrl
+    })
+  });
+
+  return jsonResponse({ ok: true, message: "Controlla la tua email per confermare l'account." });
+}
+
+async function handleStaffAccountVerify(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const url = new URL(request.url);
+  const token = url.searchParams.get("token");
+  if (!token) {
+    return new Response(accountStatusPageHTML("Link non valido", "Manca il codice di conferma."), { headers: { "Content-Type": "text/html" }, status: 400 });
+  }
+
+  let cursor = undefined;
+  let found = null;
+  do {
+    const page = await env.TICKETS.list({ prefix: "staffaccount:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      const acc = JSON.parse(raw);
+      if (acc.verifyToken === token) { found = { key: key.name, acc }; break; }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor && !found);
+
+  if (!found) {
+    return new Response(accountStatusPageHTML("Link non valido", "Questo link di conferma non è valido o è già stato usato."), { headers: { "Content-Type": "text/html" }, status: 400 });
+  }
+
+  found.acc.emailVerified = true;
+  delete found.acc.verifyToken;
+  await env.TICKETS.put(found.key, JSON.stringify(found.acc));
+
+  return new Response(accountStatusPageHTML("Email confermata!", "Il tuo account aziendale è attivo. Ora puoi accedere alla sezione aziendale."), { headers: { "Content-Type": "text/html" } });
+}
+
+async function handleStaffAccountLogin(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const email = String(body.email || "").trim().toLowerCase();
+  const password = String(body.password || "");
+  if (!email || !password) return jsonResponse({ error: "email e password sono obbligatorie" }, 400);
+
+  const raw = await env.TICKETS.get(`staffaccount:${email}`);
+  if (!raw) return jsonResponse({ error: "email o password non corretti" }, 401);
+  const account = JSON.parse(raw);
+
+  const hash = await hashPassword(password, account.salt);
+  if (!timingSafeEqual(hash, account.passwordHash)) {
+    return jsonResponse({ error: "email o password non corretti" }, 401);
+  }
+  if (!account.emailVerified) {
+    return jsonResponse({ error: "conferma prima la tua email — controlla la posta in arrivo" }, 403);
+  }
+
+  const token = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  await env.TICKETS.put(`staffsession:${token}`, JSON.stringify({ email, expiresAt }));
+
+  return new Response(JSON.stringify({ ok: true, name: account.name, email }), {
+    status: 200,
+    headers: { "Content-Type": "application/json", "Set-Cookie": staffSessionCookieHeader(token, 30 * 24 * 60 * 60) }
+  });
+}
+
+async function handleStaffAccountLogout(request, env) {
+  const cookies = parseCookies(request);
+  const token = cookies["growmi_staff_session"];
+  if (token) await env.TICKETS.delete(`staffsession:${token}`);
+  return new Response(JSON.stringify({ ok: true }), {
+    status: 200,
+    headers: { "Content-Type": "application/json", "Set-Cookie": clearStaffSessionCookieHeader() }
+  });
+}
+
+async function handleStaffAccountMe(request, env) {
+  const email = await getStaffSessionEmail(request, env);
+  if (!email) return jsonResponse({ error: "non autenticato" }, 401);
+  const raw = await env.TICKETS.get(`staffaccount:${email}`);
+  if (!raw) return jsonResponse({ error: "account non trovato" }, 404);
+  const account = JSON.parse(raw);
+  return jsonResponse({ email: account.email, name: account.name });
 }
 
 // Salva la scheda "Dati personali e consensi" — stesso account, campi in più (numero cliente
