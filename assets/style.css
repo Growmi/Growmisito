@@ -89,7 +89,7 @@ p{color:var(--grey);}
    (sfondo, bordo, ombra) sta su nav.wrap qui sotto, cosi' si vede lo sfondo della pagina intorno
    alla pillola su entrambi i lati. */
 header{
-  position:sticky; top:0; z-index:60;
+  position:fixed; top:0; left:0; right:0; z-index:60;
   background:transparent; border-bottom:none;
   padding:0 20px;
 }
