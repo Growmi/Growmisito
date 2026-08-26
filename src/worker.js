@@ -410,7 +410,7 @@ function jsonResponse(data, status = 200) {
 // molte caselle @outlook.it/@hotmail) usa il motore di rendering di Word, che ignora quasi
 // tutto il CSS moderno sui <div> ma capisce bene le tabelle HTML — è lo standard per le email
 // che devono restare leggibili ovunque, non solo su Gmail/Apple Mail.
-function buildTicketEmailHTML({ name, eventName, eventDate, eventLocation, eventTeaser, tierName, ticketCode, qrBase64 }) {
+function buildTicketEmailHTML({ name, eventName, eventDate, eventLocation, eventTeaser, tierName, optionId, ticketCode, qrBase64 }) {
   const firstName = name ? name.split(" ")[0] : "";
   return `
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FBF6F0" style="background:#FBF6F0;">
@@ -438,6 +438,8 @@ function buildTicketEmailHTML({ name, eventName, eventDate, eventLocation, event
               <tr><td style="font-size:18px; color:#FBF6F0; padding-bottom:8px;">&bull; Nome: <strong>${name || "&mdash;"}</strong></td></tr>
               ${tierName ? `<tr><td style="font-size:18px; color:#FBF6F0; padding-bottom:8px;">&bull; Tipo: <strong>${tierName}</strong></td></tr>` : ""}
               <tr><td style="font-size:18px; color:#FBF6F0; padding-bottom:24px;">&bull; Codice biglietto: <strong>${ticketCode}</strong></td></tr>
+
+              ${optionId === "food" ? `<tr><td align="center" style="font-size:17px; color:#FDC631; background:#3D1657; border-radius:12px; padding:14px 18px;">&#127866;&#129386; Il tuo biglietto include birra e panzerotto &mdash; ritirali al banco mostrando il QR!</td></tr><tr><td style="font-size:1px; line-height:14px;">&nbsp;</td></tr>` : ""}
 
               <tr><td align="center" style="font-size:18px; color:#FBF6F0; padding-bottom:14px;">Mostra questo QR allo staff all'ingresso (basta il telefono):</td></tr>
               <tr>
@@ -1218,7 +1220,7 @@ async function handleStripeWebhook(request, env) {
             from: "GrowMi <noreply@growmi.it>",
             to: email,
             subject: `Il tuo biglietto — ${eventName}`,
-            html: buildTicketEmailHTML({ name: customerName, eventName, eventDate, eventLocation, eventTeaser, tierName, ticketCode, qrBase64 }),
+            html: buildTicketEmailHTML({ name: customerName, eventName, eventDate, eventLocation, eventTeaser, tierName, optionId, ticketCode, qrBase64 }),
             attachments
           })
         });
