@@ -91,7 +91,7 @@ p{color:var(--grey);}
 header{
   position:sticky; top:0; z-index:60;
   background:transparent; border-bottom:none;
-  padding:14px 20px 0;
+  padding:0 20px;
 }
 nav.wrap{
   max-width:1180px; margin:0 auto; padding:0 26px;
