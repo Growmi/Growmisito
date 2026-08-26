@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /area-personale
+Disallow: /azienda
+Disallow: /staff-checkin
+Disallow: /staff-attendees
+Disallow: /staff-customers
+Disallow: /staff-dashboard
+Disallow: /staff-feedback
+Disallow: /biglietto-confermato
+Disallow: /feedback
+
+Sitemap: https://growmi.it/sitemap.xml
