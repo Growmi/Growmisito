@@ -340,6 +340,33 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    if (url.pathname === "/api/dashboard-stats" && request.method === "GET") {
+      try {
+        return await handleDashboardStats(request, env);
+      } catch (err) {
+        console.log("Errore dashboard-stats:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/customers-list" && request.method === "GET") {
+      try {
+        return await handleCustomersList(request, env);
+      } catch (err) {
+        console.log("Errore customers-list:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/export-customers" && request.method === "GET") {
+      try {
+        return await handleExportCustomers(request, env);
+      } catch (err) {
+        console.log("Errore export-customers:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     if (url.pathname === "/api/account/profile" && request.method === "POST") {
       try {
         return await handleAccountProfile(request, env);
@@ -2177,6 +2204,127 @@ async function handleStaffAccountMe(request, env) {
   if (!raw) return jsonResponse({ error: "account non trovato" }, 404);
   const account = JSON.parse(raw);
   return jsonResponse({ email: account.email, name: account.name });
+}
+
+// Numeri chiave per la dashboard aziendale: incasso, biglietti, account/newsletter, feedback.
+// Un solo giro di KV.list per ogni prefisso invece di più chiamate separate dal frontend.
+async function handleDashboardStats(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  let ticketsSold = 0, ticketsCheckedIn = 0, revenueCents = 0;
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "ticket:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      if (!raw) continue;
+      const t = JSON.parse(raw);
+      ticketsSold++;
+      if (t.used) ticketsCheckedIn++;
+      revenueCents += Number(t.amountTotal) || 0;
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  let accountsTotal = 0, newsletterSubscribers = 0;
+  cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "account:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      if (!raw) continue;
+      const a = JSON.parse(raw);
+      accountsTotal++;
+      if (a.profile?.newsletterOptin) newsletterSubscribers++;
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  let feedbackCount = 0, ratingSum = 0;
+  cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "feedback:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      if (!raw) continue;
+      const f = JSON.parse(raw);
+      feedbackCount++;
+      ratingSum += Number(f.rating) || 0;
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  return jsonResponse({
+    revenueCents, ticketsSold, ticketsCheckedIn,
+    accountsTotal, newsletterSubscribers,
+    feedbackCount, avgRating: feedbackCount ? Math.round((ratingSum / feedbackCount) * 10) / 10 : null
+  });
+}
+
+// Elenco ricercabile di tutti gli account cliente (loyalty card), con il conteggio timbri di
+// ciascuno — pensato per staff-customers.html, non per volumi enormi (va bene per una startup
+// alle prime centinaia/migliaia di clienti, oltre valuteremo la paginazione).
+async function handleCustomersList(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const customers = [];
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "account:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      if (!raw) continue;
+      const a = JSON.parse(raw);
+      const loyaltyRaw = await env.TICKETS.get(`loyalty:${a.email}`);
+      const loyalty = loyaltyRaw ? JSON.parse(loyaltyRaw) : null;
+      customers.push({
+        name: a.name, email: a.email, createdAt: a.createdAt,
+        customerNumber: a.customerNumber || null,
+        physicalCardClaimed: !!a.physicalCardClaimed,
+        newsletterOptin: !!a.profile?.newsletterOptin,
+        stamps: loyalty?.stamps || 0
+      });
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  customers.sort(function(a, b){ return (a.name || "").localeCompare(b.name || ""); });
+  return jsonResponse({ customers });
+}
+
+async function handleExportCustomers(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const customers = [];
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "account:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      if (!raw) continue;
+      const a = JSON.parse(raw);
+      const loyaltyRaw = await env.TICKETS.get(`loyalty:${a.email}`);
+      const loyalty = loyaltyRaw ? JSON.parse(loyaltyRaw) : null;
+      customers.push([
+        a.name, a.email, a.createdAt ? new Date(a.createdAt).toLocaleString("it-IT") : "",
+        a.customerNumber || "", a.physicalCardClaimed ? "Sì" : "No",
+        a.profile?.newsletterOptin ? "Sì" : "No", loyalty?.stamps || 0
+      ]);
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  const rows = [["Nome", "Email", "Registrato il", "Numero cliente", "Carta fisica", "Newsletter", "Timbri"]].concat(customers);
+  const csv = "﻿" + rows.map(function(row){ return row.map(csvEscape).join(","); }).join("\r\n");
+  return new Response(csv, {
+    headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="growmi-clienti.csv"' }
+  });
 }
 
 // Salva la scheda "Dati personali e consensi" — stesso account, campi in più (numero cliente
