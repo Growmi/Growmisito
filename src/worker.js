@@ -1389,6 +1389,32 @@ async function sendKVBackupEmail(env) {
   return { ok: true, counts };
 }
 
+// Tariffa Stripe "UE premium" (2,8% + 0,25€) usata per calcolare la maggiorazione da aggiungere
+// al prezzo netto configurato nel pannello eventi: la commissione reale che Stripe trattiene
+// varia da carta a carta (UE standard, UE premium, extra-UE...), quindi questa è una stima fissa
+// scelta apposta più alta della tariffa UE standard, cosi' nella maggior parte dei casi l'incasso
+// netto resta uguale o superiore al prezzo configurato, mai inferiore.
+const STRIPE_FEE_PERCENT = 0.028;
+const STRIPE_FEE_FIXED_CENTS = 25;
+// Tetto voluto sulla maggiorazione mostrata al cliente: oltre questa cifra la percentuale
+// smetterebbe di sembrare giustificabile su un biglietto caro, quindi la commissione non supera
+// mai 1€ anche se il calcolo pieno (percentuale + fisso) darebbe di più — sui biglietti più
+// costosi l'incasso netto può quindi scendere leggermente sotto il prezzo configurato.
+const STRIPE_FEE_CAP_CENTS = 100;
+
+// Dato un prezzo netto (quanto vogliamo incassare davvero), calcola il prezzo lordo da
+// addebitare al cliente perché, dopo che Stripe trattiene la sua commissione (percentuale sul
+// lordo + fisso), resti il più vicino possibile a netCents nelle nostre tasche — senza mai
+// superare il tetto di STRIPE_FEE_CAP_CENTS. Arrotondato per eccesso quando non tocca il tetto
+// (meglio un centesimo in più che uno in meno). Un prezzo netto di 0 (biglietto gratuito/coupon)
+// non genera nessuna commissione: Stripe non addebita nulla su una transazione a importo zero.
+function addStripeFee(netCents) {
+  if (!netCents || netCents <= 0) return { grossCents: 0, feeCents: 0 };
+  const rawGrossCents = Math.ceil((netCents + STRIPE_FEE_FIXED_CENTS) / (1 - STRIPE_FEE_PERCENT));
+  const feeCents = Math.min(rawGrossCents - netCents, STRIPE_FEE_CAP_CENTS);
+  return { grossCents: netCents + feeCents, feeCents };
+}
+
 // Stato reale delle fasce prezzo di un evento: conta i biglietti già venduti per fascia
 // leggendo la metadata KV (stesso pattern di handleStats/handleAttendees, una sola lista invece
 // di una GET per biglietto) e lo confronta con la capacità nel registro EVENTS. La fascia attiva
@@ -1419,7 +1445,14 @@ async function handleEventTiers(request, env) {
     const soldOut = sold >= t.capacity;
     const active = !soldOut && !activeAssigned;
     if (active) activeAssigned = true;
-    return { id: t.id, name: t.name, sub: t.sub, options: t.options, soldOut, active };
+    // priceCents resta il prezzo netto configurato nel pannello (quanto vogliamo incassare);
+    // grossCents/feeCents sono calcolati qui cosi' il sito mostra sempre a schermo lo stesso
+    // prezzo che poi verrà davvero addebitato al checkout — mai due numeri diversi.
+    const options = t.options.map(function(o){
+      const fee = addStripeFee(o.priceCents);
+      return { id: o.id, label: o.label, priceCents: o.priceCents, feeCents: fee.feeCents, grossCents: fee.grossCents };
+    });
+    return { id: t.id, name: t.name, sub: t.sub, options, soldOut, active };
   });
 
   return jsonResponse({ eventName: event.name, tiers, allSoldOut: !activeAssigned });
@@ -1563,6 +1596,11 @@ async function handleCreateCheckoutSession(request, env) {
     couponApplied = registration.couponCode;
   }
 
+  // La maggiorazione commissione Stripe si applica qui, all'ultimo momento prima di addebitare:
+  // cosi' l'importo pagato è sempre coerente con quello mostrato sul sito (stessa addStripeFee()
+  // usata da handleEventTiers) e un coupon (priceCents 0) non genera mai nessuna commissione.
+  const { grossCents } = addStripeFee(priceCents);
+
   const stripe = new Stripe(env.STRIPE_SECRET_KEY);
   const origin = new URL(request.url).origin;
 
@@ -1575,7 +1613,7 @@ async function handleCreateCheckoutSession(request, env) {
       quantity: 1,
       price_data: {
         currency: "eur",
-        unit_amount: priceCents,
+        unit_amount: grossCents,
         product_data: { name: `${found.event.name} — ${found.tier.name} — ${found.option.label}` + (couponApplied ? " (coupon 5° evento)" : "") }
       }
     }],

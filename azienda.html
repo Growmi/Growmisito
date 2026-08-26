@@ -298,7 +298,8 @@
           <div class="az-field"><label for="az-ev-teaser">Descrizione breve</label><input type="text" id="az-ev-teaser"></div>
 
           <div>
-            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:10px;">Fasce biglietti</label>
+            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Fasce biglietti</label>
+            <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">I prezzi qui sotto sono netti (quello che incassi tu) — sul sito il cliente paga un po' di più, la commissione Stripe stimata si aggiunge in automatico al checkout.</p>
             <div id="az-ev-tiers"></div>
             <button type="button" class="az-mini-btn" id="az-ev-add-tier">+ Aggiungi fascia</button>
           </div>
@@ -615,7 +616,7 @@
     row.setAttribute('data-option-id', (opt && opt.id) || '');
     row.innerHTML =
       '<input type="text" class="opt-label" placeholder="Etichetta (es. Solo ingresso)" required>' +
-      '<input type="text" class="opt-price" placeholder="Prezzo €" required>' +
+      '<input type="text" class="opt-price" placeholder="Prezzo netto € (senza commissione)" required>' +
       '<button type="button" class="az-mini-btn danger">✕</button>';
     row.querySelector('.opt-label').value = opt ? opt.label : '';
     row.querySelector('.opt-price').value = opt ? centsToEuros(opt.priceCents) : '';

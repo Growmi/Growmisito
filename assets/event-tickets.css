@@ -55,6 +55,8 @@
 .et-reg-step[hidden]{ display:none; }
 .et-reg-step-selection{ font-family:'Inter',sans-serif; font-size:13.5px; color:#9C96A6; margin-bottom:18px; }
 .et-reg-step-selection strong{ color:#fff; }
+.et-price-breakdown{ font-family:'Inter',sans-serif; font-size:12.5px; color:#9C96A6; margin:-10px 0 18px; }
+.et-price-breakdown:empty{ display:none; }
 
 .et-checkout-wrap{ max-width:640px; margin-top:28px; }
 .et-checkout-wrap[hidden]{ display:none; }

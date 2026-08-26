@@ -10,6 +10,9 @@
 //   <div data-et-tier-list></div>
 //   <div data-et-reg-step hidden>
 //     <strong data-et-selection-label></strong>
+//     <p data-et-price-breakdown></p> (facoltativo: mostra "Biglietto €X + commissione
+//       transazione €Y = €Z" — il prezzo sui bottoni fascia è già quello finale/totale,
+//       questo è solo il dettaglio)
 //     <form data-et-reg-form>
 //       <input data-et-firstname> <input data-et-lastname>
 //       <select data-et-phone-prefix> <input data-et-phone>
@@ -38,6 +41,7 @@
     var tierList = root.querySelector("[data-et-tier-list]");
     var regStep = root.querySelector("[data-et-reg-step]");
     var selectionLabel = root.querySelector("[data-et-selection-label]");
+    var priceBreakdown = root.querySelector("[data-et-price-breakdown]");
     var form = root.querySelector("[data-et-reg-form]");
     var status = root.querySelector("[data-et-reg-status]");
     var submitBtn = root.querySelector("[data-et-reg-submit]");
@@ -70,8 +74,8 @@
           row.className = "et-tier-row";
           optionsHtml = tier.options.map(function(o){
             return '<button type="button" class="et-tier-btn" data-tier="' + tier.id + '" data-option="' + o.id + '" data-selection-label="' +
-              (tier.name + " — " + o.label).replace(/"/g, "&quot;") + '">' +
-              '<span class="et-tier-btn-label">' + o.label + '</span><span class="et-tier-btn-price">' + euro(o.priceCents) + '</span>' +
+              (tier.name + " — " + o.label).replace(/"/g, "&quot;") + '" data-price="' + o.priceCents + '" data-fee="' + o.feeCents + '" data-gross="' + o.grossCents + '">' +
+              '<span class="et-tier-btn-label">' + o.label + '</span><span class="et-tier-btn-price">' + euro(o.grossCents) + '</span>' +
             '</button>';
           }).join("");
         }
@@ -82,7 +86,11 @@
       });
       tierList.querySelectorAll(".et-tier-btn:not(:disabled)").forEach(function(btn){
         btn.addEventListener("click", function(){
-          selectTier(btn.dataset.tier, btn.dataset.option, btn.dataset.selectionLabel);
+          selectTier(btn.dataset.tier, btn.dataset.option, btn.dataset.selectionLabel, {
+            price: parseInt(btn.dataset.price, 10),
+            fee: parseInt(btn.dataset.fee, 10),
+            gross: parseInt(btn.dataset.gross, 10)
+          });
         });
       });
     }
@@ -95,10 +103,15 @@
       } catch (e) { /* si può riprovare ricaricando la pagina, non blocca il resto */ }
     }
 
-    function selectTier(tierId, optionId, label){
+    function selectTier(tierId, optionId, label, priceInfo){
       selectedTierId = tierId;
       selectedOptionId = optionId;
       if (selectionLabel) selectionLabel.textContent = label;
+      if (priceBreakdown && priceInfo) {
+        priceBreakdown.textContent = priceInfo.fee > 0
+          ? "Biglietto " + euro(priceInfo.price) + " + commissione transazione " + euro(priceInfo.fee) + " = " + euro(priceInfo.gross)
+          : "";
+      }
       regStep.hidden = false;
       checkoutWrap.hidden = true;
       checkoutContainer.innerHTML = "";
