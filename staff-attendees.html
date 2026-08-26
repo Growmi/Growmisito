@@ -94,6 +94,7 @@
 </header>
 
 <main>
+  <button type="button" id="exportCsvBtn" style="width:100%; padding:14px; border-radius:12px; border:1.5px solid rgba(251,246,240,0.25); background:rgba(251,246,240,0.06); color:var(--cream); font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:14px; cursor:pointer; margin-bottom:10px;">&#128190; Scarica elenco completo (Excel/CSV)</button>
   <button type="button" id="sendFeedbackBtn" style="width:100%; padding:14px; border-radius:12px; border:1.5px solid rgba(251,246,240,0.25); background:rgba(251,246,240,0.06); color:var(--cream); font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:14px; cursor:pointer; margin-bottom:16px;">&#128231; Manda email di feedback a tutti i presenti</button>
   <input type="text" id="search" placeholder="Cerca per nome...">
   <p id="count"></p>
@@ -175,6 +176,29 @@
   });
   keyInput.addEventListener("keydown", function(e){
     if (e.key === "Enter") { document.getElementById("keySubmit").click(); }
+  });
+
+  document.getElementById("exportCsvBtn").addEventListener("click", async function(){
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = "Preparazione file...";
+    try {
+      var res = await fetch("/api/export-attendees", { headers: { "X-Staff-Key": getStaffKey() } });
+      if (!res.ok) { alert("Errore nel generare il file."); return; }
+      var blob = await res.blob();
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "growmi-partecipanti.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("Errore di rete: " + e.message);
+    }
+    btn.disabled = false;
+    btn.textContent = "💾 Scarica elenco completo (Excel/CSV)";
   });
 
   document.getElementById("sendFeedbackBtn").addEventListener("click", async function(){

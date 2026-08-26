@@ -150,6 +150,15 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    if (url.pathname === "/api/export-attendees" && request.method === "GET") {
+      try {
+        return await handleExportAttendees(request, env);
+      } catch (err) {
+        console.log("Errore export-attendees:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     if (url.pathname === "/api/send-feedback" && request.method === "POST") {
       try {
         return await handleSendFeedback(request, env);
@@ -695,6 +704,91 @@ async function handleAttendees(request, env) {
   attendees.sort(function(a, b){ return (a.name || "").localeCompare(b.name || ""); });
 
   return jsonResponse({ attendees });
+}
+
+// Esporta in CSV (si apre diretto in Excel/Numbers) TUTTI i biglietti venduti — non solo chi è
+// entrato — più le persone registrate sul sito che non hanno mai comprato nulla, così lo staff ha
+// in un unico file: acquisti, presenze reali, chi ha un account/loyalty card e chi no. Legge il
+// singolo ticket per intero (non solo la metadata) perché il telefono non è indicizzato nella
+// metadata del check-in — accettabile per un export manuale, non è una rotta ad alto traffico.
+function csvEscape(value) {
+  const s = value === null || value === undefined ? "" : String(value);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+async function handleExportAttendees(request, env) {
+  const staffKey = request.headers.get("x-staff-key");
+  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
+    return jsonResponse({ error: "unauthorized" }, 401);
+  }
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const tickets = [];
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "ticket:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      if (raw) tickets.push(JSON.parse(raw));
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  const emailsWithTickets = new Set(tickets.map(function(t){ return (t.email || "").toLowerCase(); }));
+
+  const accounts = [];
+  cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "account:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      if (raw) accounts.push(JSON.parse(raw));
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  const accountByEmail = new Map();
+  for (const account of accounts) {
+    if (account.email) accountByEmail.set(account.email.toLowerCase(), account);
+  }
+
+  const rows = [[
+    "Nome", "Email", "Telefono", "Evento", "Fascia", "Data acquisto", "Entrato",
+    "Data check-in", "Account registrato", "Numero cliente", "Carta fisica riscattata", "Newsletter"
+  ]];
+
+  for (const t of tickets) {
+    const account = t.email ? accountByEmail.get(t.email.toLowerCase()) : null;
+    rows.push([
+      t.name, t.email, t.phone, t.eventName, t.tierName,
+      t.createdAt ? new Date(t.createdAt).toLocaleString("it-IT") : "",
+      t.used ? "Sì" : "No",
+      t.usedAt ? new Date(t.usedAt).toLocaleString("it-IT") : "",
+      account ? "Sì" : "No",
+      account?.customerNumber || "",
+      account?.physicalCardClaimed ? "Sì" : "No",
+      account?.newsletterOptin || t.newsletterOptin ? "Sì" : "No"
+    ]);
+  }
+
+  // Persone registrate sul sito ma senza nessun biglietto — altrimenti non comparirebbero mai
+  // nell'export, dato che sopra si parte sempre dai biglietti.
+  for (const account of accounts) {
+    if (!account.email || emailsWithTickets.has(account.email.toLowerCase())) continue;
+    rows.push([
+      account.name, account.email, "", "", "", "", "No", "",
+      "Sì", account.customerNumber || "", account.physicalCardClaimed ? "Sì" : "No",
+      account.newsletterOptin ? "Sì" : "No"
+    ]);
+  }
+
+  const csv = "﻿" + rows.map(function(row){ return row.map(csvEscape).join(","); }).join("\r\n");
+  return new Response(csv, {
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": 'attachment; filename="growmi-partecipanti.csv"'
+    }
+  });
 }
 
 // Email di feedback GRAZIA: usa lo stesso template "a card" delle conferme biglietto, ma con un
