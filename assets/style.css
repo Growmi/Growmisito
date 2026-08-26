@@ -107,7 +107,7 @@ nav.wrap{
    chiaro dietro alla pillola nel punto esatto in cui sta (il bordo superiore della pagina, prima
    che l'hero scuro cominci) e sembrava crema invece che viola — l'opacità alta risolve. */
 header.at-top nav.wrap{
-  background:rgba(44,9,67,0.95);
+  background:rgba(62,13,93,0.95);
   box-shadow:0 10px 30px -10px rgba(0,0,0,.35);
 }
 header.at-top .navlinks a{ color:var(--cream); }
