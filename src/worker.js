@@ -36,6 +36,20 @@ function withSecurityHeaders(response) {
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
+// Rate limiting per IP sulle rotte sensibili (vedi i binding RL_* in wrangler.toml). Ritorna
+// una risposta 429 se il limite è superato, altrimenti null (via libera). Se il binding non
+// è disponibile (es. ambiente locale senza il binding configurato) non blocca mai.
+async function checkRateLimit(env, bindingName, request, label) {
+  const binding = env[bindingName];
+  if (!binding) return null;
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  const { success } = await binding.limit({ key: `${label}:${ip}` });
+  if (!success) {
+    return jsonResponse({ error: "Troppe richieste, riprova tra un minuto." }, 429);
+  }
+  return null;
+}
+
 async function handleFetch(request, env, ctx) {
     const url = new URL(request.url);
 
@@ -223,6 +237,8 @@ async function handleFetch(request, env, ctx) {
     }
 
     if (url.pathname === "/api/register" && request.method === "POST") {
+      const rl = await checkRateLimit(env, "RL_CHECKOUT", request, "ticket-register");
+      if (rl) return rl;
       try {
         return await handleRegister(request, env);
       } catch (err) {
@@ -232,6 +248,8 @@ async function handleFetch(request, env, ctx) {
     }
 
     if (url.pathname === "/api/validate-coupon" && request.method === "POST") {
+      const rl = await checkRateLimit(env, "RL_COUPON", request, "validate-coupon");
+      if (rl) return rl;
       try {
         return await handleValidateCoupon(request, env);
       } catch (err) {
@@ -241,6 +259,8 @@ async function handleFetch(request, env, ctx) {
     }
 
     if (url.pathname === "/api/create-checkout-session" && request.method === "POST") {
+      const rl = await checkRateLimit(env, "RL_CHECKOUT", request, "checkout-session");
+      if (rl) return rl;
       try {
         return await handleCreateCheckoutSession(request, env);
       } catch (err) {
@@ -251,6 +271,8 @@ async function handleFetch(request, env, ctx) {
 
     // Area personale: registrazione, login, verifica email, recupero password, dati account.
     if (url.pathname === "/api/account/register" && request.method === "POST") {
+      const rl = await checkRateLimit(env, "RL_AUTH", request, "account-register");
+      if (rl) return rl;
       try {
         return await handleAccountRegister(request, env);
       } catch (err) {
@@ -269,6 +291,8 @@ async function handleFetch(request, env, ctx) {
     }
 
     if (url.pathname === "/api/account/login" && request.method === "POST") {
+      const rl = await checkRateLimit(env, "RL_AUTH", request, "account-login");
+      if (rl) return rl;
       try {
         return await handleAccountLogin(request, env);
       } catch (err) {
@@ -296,6 +320,8 @@ async function handleFetch(request, env, ctx) {
     }
 
     if (url.pathname === "/api/staff-account/register" && request.method === "POST") {
+      const rl = await checkRateLimit(env, "RL_AUTH", request, "staff-register");
+      if (rl) return rl;
       try {
         return await handleStaffAccountRegister(request, env);
       } catch (err) {
@@ -314,6 +340,8 @@ async function handleFetch(request, env, ctx) {
     }
 
     if (url.pathname === "/api/staff-account/login" && request.method === "POST") {
+      const rl = await checkRateLimit(env, "RL_AUTH", request, "staff-login");
+      if (rl) return rl;
       try {
         return await handleStaffAccountLogin(request, env);
       } catch (err) {
@@ -449,6 +477,8 @@ async function handleFetch(request, env, ctx) {
     }
 
     if (url.pathname === "/api/account/forgot-password" && request.method === "POST") {
+      const rl = await checkRateLimit(env, "RL_AUTH", request, "account-forgot");
+      if (rl) return rl;
       try {
         return await handleAccountForgotPassword(request, env);
       } catch (err) {
@@ -458,6 +488,8 @@ async function handleFetch(request, env, ctx) {
     }
 
     if (url.pathname === "/api/account/reset-password" && request.method === "POST") {
+      const rl = await checkRateLimit(env, "RL_AUTH", request, "account-reset");
+      if (rl) return rl;
       try {
         return await handleAccountResetPassword(request, env);
       } catch (err) {

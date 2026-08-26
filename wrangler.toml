@@ -18,6 +18,29 @@ not_found_handling = "404-page"
 binding = "TICKETS"
 id = "4b1c2c4b5d624f20ac9973b80a8a5430"
 
+# Rate limiting per IP sulle rotte sensibili (login/registrazione/checkout/coupon), per
+# rallentare brute-force e abusi senza toccare la logica dei singoli handler.
+[[ratelimits]]
+name = "RL_AUTH"
+namespace_id = "1001"
+  [ratelimits.simple]
+  limit = 8
+  period = 60
+
+[[ratelimits]]
+name = "RL_CHECKOUT"
+namespace_id = "1002"
+  [ratelimits.simple]
+  limit = 20
+  period = 60
+
+[[ratelimits]]
+name = "RL_COUPON"
+namespace_id = "1003"
+  [ratelimits.simple]
+  limit = 5
+  period = 60
+
 # Base URL del sito, usata per costruire il link al form di feedback nativo (feedback.html)
 # nelle email — da aggiornare qui quando Carlo collega un dominio vero, un solo posto da toccare.
 [vars]
