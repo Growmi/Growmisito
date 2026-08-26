@@ -102,10 +102,12 @@ nav.wrap{
   transition:background .3s ease, box-shadow .3s ease, backdrop-filter .3s ease;
 }
 /* in cima a una pagina con hero scuro (.ed-hero/.mise-hero subito sotto), la pillola diventa viola
-   semi-trasparente (non del tutto invisibile, cosi il testo chiaro resta sempre leggibile
-   qualunque cosa ci sia dietro) — diventa opaca crema appena si scrolla, ispirato a tridentmusic.it */
+   quasi opaca (95%, non del tutto piena) — diventa crema appena si scrolla, ispirato a
+   tridentmusic.it. Opacità bassa (provata prima: 68%) si mescolava visivamente con lo sfondo
+   chiaro dietro alla pillola nel punto esatto in cui sta (il bordo superiore della pagina, prima
+   che l'hero scuro cominci) e sembrava crema invece che viola — l'opacità alta risolve. */
 header.at-top nav.wrap{
-  background:rgba(44,9,67,0.68);
+  background:rgba(44,9,67,0.95);
   box-shadow:0 10px 30px -10px rgba(0,0,0,.35);
 }
 header.at-top .navlinks a{ color:var(--cream); }
