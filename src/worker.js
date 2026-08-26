@@ -752,7 +752,7 @@ async function sendFeedbackEmails(env, attendees) {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          from: "GrowMi <onboarding@resend.dev>",
+          from: "GrowMi <noreply@growmi.it>",
           to: a.email,
           subject: `Com'è andata a ${a.eventName || "GrowMi"}?`,
           html: buildFeedbackEmailHTML({ name: a.name, eventName: a.eventName || "GrowMi", feedbackFormUrl: buildFeedbackUrl(env, a.eventName) })
@@ -1215,7 +1215,7 @@ async function handleStripeWebhook(request, env) {
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            from: "GrowMi <onboarding@resend.dev>",
+            from: "GrowMi <noreply@growmi.it>",
             to: email,
             subject: `Il tuo biglietto — ${eventName}`,
             html: buildTicketEmailHTML({ name: customerName, eventName, eventDate, eventLocation, eventTeaser, tierName, ticketCode, qrBase64 }),
@@ -1329,7 +1329,7 @@ async function sendAccountEmail(env, { to, subject, html }) {
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { "Authorization": `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: "GrowMi <onboarding@resend.dev>", to, subject, html })
+    body: JSON.stringify({ from: "GrowMi <noreply@growmi.it>", to, subject, html })
   });
   if (!res.ok) console.log("Resend error (account):", res.status, await res.text());
 }
