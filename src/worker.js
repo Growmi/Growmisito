@@ -131,6 +131,34 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    // Endpoint di debug/admin, protetto dalla chiave staff, sola lettura: elenca biglietti e
+    // coupon collegati a un'email, per individuare dati di test da ripulire prima di eliminarli
+    // con /api/debug-delete-test-data — non cancella mai nulla da solo.
+    if (url.pathname === "/api/debug-find-test-data" && request.method === "GET") {
+      try {
+        const staffKey = request.headers.get("x-staff-key");
+        if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) return jsonResponse({ error: "unauthorized" }, 401);
+        return await handleDebugFindTestData(request, env);
+      } catch (err) {
+        console.log("Errore debug-find-test-data:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    // Endpoint di debug/admin, protetto dalla chiave staff: cancella SOLO le chiavi esatte
+    // passate nel body (mai un filtro generico), e solo se iniziano per ticket: o coupon: — da
+    // usare dopo aver controllato l'elenco con /api/debug-find-test-data, non alla cieca.
+    if (url.pathname === "/api/debug-delete-test-data" && request.method === "POST") {
+      try {
+        const staffKey = request.headers.get("x-staff-key");
+        if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) return jsonResponse({ error: "unauthorized" }, 401);
+        return await handleDebugDeleteTestData(request, env);
+      } catch (err) {
+        console.log("Errore debug-delete-test-data:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     // Backup manuale su richiesta, protetto dalla chiave staff — stesso backup del cron
     // giornaliero (vedi sendKVBackupEmail), utile per uno snapshot immediato prima di un'
     // operazione delicata o solo per verificare che l'invio funzioni.
@@ -1387,6 +1415,65 @@ async function sendKVBackupEmail(env) {
     return { ok: false, counts };
   }
   return { ok: true, counts };
+}
+
+// Sola lettura: elenca ogni ticket: e coupon: collegato a un'email, con i dati utili a decidere
+// se sono da eliminare (evento, importo, data, se già usati) — mai una cancellazione, solo un
+// elenco su cui poi si chiama handleDebugDeleteTestData con le chiavi esatte da togliere.
+async function handleDebugFindTestData(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const url = new URL(request.url);
+  const email = String(url.searchParams.get("email") || "").trim().toLowerCase();
+  if (!email) return jsonResponse({ error: "email obbligatoria" }, 400);
+
+  const tickets = [];
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "ticket:", cursor });
+    for (const key of page.keys) {
+      if ((key.metadata?.email || "").toLowerCase() === email) {
+        const raw = await env.TICKETS.get(key.name);
+        const t = raw ? JSON.parse(raw) : null;
+        tickets.push({ key: key.name, eventName: t?.eventName, tierName: t?.tierName, amountTotal: t?.amountTotal, createdAt: t?.createdAt, used: t?.used });
+      }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  const coupons = [];
+  cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "coupon:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      const c = raw ? JSON.parse(raw) : null;
+      if (c && String(c.email || "").toLowerCase() === email) {
+        coupons.push({ key: key.name, used: c.used, createdAt: c.createdAt, expiresAt: c.expiresAt });
+      }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  return jsonResponse({ tickets, coupons });
+}
+
+// Cancella SOLO le chiavi esatte passate in body.keys, e solo se iniziano per ticket: o coupon:
+// (mai account:, staffaccount: o altro, qualunque cosa contenga l'array) — pensato per essere
+// chiamato con l'elenco ottenuto da handleDebugFindTestData, mai con un filtro generico che
+// potrebbe far sparire dati veri per sbaglio.
+async function handleDebugDeleteTestData(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const keys = Array.isArray(body.keys) ? body.keys : [];
+  const allowedPrefixes = ["ticket:", "coupon:"];
+  const deleted = [];
+  for (const key of keys) {
+    if (typeof key === "string" && allowedPrefixes.some(function(p){ return key.startsWith(p); })) {
+      await env.TICKETS.delete(key);
+      deleted.push(key);
+    }
+  }
+  return jsonResponse({ ok: true, deleted });
 }
 
 // Tariffa Stripe "UE premium" (2,8% + 0,25€) usata per calcolare la maggiorazione da aggiungere
