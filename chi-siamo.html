@@ -45,7 +45,7 @@
   }
   .team-menu-backdrop.is-active{ opacity:1; pointer-events:auto; }
   .team-area-panel{
-    position:absolute; top:calc(100% + 10px); left:0; min-width:100%; width:max-content; max-width:420px; z-index:6;
+    position:absolute; top:calc(100% + 10px); left:0; min-width:100%; width:max-content; max-width:540px; z-index:6;
     padding:24px 26px 26px; box-sizing:border-box;
     border:1.5px solid var(--line); border-radius:16px;
     background:var(--cream);
@@ -57,7 +57,7 @@
   @keyframes teamPanelIn{ from{ opacity:0; transform:translateY(-10px) scaleY(.96); } to{ opacity:1; transform:translateY(0) scaleY(1); } }
   @keyframes teamPanelOut{ from{ opacity:1; transform:translateY(0) scaleY(1); } to{ opacity:0; transform:translateY(-10px) scaleY(.96); } }
   @media (prefers-reduced-motion: reduce){ .team-area-panel{ animation:none; } }
-  .team-area-panel .lead{ color:var(--grey); font-size:13px; margin-top:4px; max-width:420px; }
+  .team-area-panel .lead{ color:var(--grey); font-size:13px; margin-top:4px; max-width:540px; }
   .team-area-panel .team-grid{
     margin-top:18px; display:flex; flex-direction:row; flex-wrap:nowrap; gap:14px;
     overflow-x:auto; padding-bottom:2px;
@@ -234,7 +234,7 @@
     <div class="ed-grid team-area-grid" id="team-area-grid">
       <div class="team-area-item" data-team-area="amm">
         <button type="button" class="ed-card team-area-trigger">
-          <div class="ed-card-media"></div>
+          <div class="ed-card-media"><img src="assets/img/team-areas/amm.svg" alt="" loading="lazy"></div>
           <span class="tag" data-i18n="team_amm_count">3 persone</span>
           <h3 data-i18n="team_amm_name">Amministrazione e Finanza</h3>
         </button>
@@ -242,7 +242,7 @@
       </div>
       <div class="team-area-item" data-team-area="artvenue">
         <button type="button" class="ed-card team-area-trigger">
-          <div class="ed-card-media"></div>
+          <div class="ed-card-media"><img src="assets/img/team-areas/artvenue.svg" alt="" loading="lazy"></div>
           <span class="tag" data-i18n="team_artvenue_count">2 persone</span>
           <h3 data-i18n="team_artvenue_name">Artisti &amp; Locali</h3>
         </button>
@@ -250,7 +250,7 @@
       </div>
       <div class="team-area-item" data-team-area="comms">
         <button type="button" class="ed-card team-area-trigger">
-          <div class="ed-card-media"></div>
+          <div class="ed-card-media"><img src="assets/img/team-areas/comms.svg" alt="" loading="lazy"></div>
           <span class="tag" data-i18n="team_comms_count">4 persone</span>
           <h3 data-i18n="team_comms_name">Comunicazione &amp; Marketing</h3>
         </button>
@@ -258,7 +258,7 @@
       </div>
       <div class="team-area-item" data-team-area="comm">
         <button type="button" class="ed-card team-area-trigger">
-          <div class="ed-card-media"></div>
+          <div class="ed-card-media"><img src="assets/img/team-areas/comm.svg" alt="" loading="lazy"></div>
           <span class="tag" data-i18n="team_comm_count">2 persone</span>
           <h3 data-i18n="team_comm_name">Commerciale</h3>
         </button>
@@ -266,7 +266,7 @@
       </div>
       <div class="team-area-item" data-team-area="sw">
         <button type="button" class="ed-card team-area-trigger">
-          <div class="ed-card-media"></div>
+          <div class="ed-card-media"><img src="assets/img/team-areas/sw.svg" alt="" loading="lazy"></div>
           <span class="tag" data-i18n="team_sw_count">In crescita</span>
           <h3 data-i18n="team_sw_name">Software e Piattaforme</h3>
         </button>
