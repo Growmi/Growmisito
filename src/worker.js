@@ -159,6 +159,34 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    // Sola lettura, protetto dalla chiave staff: elenco completo di biglietti/account/loyalty/
+    // coupon/feedback esistenti, per una revisione finale prima di un reset totale con
+    // /api/debug-wipe-all-data.
+    if (url.pathname === "/api/debug-list-all-data" && request.method === "GET") {
+      try {
+        const staffKey = request.headers.get("x-staff-key");
+        if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) return jsonResponse({ error: "unauthorized" }, 401);
+        return await handleDebugListAllData(request, env);
+      } catch (err) {
+        console.log("Errore debug-list-all-data:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    // Protetto dalla chiave staff + conferma esplicita nel body: azzera biglietti, account
+    // clienti, loyalty, coupon, numeri cliente e feedback, per ripartire da zero prima del lancio
+    // vero. Non tocca mai gli account staff né la configurazione eventi.
+    if (url.pathname === "/api/debug-wipe-all-data" && request.method === "POST") {
+      try {
+        const staffKey = request.headers.get("x-staff-key");
+        if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) return jsonResponse({ error: "unauthorized" }, 401);
+        return await handleDebugWipeAllData(request, env);
+      } catch (err) {
+        console.log("Errore debug-wipe-all-data:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     // Backup manuale su richiesta, protetto dalla chiave staff — stesso backup del cron
     // giornaliero (vedi sendKVBackupEmail), utile per uno snapshot immediato prima di un'
     // operazione delicata o solo per verificare che l'invio funzioni.
@@ -1474,6 +1502,61 @@ async function handleDebugDeleteTestData(request, env) {
     }
   }
   return jsonResponse({ ok: true, deleted });
+}
+
+// Prefissi con dati di "vendite/attività" azzerabili per ripartire da zero prima del lancio vero
+// — esclude di proposito staffaccount: (i login veri della sezione aziendale, mai da toccare) ed
+// event: (configurazione eventi, non dati di vendita).
+const WIPE_PREFIXES = ["ticket:", "account:", "loyalty:", "coupon:", "customernum:", "physicalcard:", "feedback:"];
+
+// Sola lettura: elenco completo di ogni voce in WIPE_PREFIXES, per una revisione visiva finale
+// prima di un reset completo — mai usato per decidere cosa cancellare, solo per vedere cosa c'è.
+async function handleDebugListAllData(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const result = {};
+  for (const prefix of WIPE_PREFIXES) {
+    const entries = [];
+    let cursor = undefined;
+    do {
+      const page = await env.TICKETS.list({ prefix, cursor });
+      for (const key of page.keys) {
+        const raw = await env.TICKETS.get(key.name);
+        entries.push({ key: key.name, value: raw ? JSON.parse(raw) : null });
+      }
+      cursor = page.list_complete ? undefined : page.cursor;
+    } while (cursor);
+    result[prefix] = entries;
+  }
+  return jsonResponse(result);
+}
+
+// Reset completo: cancella OGNI voce in WIPE_PREFIXES più il contatore numeri cliente (torna al
+// suo default 251 semplicemente sparendo, vedi nextSequentialCustomerNumber). Richiede
+// {"confirm":"AZZERA"} nel body, non basta chiamare l'endpoint per sbaglio — pensato per essere
+// usato una volta sola prima del lancio vero, dopo aver rivisto l'elenco con
+// handleDebugListAllData. Non tocca mai staffaccount: (i login veri) né event:.
+async function handleDebugWipeAllData(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  if (body.confirm !== "AZZERA") {
+    return jsonResponse({ error: 'per confermare manda {"confirm":"AZZERA"} nel body' }, 400);
+  }
+  const deletedCounts = {};
+  for (const prefix of WIPE_PREFIXES) {
+    let count = 0;
+    let cursor = undefined;
+    do {
+      const page = await env.TICKETS.list({ prefix, cursor });
+      for (const key of page.keys) {
+        await env.TICKETS.delete(key.name);
+        count++;
+      }
+      cursor = page.list_complete ? undefined : page.cursor;
+    } while (cursor);
+    deletedCounts[prefix] = count;
+  }
+  await env.TICKETS.delete("config:nextCustomerNumber");
+  return jsonResponse({ ok: true, deletedCounts });
 }
 
 // Tariffa Stripe "UE premium" (2,8% + 0,25€) usata per calcolare la maggiorazione da aggiungere
