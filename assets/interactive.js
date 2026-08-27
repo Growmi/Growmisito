@@ -354,9 +354,13 @@
       });
     }
     function memberHTML(m){
+      // Chi non ha ancora una foto (campo photo assente) mostra solo il riquadro sfumato vuoto,
+      // esattamente come prima — si aggiunge una persona alla volta senza dover aspettare che
+      // tutto il team abbia una foto pronta.
+      var photoHTML = m.photo ? '<img src="' + escapeHTML(m.photo) + '" alt="" loading="lazy">' : '';
       return (
         '<div class="team-card">' +
-          '<div class="team-photo"></div>' +
+          '<div class="team-photo">' + photoHTML + '</div>' +
           '<h3>' + escapeHTML(m.name) + '</h3>' +
           '<p class="role">' + escapeHTML(m.role) + '</p>' +
         '</div>'

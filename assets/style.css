@@ -318,7 +318,8 @@ section{padding:90px 0;}
 /* team */
 .team-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:28px;}
 .team-card{text-align:left;}
-.team-photo{width:100%; aspect-ratio:1; border-radius:16px; background:linear-gradient(160deg,var(--lilac),var(--purple-deep)); margin-bottom:14px;}
+.team-photo{width:100%; aspect-ratio:1; border-radius:16px; background:linear-gradient(160deg,var(--lilac),var(--purple-deep)); margin-bottom:14px; overflow:hidden;}
+.team-photo img{width:100%; height:100%; object-fit:cover; display:block;}
 .team-card h3{margin-bottom:2px;}
 .team-card .role{font-family:'Space Grotesk',sans-serif; font-size:12.5px; font-weight:700; color:var(--coral); text-transform:uppercase; letter-spacing:.05em;}
 

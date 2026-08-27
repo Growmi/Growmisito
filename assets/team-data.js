@@ -7,13 +7,15 @@
    Campi:
    - name: nome dell'area, mostrato come titolo nel menu
    - lead: breve descrizione dell'area
-   - members: elenco persone { name, role } — role tipicamente "Direttore d'area" o "Team" */
+   - members: elenco persone { name, role, photo } — role tipicamente "Direttore d'area" o
+     "Team"; photo è facoltativo (assets/img/team/<slug>.jpg) — chi non ce l'ha ancora mostra
+     solo il riquadro sfumato, niente foto rotte */
 const GROWMI_TEAM = {
   amm: {
     name: "Amministrazione e Finanza",
     lead: "Chi si occupa dei conti, dell'amministrazione e della sostenibilità economica di GrowMi.",
     members: [
-      { name: "Roberta La Giusa", role: "Direttore d'area" },
+      { name: "Roberta La Giusa", role: "Direttore d'area", photo: "assets/img/team/roberta-la-giusa.jpg" },
       { name: "Alessandro Decollanz", role: "Direttore d'area" },
       { name: "Colette Buelli", role: "Team" }
     ]
@@ -22,7 +24,7 @@ const GROWMI_TEAM = {
     name: "Artisti & Locali",
     lead: "Chi cerca, seleziona e segue gli artisti emergenti e i locali che ospitano gli eventi GrowMi.",
     members: [
-      { name: "Daniela Pezzoni", role: "Direttore d'area" },
+      { name: "Daniela Pezzoni", role: "Direttore d'area", photo: "assets/img/team/daniela-pezzoni.jpg" },
       { name: "Lulita Gorgoglione", role: "Team" }
     ]
   },
@@ -30,9 +32,9 @@ const GROWMI_TEAM = {
     name: "Comunicazione & Marketing",
     lead: "Chi racconta GrowMi: contenuti, social, storytelling e la voce del progetto verso l'esterno.",
     members: [
-      { name: "Carlo Capizzoto", role: "Direttore d'area" },
+      { name: "Carlo Capizzoto", role: "Direttore d'area", photo: "assets/img/team/carlo-capizzoto.jpg" },
       { name: "Alice Amoruso", role: "Direttore d'area" },
-      { name: "Mihaela Doschinescu", role: "Team" },
+      { name: "Mihaela Doschinescu", role: "Team", photo: "assets/img/team/mihaela-doschinescu.jpg" },
       { name: "Keiron Metaj", role: "Team" }
     ]
   },
@@ -40,7 +42,7 @@ const GROWMI_TEAM = {
     name: "Commerciale",
     lead: "Chi cura le partnership, gli sponsor e le collaborazioni commerciali di GrowMi.",
     members: [
-      { name: "Marco Capezzuoli", role: "Direttore d'area" },
+      { name: "Marco Capezzuoli", role: "Direttore d'area", photo: "assets/img/team/marco-capezzuoli.jpg" },
       { name: "Francesco Ghioni", role: "Team" }
     ]
   },
@@ -48,7 +50,7 @@ const GROWMI_TEAM = {
     name: "Software e Piattaforme",
     lead: "Chi sviluppa e mantiene il sito e gli strumenti digitali di GrowMi.",
     members: [
-      { name: "Carlo Capizzoto", role: "Direttore d'area" }
+      { name: "Carlo Capizzoto", role: "Direttore d'area", photo: "assets/img/team/carlo-capizzoto.jpg" }
     ]
   }
 };
