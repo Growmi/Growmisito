@@ -33,7 +33,7 @@ const GROWMI_TEAM = {
     lead: "Chi racconta GrowMi: contenuti, social, storytelling e la voce del progetto verso l'esterno.",
     members: [
       { name: "Carlo Capizzoto", role: "Direttore d'area", photo: "assets/img/team/carlo-capizzoto.jpg" },
-      { name: "Alice Amoruso", role: "Direttore d'area" },
+      { name: "Alice Amoruso", role: "Direttore d'area", photo: "assets/img/team/alice-amoruso.jpg" },
       { name: "Mihaela Doschinescu", role: "Team", photo: "assets/img/team/mihaela-doschinescu.jpg" },
       { name: "Keiron Metaj", role: "Team" }
     ]
