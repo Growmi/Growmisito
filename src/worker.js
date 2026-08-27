@@ -159,13 +159,15 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
-    // Sola lettura, protetto dalla chiave staff: elenco completo di biglietti/account/loyalty/
-    // coupon/feedback esistenti, per una revisione finale prima di un reset totale con
-    // /api/debug-wipe-all-data.
+    // Sola lettura, richiede il login aziendale (stessa protezione delle altre rotte del
+    // pannello): elenco completo di biglietti/account/loyalty/coupon/feedback esistenti, per una
+    // revisione finale prima di un reset totale con /api/debug-wipe-all-data. Volutamente NON
+    // protetto dalla chiave staff condivisa dello scanner: un reset distruttivo del genere deve
+    // passare da un login individuale, non da una chiave in mano a chiunque fa i check-in.
     if (url.pathname === "/api/debug-list-all-data" && request.method === "GET") {
       try {
-        const staffKey = request.headers.get("x-staff-key");
-        if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) return jsonResponse({ error: "unauthorized" }, 401);
+        const auth = await requireStaffAccount(request, env);
+        if (auth.error) return auth.error;
         return await handleDebugListAllData(request, env);
       } catch (err) {
         console.log("Errore debug-list-all-data:", err.stack || err.message);
@@ -173,13 +175,14 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
-    // Protetto dalla chiave staff + conferma esplicita nel body: azzera biglietti, account
+    // Richiede il login aziendale + conferma esplicita nel body: azzera biglietti, account
     // clienti, loyalty, coupon, numeri cliente e feedback, per ripartire da zero prima del lancio
-    // vero. Non tocca mai gli account staff né la configurazione eventi.
+    // vero. Non tocca mai gli account staff né la configurazione eventi. Stessa scelta di
+    // requireStaffAccount di cui sopra, stesso motivo.
     if (url.pathname === "/api/debug-wipe-all-data" && request.method === "POST") {
       try {
-        const staffKey = request.headers.get("x-staff-key");
-        if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) return jsonResponse({ error: "unauthorized" }, 401);
+        const auth = await requireStaffAccount(request, env);
+        if (auth.error) return auth.error;
         return await handleDebugWipeAllData(request, env);
       } catch (err) {
         console.log("Errore debug-wipe-all-data:", err.stack || err.message);
@@ -1521,7 +1524,11 @@ async function handleDebugListAllData(request, env) {
       const page = await env.TICKETS.list({ prefix, cursor });
       for (const key of page.keys) {
         const raw = await env.TICKETS.get(key.name);
-        entries.push({ key: key.name, value: raw ? JSON.parse(raw) : null });
+        // customernum: non è JSON, è la mail salvata come stringa pura (vedi
+        // nextSequentialCustomerNumber/handleClaimPhysicalCard) — il parse fallirebbe.
+        let value = raw;
+        try { value = raw ? JSON.parse(raw) : null; } catch (e) { /* resta la stringa grezza */ }
+        entries.push({ key: key.name, value });
       }
       cursor = page.list_complete ? undefined : page.cursor;
     } while (cursor);

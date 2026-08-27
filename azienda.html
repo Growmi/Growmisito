@@ -150,6 +150,16 @@
   .az-mini-btn.danger{ border-color:#D9534F; color:#D9534F; }
   .az-tier-block-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
   .az-tier-block-head span{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; color:var(--grey); }
+
+  .az-danger-zone{
+    margin-top:32px; padding:20px 22px; border:1.5px solid #F3C5BC; border-radius:14px; background:#FDF3F1;
+  }
+  .az-danger-zone h3{ font-family:'Space Grotesk',sans-serif; font-size:15px; color:#B4400F; margin-bottom:8px; }
+  .az-danger-zone p{ font-size:13px; color:var(--grey); margin-bottom:14px; max-width:560px; }
+  .az-wipe-list{ list-style:none; font-size:13px; margin:14px 0; }
+  .az-wipe-list li{ padding:5px 0; border-bottom:1px solid var(--line); }
+  .az-wipe-list li:last-child{ border-bottom:none; }
+  .az-wipe-emails{ color:var(--grey); font-size:12px; }
 </style>
 </head>
 <body>
@@ -214,6 +224,13 @@
         <div class="az-stat"><span class="n" id="az-stat-newsletter">—</span><span class="l">Iscritti newsletter</span></div>
         <div class="az-stat"><span class="n" id="az-stat-fbcount">—</span><span class="l">Feedback ricevuti</span></div>
         <div class="az-stat"><span class="n" id="az-stat-avgrating">—</span><span class="l">Valutazione media</span></div>
+      </div>
+
+      <div class="az-danger-zone">
+        <h3>Zona pericolosa</h3>
+        <p>Azzera tutti i dati di vendita (biglietti, account clienti, carta fedeltà, coupon, numeri cliente, feedback) — usa solo prima del lancio vero, per ripartire da zero. Non tocca il tuo login aziendale né la configurazione degli eventi.</p>
+        <button type="button" class="az-mini-btn" id="az-wipe-list-btn">Vedi cosa verrebbe cancellato</button>
+        <div id="az-wipe-preview" hidden></div>
       </div>
     </div>
 
@@ -429,6 +446,73 @@
     } catch (err) { /* i numeri restano com'erano */ }
   }
   panelLoaders.dashboard = { loaded: false, load: loadDashboardStats };
+
+  // ---- Zona pericolosa: azzeramento dati di test ----
+  var WIPE_LABELS = {
+    'ticket:': 'Biglietti', 'account:': 'Account clienti', 'loyalty:': 'Carte fedeltà',
+    'coupon:': 'Coupon', 'customernum:': 'Numeri cliente', 'physicalcard:': 'Carte fisiche riscattate',
+    'feedback:': 'Feedback'
+  };
+  function entryLabel(entry){
+    if (entry.value && typeof entry.value === 'object' && entry.value.email) return entry.value.email;
+    if (typeof entry.value === 'string') return entry.value;
+    return entry.key;
+  }
+  document.getElementById('az-wipe-list-btn').addEventListener('click', async function(){
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Carico...';
+    try {
+      var res = await fetch('/api/debug-list-all-data');
+      if (!res.ok) { alert('Errore nel caricare l\'elenco.'); return; }
+      var data = await res.json();
+      var total = 0;
+      var rows = Object.keys(WIPE_LABELS).map(function(prefix){
+        var entries = data[prefix] || [];
+        total += entries.length;
+        var emails = entries.map(entryLabel).join(', ');
+        return '<li><strong>' + WIPE_LABELS[prefix] + '</strong> — ' + entries.length + (entries.length ? '<div class="az-wipe-emails">' + esc(emails) + '</div>' : '') + '</li>';
+      }).join('');
+      var preview = document.getElementById('az-wipe-preview');
+      preview.innerHTML =
+        '<ul class="az-wipe-list">' + rows + '</ul>' +
+        (total > 0
+          ? '<button type="button" class="az-mini-btn danger" id="az-wipe-confirm-btn">🗑️ Cancella tutto (' + total + ' voci in totale)</button>'
+          : '<p style="font-size:13px; color:var(--grey);">Non c\'è niente da cancellare.</p>');
+      preview.hidden = false;
+      var confirmBtn = document.getElementById('az-wipe-confirm-btn');
+      if (confirmBtn) {
+        confirmBtn.addEventListener('click', async function(){
+          if (!confirm('Sei sicuro di voler cancellare TUTTI i ' + total + ' elementi elencati sopra? Non si può annullare.')) return;
+          confirmBtn.disabled = true;
+          confirmBtn.textContent = 'Cancellazione...';
+          try {
+            var wipeRes = await fetch('/api/debug-wipe-all-data', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ confirm: 'AZZERA' })
+            });
+            var result = await wipeRes.json();
+            if (wipeRes.ok) {
+              preview.innerHTML = '<p style="font-size:13px; color:#1E7A3A;">Fatto — tutto azzerato.</p>';
+              loadDashboardStats();
+            } else {
+              alert('Errore: ' + (result.error || wipeRes.status));
+              confirmBtn.disabled = false;
+              confirmBtn.textContent = '🗑️ Cancella tutto (' + total + ' voci in totale)';
+            }
+          } catch (err) {
+            alert('Errore di rete: ' + err.message);
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = '🗑️ Cancella tutto (' + total + ' voci in totale)';
+          }
+        });
+      }
+    } catch (err) {
+      alert('Errore di connessione.');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Vedi cosa verrebbe cancellato';
+  });
 
   // ---- Clienti (tabella) ----
   var allCustomers = [];
