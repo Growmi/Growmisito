@@ -11,8 +11,8 @@
 //   <div data-et-reg-step hidden>
 //     <strong data-et-selection-label></strong>
 //     <p data-et-price-breakdown></p> (facoltativo: mostra "Biglietto €X + commissione
-//       transazione €Y = €Z" — il prezzo sui bottoni fascia è già quello finale/totale,
-//       questo è solo il dettaglio)
+//       transazione €Y = €Z" — il prezzo sui bottoni fascia è quello netto, la maggiorazione
+//       si vede solo qui, dopo la selezione, prima di pagare)
 //     <form data-et-reg-form>
 //       <input data-et-firstname> <input data-et-lastname>
 //       <select data-et-phone-prefix> <input data-et-phone>
@@ -75,7 +75,7 @@
           optionsHtml = tier.options.map(function(o){
             return '<button type="button" class="et-tier-btn" data-tier="' + tier.id + '" data-option="' + o.id + '" data-selection-label="' +
               (tier.name + " — " + o.label).replace(/"/g, "&quot;") + '" data-price="' + o.priceCents + '" data-fee="' + o.feeCents + '" data-gross="' + o.grossCents + '">' +
-              '<span class="et-tier-btn-label">' + o.label + '</span><span class="et-tier-btn-price">' + euro(o.grossCents) + '</span>' +
+              '<span class="et-tier-btn-label">' + o.label + '</span><span class="et-tier-btn-price">' + euro(o.priceCents) + '</span>' +
             '</button>';
           }).join("");
         }
