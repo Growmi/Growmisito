@@ -682,6 +682,10 @@ const DEFAULT_EVENTS = {
     dateIso: "2026-09-10",
     location: "Art Mall Milano, Milano",
     teaser: "Una notte dedicata alla cultura hip-hop: graffiti dal vivo, musica e DJ set nel cuore di Milano.",
+    // Non ancora annunciato pubblicamente (vedi anche draft:true sull'entry gemella in
+    // assets/events-data.js): senza questo, /api/public-events lo mostrerebbe di nuovo perché
+    // un evento senza "published" esplicito si considera pubblicato di default.
+    published: false,
     tiers: [
       {
         id: "fascia1", name: "Prima fascia", sub: "Posti limitati", capacity: 50,
