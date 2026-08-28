@@ -43,7 +43,7 @@ const GROWMI_TEAM = {
     lead: "Chi cura le partnership, gli sponsor e le collaborazioni commerciali di GrowMi.",
     members: [
       { name: "Marco Capezzuoli", role: "Direttore d'area", photo: "assets/img/team/marco-capezzuoli.jpg" },
-      { name: "Francesco Ghioni", role: "Team", photo: "assets/img/team/francesco-ghioni.jpg", photoPosition: "center 65%" }
+      { name: "Francesco Ghioni", role: "Team", photo: "assets/img/team/francesco-ghioni.jpg", photoPosition: "center 25%" }
     ]
   },
   sw: {
