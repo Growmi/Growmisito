@@ -1,7 +1,11 @@
 /* Direzione editoriale — ispirata a Outpump (magazine street/cultura) + Apple (scala, spazio, sicurezza) */
 
 .ed-hero{
-  background:var(--ink);
+  /* Immagine hero di default per ogni pagina senza una foto/video propri (vedi .ed-hero-photo/
+     .ed-hero-video/.ed-hero-slideshow più sotto, che dipingono sopra questo sfondo e quindi lo
+     coprono da soli sulle pagine che hanno già un loro media). Velo scuro sopra l'immagine
+     (stessa tinta di .ed-hero-video-overlay) per tenere leggibile il testo cream/bianco. */
+  background:linear-gradient(rgba(30,12,44,.55), rgba(30,12,44,.55)), var(--ink) url("img/hero/default-hero.jpg") center/cover no-repeat;
   color:var(--cream);
   position:relative;
   z-index:0;
@@ -14,31 +18,7 @@
   box-sizing:border-box;
 }
 .ed-hero > .wrap{ width:100%; }
-.ed-hero::before{
-  content:"";
-  position:absolute; inset:0;
-  background-image:radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1.4px);
-  background-size:16px 16px;
-  pointer-events:none;
-}
-.ed-hero::after{
-  content:"";
-  position:absolute; top:-30%; right:-8%;
-  width:55%; height:160%;
-  background:linear-gradient(120deg, transparent 45%, rgba(224,33,122,0.28) 46%, rgba(224,33,122,0.28) 50%, transparent 51%);
-  pointer-events:none;
-}
 .ed-wrap{position:relative; z-index:2;}
-
-/* nell'hero con un vero media di sfondo (foto/slideshow in home, video in contatti) niente texture
-   a pallini né striscia magenta decorativa sopra: solo il media come sfondo, col velo scuro per
-   la leggibilità del testo. Vale per qualsiasi hero futuro con foto/video di sfondo */
-.ed-hero:has(.ed-hero-slideshow)::before,
-.ed-hero:has(.ed-hero-slideshow)::after,
-.ed-hero:has(.ed-hero-video)::before,
-.ed-hero:has(.ed-hero-video)::after,
-.ed-hero:has(.ed-hero-photo)::before,
-.ed-hero:has(.ed-hero-photo)::after{ display:none; }
 
 /* video di sfondo per un hero (es. contatti.html): sotto il testo e sotto la texture/striscia
    decorativa, con un velo scuro sopra per mantenere leggibili titolo e testo. Riempie sempre
