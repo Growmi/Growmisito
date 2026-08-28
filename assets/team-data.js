@@ -25,7 +25,7 @@ const GROWMI_TEAM = {
     lead: "Chi cerca, seleziona e segue gli artisti emergenti e i locali che ospitano gli eventi GrowMi.",
     members: [
       { name: "Daniela Pezzoni", role: "Direttore d'area", photo: "assets/img/team/daniela-pezzoni.jpg" },
-      { name: "Lulita Gorgoglione", role: "Team", photo: "assets/img/team/lulita-gorgoglione.jpg" }
+      { name: "Lourdes Gorgoglione", role: "Team", photo: "assets/img/team/lourdes-gorgoglione.jpg" }
     ]
   },
   comms: {
@@ -43,7 +43,7 @@ const GROWMI_TEAM = {
     lead: "Chi cura le partnership, gli sponsor e le collaborazioni commerciali di GrowMi.",
     members: [
       { name: "Marco Capezzuoli", role: "Direttore d'area", photo: "assets/img/team/marco-capezzuoli.jpg" },
-      { name: "Francesco Ghioni", role: "Team", photo: "assets/img/team/francesco-ghioni.jpg" }
+      { name: "Francesco Ghioni", role: "Team", photo: "assets/img/team/francesco-ghioni.jpg", photoPosition: "center 65%" }
     ]
   },
   sw: {

@@ -357,7 +357,10 @@
       // Chi non ha ancora una foto (campo photo assente) mostra solo il riquadro sfumato vuoto,
       // esattamente come prima — si aggiunge una persona alla volta senza dover aspettare che
       // tutto il team abbia una foto pronta.
-      var photoHTML = m.photo ? '<img src="' + escapeHTML(m.photo) + '" alt="" loading="lazy">' : '';
+      // photoPosition (facoltativo): sposta l'inquadratura dentro il riquadro quadrato quando il
+      // centro automatico taglia male la foto originale (es. troppa testa/soffitto e poco viso).
+      var posStyle = m.photoPosition ? ' style="object-position:' + escapeHTML(m.photoPosition) + '"' : '';
+      var photoHTML = m.photo ? '<img src="' + escapeHTML(m.photo) + '" alt=""' + posStyle + ' loading="lazy">' : '';
       return (
         '<div class="team-card">' +
           '<div class="team-photo">' + photoHTML + '</div>' +

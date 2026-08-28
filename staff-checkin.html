@@ -177,6 +177,7 @@
     background:rgba(251,246,240,0.06); color:var(--cream); font-size:14px; font-family:'Inter',sans-serif;
   }
   .walkin-field select option{ color:#000; }
+  .walkin-hint{ font-size:11.5px; color:rgba(251,246,240,0.5); margin-top:6px; }
   .walkin-checkbox-row{
     display:flex; align-items:flex-start; gap:10px; font-size:12.5px; color:rgba(251,246,240,0.85);
     margin-bottom:14px; cursor:pointer;
@@ -256,6 +257,7 @@
     <div class="walkin-field">
       <label>Fascia</label>
       <select id="walkinTier"></select>
+      <p class="walkin-hint">Preselezionata l'ultima fascia (prezzo pieno) — cambiala solo per eccezioni (sconti, omaggi...).</p>
     </div>
     <div class="walkin-field">
       <label>Nome e cognome</label>
@@ -607,6 +609,12 @@
       });
       if (!walkinTierSelect.children.length) {
         walkinTierSelect.innerHTML = '<option value="">Nessuna fascia disponibile</option>';
+      } else {
+        // Chi paga alla porta paga il prezzo pieno (l'ultima fascia, es. "Terza fascia"), mai le
+        // fasce scontate riservate a chi ha comprato in anticipo online — preselezionata di
+        // default, ma lo staff può comunque cambiarla per le rare eccezioni (sconti, omaggi...).
+        var options = Array.prototype.slice.call(walkinTierSelect.children).filter(function(o){ return !o.disabled; });
+        if (options.length) walkinTierSelect.value = options[options.length - 1].value;
       }
     } catch (e) {
       walkinTierSelect.innerHTML = '<option value="">Errore nel caricamento delle fasce</option>';
