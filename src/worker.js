@@ -226,6 +226,15 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    if (url.pathname === "/api/manual-checkin" && request.method === "POST") {
+      try {
+        return await handleManualCheckin(request, env);
+      } catch (err) {
+        console.log("Errore manual-checkin:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     if (url.pathname === "/api/stats" && request.method === "GET") {
       try {
         return await handleStats(request, env);
@@ -891,7 +900,8 @@ async function handleCheckin(request, env) {
       // eventSlug/tierId restano anche dopo il check-in: /api/event-tiers conta TUTTI i
       // biglietti venduti di una fascia (entrati o no), non solo quelli ancora "used:false" —
       // senza questi due campi qui, fare check-in libererebbe per sbaglio un posto già venduto.
-      eventSlug: ticket.eventSlug, tierId: ticket.tierId
+      eventSlug: ticket.eventSlug, tierId: ticket.tierId,
+      source: ticket.source || "stripe"
     }
   });
 
@@ -903,6 +913,130 @@ async function handleCheckin(request, env) {
   return jsonResponse({
     valid: true, email: ticket.email, name: ticket.name, eventName: ticket.eventName, tierName: ticket.tierName,
     stamps: stamps, reward3: stamps === 3, reward5: stamps === 5
+  });
+}
+
+// Registra alla porta chi paga in contanti/POS fisico, senza passare da Stripe: crea comunque un
+// vero record "ticket:" (già used:true, stessa fascia/prezzo netto già configurati per l'evento —
+// niente doppio listino) così finisce automaticamente in incasso, presenti e timbro loyalty
+// esattamente come un biglietto online, distinguibile solo dal campo source:"walkin". Stessa
+// autenticazione dello scanner (chiave staff condivisa): è un'azione alla porta, deve restare
+// veloce quanto uno scan, non serve un login individuale per ogni vendita.
+async function handleManualCheckin(request, env) {
+  const staffKey = request.headers.get("x-staff-key");
+  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
+    return jsonResponse({ error: "unauthorized" }, 401);
+  }
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const { eventSlug, tierId, optionId, name, email, wantsCard } = await request.json();
+  if (!eventSlug || !tierId || !optionId) {
+    return jsonResponse({ error: "evento, fascia e opzione sono obbligatori" }, 400);
+  }
+  const cleanName = String(name || "").trim().slice(0, 200);
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  if (!cleanName || !cleanEmail || !cleanEmail.includes("@")) {
+    return jsonResponse({ error: "nome, cognome ed email sono obbligatori per la vendita in loco" }, 400);
+  }
+
+  const found = await findTierOption(env, eventSlug, tierId, optionId);
+  if (!found) return jsonResponse({ error: "fascia o opzione non valida per questo evento" }, 400);
+  const { event, tier, option } = found;
+
+  const ticketCode = generateTicketCode();
+  const now = new Date().toISOString();
+  const ticket = {
+    email: cleanEmail,
+    name: cleanName,
+    phone: null,
+    eventName: event.name,
+    eventDate: event.dateDisplay,
+    eventDateIso: event.dateIso,
+    eventLocation: event.location,
+    tierName: `${tier.name} — ${option.label}`,
+    eventSlug,
+    tierId,
+    optionId,
+    termsAccepted: true,
+    photoConsent: false,
+    newsletterOptin: false,
+    amountTotal: option.priceCents,
+    currency: "eur",
+    used: true,
+    usedAt: now,
+    createdAt: now,
+    stripeSessionId: null,
+    source: "walkin"
+  };
+
+  await env.TICKETS.put(`ticket:${ticketCode}`, JSON.stringify(ticket), {
+    metadata: {
+      used: true, name: ticket.name, email: ticket.email, tierName: ticket.tierName,
+      usedAt: now, eventName: event.name, eventDateIso: event.dateIso,
+      eventSlug, tierId, source: "walkin"
+    }
+  });
+
+  // Se ha già un account, il timbro scatta come per qualsiasi biglietto online. Se non ce l'ha
+  // e alla porta ha chiesto la loyalty card, ne creiamo uno al volo con una password provvisoria
+  // (mai scelta da noi né vista in chiaro dopo l'invio) e mandiamo subito l'email — la persona
+  // può cambiarla quando vuole dalla sua area personale (c'è già il flusso "password dimenticata").
+  let stamps = null;
+  let cardCreated = false;
+  let customerNumber = null;
+  let emailSent = false;
+
+  const existingAccountRaw = await env.TICKETS.get(`account:${cleanEmail}`);
+  if (existingAccountRaw) {
+    stamps = await addLoyaltyStamp(env, cleanEmail, { eventName: event.name, ticketCode, stampedAt: now });
+  } else if (wantsCard) {
+    const tempPassword = generateTempPassword();
+    const salt = crypto.randomUUID();
+    const passwordHash = await hashPassword(tempPassword, salt);
+    customerNumber = await nextSequentialCustomerNumber(env);
+
+    await env.TICKETS.put(`account:${cleanEmail}`, JSON.stringify({
+      email: cleanEmail, name: cleanName, passwordHash, salt,
+      // Raccolta di persona dallo staff alla porta: l'email è già "verificata" nei fatti,
+      // niente giro di conferma via link come per l'autoregistrazione online.
+      emailVerified: true, verifyToken: null,
+      customerNumber, physicalCardClaimed: false,
+      createdAt: now,
+      profile: {
+        customerType: null, title: null, firstName: null, lastName: null,
+        birthDay: null, birthMonth: null, birthYear: null,
+        gender: null, birthCountry: null, birthCity: null,
+        newsletterOptin: false
+      }
+    }));
+    await env.TICKETS.put(`customernum:${customerNumber}`, cleanEmail);
+
+    // Il biglietto appena creato è già used:true ma l'account non esisteva ancora quando lo
+    // abbiamo scritto: backfillLoyaltyFromTickets lo ritrova e dà il primo timbro, invece di
+    // richiamare addLoyaltyStamp che a quel punto avrebbe trovato "nessun account" e fatto nulla.
+    await backfillLoyaltyFromTickets(env, cleanEmail);
+    const loyaltyRaw = await env.TICKETS.get(`loyalty:${cleanEmail}`);
+    stamps = loyaltyRaw ? JSON.parse(loyaltyRaw).stamps : 1;
+    cardCreated = true;
+
+    const origin = new URL(request.url).origin;
+    await sendAccountEmail(env, {
+      to: cleanEmail,
+      subject: "La tua loyalty card GrowMi è pronta!",
+      html: buildAccountEmailHTML({
+        title: `Ciao ${cleanName.split(" ")[0] || ""}!`,
+        lead: `Ti abbiamo creato un account GrowMi con la tua loyalty card — numero cliente <strong>${customerNumber}</strong>. Password provvisoria: <strong>${tempPassword}</strong>. Ti consigliamo di cambiarla al primo accesso dalla tua area personale.`,
+        buttonLabel: "Accedi alla tua area personale",
+        buttonUrl: `${origin}/area-personale`
+      })
+    });
+    emailSent = !!env.RESEND_API_KEY;
+  }
+
+  return jsonResponse({
+    ok: true, ticketCode, name: ticket.name, tierName: ticket.tierName, priceCents: option.priceCents,
+    stamps, reward3: stamps === 3, reward5: stamps === 5,
+    cardCreated, customerNumber, emailSent
   });
 }
 
@@ -1034,7 +1168,8 @@ async function handleAttendees(request, env) {
           email: key.metadata.email || null,
           tierName: key.metadata.tierName || null,
           usedAt: key.metadata.usedAt || null,
-          eventName: key.metadata.eventName || null
+          eventName: key.metadata.eventName || null,
+          source: key.metadata.source === "walkin" ? "walkin" : "stripe"
         });
       }
     }
@@ -1107,14 +1242,14 @@ async function handleExportAttendees(request, env) {
   }
 
   const rows = [[
-    "Nome", "Email", "Telefono", "Evento", "Fascia", "Data acquisto", "Entrato",
+    "Nome", "Email", "Telefono", "Evento", "Fascia", "Origine", "Data acquisto", "Entrato",
     "Data check-in", "Account registrato", "Numero cliente", "Carta fisica riscattata", "Newsletter"
   ]];
 
   for (const t of tickets) {
     const account = t.email ? accountByEmail.get(t.email.toLowerCase()) : null;
     rows.push([
-      t.name, t.email, t.phone, t.eventName, t.tierName,
+      t.name, t.email, t.phone, t.eventName, t.tierName, t.source === "walkin" ? "In loco" : "Online",
       t.createdAt ? new Date(t.createdAt).toLocaleString("it-IT") : "",
       t.used ? "Sì" : "No",
       t.usedAt ? new Date(t.usedAt).toLocaleString("it-IT") : "",
@@ -1130,7 +1265,7 @@ async function handleExportAttendees(request, env) {
   for (const account of accounts) {
     if (!account.email || emailsWithTickets.has(account.email.toLowerCase())) continue;
     rows.push([
-      account.name, account.email, "", "", "", "", "No", "",
+      account.name, account.email, "", "", "", "", "", "No", "",
       "Sì", account.customerNumber || "", account.physicalCardClaimed ? "Sì" : "No",
       account.newsletterOptin ? "Sì" : "No"
     ]);
@@ -1191,7 +1326,7 @@ async function listAttendeesForEvent(env, eventName) {
     for (const key of page.keys) {
       const m = key.metadata;
       if (m?.used && m.email && (!eventName || m.eventName === eventName)) {
-        attendees.push({ name: m.name, email: m.email, eventName: m.eventName });
+        attendees.push({ name: m.name, email: m.email, eventName: m.eventName, eventSlug: m.eventSlug });
       }
     }
     cursor = page.list_complete ? undefined : page.cursor;
@@ -1201,9 +1336,10 @@ async function listAttendeesForEvent(env, eventName) {
 
 // Costruisce il link al form di feedback nativo del sito (feedback.html), con l'evento già
 // precompilato nell'URL — non serve più che qualcuno crei/incolli un Google Form a mano.
-function buildFeedbackUrl(env, eventName) {
+function buildFeedbackUrl(env, eventName, eventSlug) {
   const base = env.SITE_URL || "https://growmisito.grow-mi.workers.dev";
-  return `${base}/feedback?event=${encodeURIComponent(eventName || "GrowMi")}`;
+  const slugPart = eventSlug ? `&slug=${encodeURIComponent(eventSlug)}` : "";
+  return `${base}/feedback?event=${encodeURIComponent(eventName || "GrowMi")}${slugPart}`;
 }
 
 // Manda l'email di feedback alla lista di attendee data, uno per uno via Resend. Usata sia
@@ -1223,7 +1359,7 @@ async function sendFeedbackEmails(env, attendees) {
           from: "GrowMi <noreply@growmi.it>",
           to: a.email,
           subject: `Com'è andata a ${a.eventName || "GrowMi"}?`,
-          html: buildFeedbackEmailHTML({ name: a.name, eventName: a.eventName || "GrowMi", feedbackFormUrl: buildFeedbackUrl(env, a.eventName) })
+          html: buildFeedbackEmailHTML({ name: a.name, eventName: a.eventName || "GrowMi", feedbackFormUrl: buildFeedbackUrl(env, a.eventName, a.eventSlug) })
         })
       });
       if (res.ok) sent++; else { failed++; console.log("Resend feedback error:", res.status, await res.text()); }
@@ -1260,16 +1396,29 @@ async function handleFeedbackSubmit(request, env) {
 
   const body = await request.json();
   const rating = Number(body.rating) || null;
-  if (!rating || rating < 1 || rating > 5) {
+  if (!rating || rating < 1 || rating > 10) {
     return jsonResponse({ error: "valutazione mancante o non valida" }, 400);
   }
+
+  // likedOptions: selezioni dalle checkbox configurate sull'evento (vedi feedbackOptions in
+  // validateEventPayload), incluso un eventuale "Altro: <testo>" — popolato solo se il form ha
+  // trovato le opzioni dell'evento (ha ricevuto uno slug valido). Se il form è caduto sul
+  // fallback testuale (link senza slug, o evento senza opzioni configurate), resta vuoto e si
+  // usa ancora il vecchio campo libero "liked" — nessuna rottura per i link già inviati.
+  const likedOptions = Array.isArray(body.likedOptions)
+    ? body.likedOptions.map(function(o){ return String(o || "").slice(0, 200); }).filter(Boolean).slice(0, 20)
+    : [];
 
   const id = crypto.randomUUID();
   await env.TICKETS.put(`feedback:${id}`, JSON.stringify({
     eventName: String(body.eventName || "").slice(0, 200) || null,
     name: String(body.name || "").slice(0, 200) || null,
     email: String(body.email || "").slice(0, 200) || null,
+    age: Number.isInteger(Number(body.age)) && Number(body.age) > 0 && Number(body.age) < 120 ? Number(body.age) : null,
+    university: String(body.university || "").slice(0, 200) || null,
+    foundVia: String(body.foundVia || "").slice(0, 300) || null,
     rating,
+    likedOptions,
     liked: String(body.liked || "").slice(0, 2000),
     improve: String(body.improve || "").slice(0, 2000),
     wouldRecommend: body.wouldRecommend === true,
@@ -1324,13 +1473,13 @@ async function handleExportFeedback(request, env) {
   responses.sort(function(a, b){ return (b.submittedAt || "").localeCompare(a.submittedAt || ""); });
 
   const rows = [[
-    "Nome", "Email", "Evento", "Valutazione (1-5)", "Consiglierebbe GrowMi",
+    "Nome", "Email", "Età", "Università", "Come ha trovato GrowMi", "Evento", "Valutazione (1-10)", "Consiglierebbe GrowMi",
     "Cosa è piaciuto", "Cosa migliorare", "Altro", "Data invio"
   ]];
   for (const r of responses) {
     rows.push([
-      r.name, r.email, r.eventName, r.rating, r.wouldRecommend ? "Sì" : "No",
-      r.liked, r.improve, r.comments,
+      r.name, r.email, r.age, r.university, r.foundVia, r.eventName, r.rating, r.wouldRecommend ? "Sì" : "No",
+      (r.likedOptions && r.likedOptions.length) ? r.likedOptions.join("; ") : r.liked, r.improve, r.comments,
       r.submittedAt ? new Date(r.submittedAt).toLocaleString("it-IT") : ""
     ]);
   }
@@ -1364,7 +1513,7 @@ async function runScheduledFeedback(env) {
       if (!events.has(m.eventName)) {
         events.set(m.eventName, { dateIso: m.eventDateIso, attendees: [] });
       }
-      events.get(m.eventName).attendees.push({ name: m.name, email: m.email, eventName: m.eventName });
+      events.get(m.eventName).attendees.push({ name: m.name, email: m.email, eventName: m.eventName, eventSlug: m.eventSlug });
     }
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
@@ -1632,7 +1781,7 @@ async function handleEventTiers(request, env) {
     return { id: t.id, name: t.name, sub: t.sub, options, soldOut, active };
   });
 
-  return jsonResponse({ eventName: event.name, tiers, allSoldOut: !activeAssigned });
+  return jsonResponse({ eventName: event.name, tiers, allSoldOut: !activeAssigned, feedbackOptions: event.feedbackOptions || [] });
 }
 
 // Iscrive alla newsletter MailerLite chi ha spuntato la relativa casella nel form di acquisto —
@@ -1897,8 +2046,9 @@ async function handleStripeWebhook(request, env) {
         currency: session.currency,
         used: false,
         createdAt: new Date().toISOString(),
-        stripeSessionId: session.id
-      }), { metadata: { used: false, eventSlug, tierId, email, eventName, eventDateIso, tierName } });
+        stripeSessionId: session.id,
+        source: "stripe"
+      }), { metadata: { used: false, eventSlug, tierId, email, eventName, eventDateIso, tierName, source: "stripe" } });
 
       // Se questo acquisto ha usato un coupon (5° evento gratis), lo segno come speso solo ORA
       // che il biglietto esiste davvero — mai prima, altrimenti un pagamento fallito/abbandonato
@@ -1968,6 +2118,17 @@ async function handleStripeWebhook(request, env) {
 // Stesso archivio KV "TICKETS" di tutto il resto (nessuna nuova infrastruttura), prefissi
 // nuovi: account:<email>, session:<token>, loyalty:<email>.
 // ============================================================================
+
+// Password provvisoria per account creati alla porta (vendita in loco + loyalty card): alfabeto
+// senza caratteri ambigui (0/O, 1/l/I) così è leggibile se qualcuno la deve ridettare a voce,
+// 10 caratteri casuali via Web Crypto — sopra il minimo di 8 richiesto da handleAccountRegister.
+function generateTempPassword() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(10));
+  let out = "";
+  for (let i = 0; i < bytes.length; i++) out += chars[bytes[i] % chars.length];
+  return out;
+}
 
 // Hash password con PBKDF2-SHA256 via Web Crypto nativo (nessuna libreria esterna: bcrypt non
 // è disponibile su Cloudflare Workers, PBKDF2 sì ed è considerato sicuro con iterazioni alte).
@@ -2611,6 +2772,8 @@ async function handleDashboardStats(request, env) {
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
 
   let ticketsSold = 0, ticketsCheckedIn = 0, revenueCents = 0;
+  const revenueBySource = { stripe: 0, walkin: 0 };
+  const ticketsBySource = { stripe: 0, walkin: 0 };
   let cursor = undefined;
   do {
     const page = await env.TICKETS.list({ prefix: "ticket:", cursor });
@@ -2618,9 +2781,12 @@ async function handleDashboardStats(request, env) {
       const raw = await env.TICKETS.get(key.name);
       if (!raw) continue;
       const t = JSON.parse(raw);
+      const source = t.source === "walkin" ? "walkin" : "stripe";
       ticketsSold++;
       if (t.used) ticketsCheckedIn++;
       revenueCents += Number(t.amountTotal) || 0;
+      ticketsBySource[source]++;
+      revenueBySource[source] += Number(t.amountTotal) || 0;
     }
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
@@ -2654,7 +2820,7 @@ async function handleDashboardStats(request, env) {
   } while (cursor);
 
   return jsonResponse({
-    revenueCents, ticketsSold, ticketsCheckedIn,
+    revenueCents, ticketsSold, ticketsCheckedIn, revenueBySource, ticketsBySource,
     accountsTotal, newsletterSubscribers,
     feedbackCount, avgRating: feedbackCount ? Math.round((ratingSum / feedbackCount) * 10) / 10 : null
   });
@@ -2848,7 +3014,20 @@ function validateEventPayload(body, existingTiers, sold) {
     }
   }
 
-  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers } };
+  // Opzioni "cosa ti è piaciuto" mostrate come checkbox sul form di feedback pubblico (vedi
+  // feedback.html + handleEventTiers) — facoltative: se vuote, il form ricade sul testo libero.
+  const inputFeedbackOptions = Array.isArray(body.feedbackOptions) ? body.feedbackOptions : [];
+  const seenFeedbackOptions = new Set();
+  const feedbackOptions = [];
+  for (const raw of inputFeedbackOptions) {
+    const label = String(raw || "").trim().slice(0, 150);
+    if (!label || seenFeedbackOptions.has(label)) continue;
+    seenFeedbackOptions.add(label);
+    feedbackOptions.push(label);
+    if (feedbackOptions.length >= 15) break;
+  }
+
+  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions } };
 }
 
 // Elenco completo eventi per il pannello aziendale (dettaglio pieno, non solo nome/data come

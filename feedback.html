@@ -34,7 +34,8 @@
 
   .field{ margin-bottom:24px; }
   .field label{ display:block; font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:14px; margin-bottom:10px; }
-  .field textarea, .field input[type="text"], .field input[type="email"]{
+  .field .hint{ display:block; font-weight:400; font-size:12.5px; color:var(--grey); margin-top:-6px; margin-bottom:10px; }
+  .field textarea, .field input[type="text"], .field input[type="email"], .field input[type="number"]{
     width:100%; padding:13px 15px; border:1.5px solid var(--line); border-radius:12px;
     font-family:'Inter', sans-serif; font-size:14.5px;
   }
@@ -43,13 +44,14 @@
   .field-row{ display:flex; gap:12px; }
   .field-row .field{ flex:1; }
 
-  .stars{ display:flex; gap:8px; }
-  .stars button{
-    background:none; border:none; font-size:34px; cursor:pointer; padding:0; line-height:1;
-    color:var(--line); transition:color .15s ease, transform .1s ease;
+  .rating-scale{ display:flex; flex-wrap:wrap; gap:8px; }
+  .rating-scale button{
+    width:36px; height:36px; border-radius:9px; border:1.5px solid var(--line); background:#fff;
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:14px; cursor:pointer;
+    color:var(--ink); transition:all .15s ease;
   }
-  .stars button.active{ color:var(--yellow); }
-  .stars button:hover{ transform:scale(1.1); }
+  .rating-scale button.active{ background:var(--yellow); border-color:var(--yellow); }
+  .rating-scale-labels{ display:flex; justify-content:space-between; font-size:11.5px; color:var(--grey); margin-top:6px; }
 
   .toggle-row{ display:flex; gap:10px; }
   .toggle-row button{
@@ -58,6 +60,19 @@
     color:var(--ink); transition:all .15s ease;
   }
   .toggle-row button.active{ background:var(--purple-deeper); border-color:var(--purple-deeper); color:#fff; }
+
+  .option-grid{ display:flex; flex-direction:column; gap:8px; }
+  .option-row{
+    display:flex; align-items:center; gap:10px; padding:11px 13px; border:1.5px solid var(--line);
+    border-radius:12px; cursor:pointer; font-size:14.5px; transition:border-color .15s ease;
+  }
+  .option-row.checked{ border-color:var(--coral); }
+  .option-row input[type="checkbox"]{ width:18px; height:18px; flex-shrink:0; accent-color:var(--coral); }
+  .option-counter{ font-size:12.5px; color:var(--grey); margin-top:8px; }
+  .option-other-input{ margin-top:6px; display:none; }
+  .option-other-input input{
+    width:100%; padding:10px 13px; border:1.5px solid var(--line); border-radius:10px; font-family:'Inter',sans-serif; font-size:14px;
+  }
 
   .submit-btn{
     width:100%; padding:16px; border-radius:12px; border:none; background:var(--coral); color:#fff;
@@ -95,20 +110,37 @@
       </div>
     </div>
 
-    <div class="field">
-      <label>Come valuti l'evento nel complesso?</label>
-      <div class="stars" id="stars">
-        <button type="button" data-v="1">&#9733;</button>
-        <button type="button" data-v="2">&#9733;</button>
-        <button type="button" data-v="3">&#9733;</button>
-        <button type="button" data-v="4">&#9733;</button>
-        <button type="button" data-v="5">&#9733;</button>
+    <div class="field-row">
+      <div class="field">
+        <label>Età (facoltativo)</label>
+        <input type="number" id="fbAge" placeholder="Es. 22" min="1" max="119">
+      </div>
+      <div class="field">
+        <label>Università (facoltativo)</label>
+        <input type="text" id="fbUniversity" placeholder="Es. Bocconi">
       </div>
     </div>
 
     <div class="field">
+      <label>Chi ti ha invitato o come hai trovato GrowMi? (facoltativo)</label>
+      <input type="text" id="fbFoundVia" placeholder="Un amico, Instagram, TikTok...">
+    </div>
+
+    <div class="field">
+      <label>Come valuti l'evento nel complesso?</label>
+      <div class="rating-scale" id="ratingScale"></div>
+      <div class="rating-scale-labels"><span>1 = pessimo</span><span>10 = fantastico</span></div>
+    </div>
+
+    <div class="field" id="likedTextField">
       <label>Cosa ti è piaciuto di più?</label>
       <textarea id="liked" placeholder="La musica, l'atmosfera, gli artisti..."></textarea>
+    </div>
+
+    <div class="field" id="likedOptionsField" style="display:none;">
+      <label>Scegli fino a 5 cose che ti sono piaciute di più</label>
+      <div class="option-grid" id="optionGrid"></div>
+      <p class="option-counter" id="optionCounter">0/5 selezionate</p>
     </div>
 
     <div class="field">
@@ -130,7 +162,7 @@
     </div>
 
     <button type="button" class="submit-btn" id="submitBtn">Invia feedback</button>
-    <p class="error" id="errorMsg">Scegli almeno una valutazione a stelle prima di inviare.</p>
+    <p class="error" id="errorMsg">Scegli almeno una valutazione prima di inviare.</p>
   </div>
 
   <div id="thanks">
@@ -143,22 +175,34 @@
 
 <script>
 (function(){
+  var MAX_OPTIONS = 5;
   var rating = 0;
   var recommend = null;
-  var stars = document.querySelectorAll("#stars button");
   var errorMsg = document.getElementById("errorMsg");
   var submitBtn = document.getElementById("submitBtn");
 
   var params = new URLSearchParams(window.location.search);
   var eventName = params.get("event") || null;
+  var eventSlug = params.get("slug") || null;
 
-  stars.forEach(function(btn){
-    btn.addEventListener("click", function(){
-      rating = parseInt(btn.dataset.v, 10);
-      stars.forEach(function(b){ b.classList.toggle("active", parseInt(b.dataset.v, 10) <= rating); });
-      errorMsg.style.display = "none";
-    });
-  });
+  // Scala di valutazione 1-10 (10 pulsanti numerati, più leggibile di 10 stelle su mobile).
+  var ratingScale = document.getElementById("ratingScale");
+  for (var i = 1; i <= 10; i++) {
+    (function(v){
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.dataset.v = v;
+      btn.textContent = v;
+      btn.addEventListener("click", function(){
+        rating = v;
+        Array.prototype.forEach.call(ratingScale.children, function(b){
+          b.classList.toggle("active", parseInt(b.dataset.v, 10) <= rating);
+        });
+        errorMsg.style.display = "none";
+      });
+      ratingScale.appendChild(btn);
+    })(i);
+  }
 
   function setRecommend(v, btnYes, btnNo){
     recommend = v;
@@ -170,6 +214,83 @@
   recYes.addEventListener("click", function(){ setRecommend("yes", recYes, recNo); });
   recNo.addEventListener("click", function(){ setRecommend("no", recYes, recNo); });
 
+  // "Cosa ti è piaciuto": se l'evento (via ?slug=) ha opzioni configurate dal pannello, mostra
+  // le checkbox al posto del testo libero. Altrimenti (link vecchi senza slug, o evento senza
+  // opzioni) resta il textarea di sempre — nessuna rottura per i link già inviati.
+  var likedTextField = document.getElementById("likedTextField");
+  var likedOptionsField = document.getElementById("likedOptionsField");
+  var optionGrid = document.getElementById("optionGrid");
+  var optionCounter = document.getElementById("optionCounter");
+  var otherTextValue = "";
+
+  function updateOptionCounter(){
+    var checked = optionGrid.querySelectorAll('input[type="checkbox"]:checked').length;
+    optionCounter.textContent = checked + "/" + MAX_OPTIONS + " selezionate";
+    var all = optionGrid.querySelectorAll('input[type="checkbox"]');
+    Array.prototype.forEach.call(all, function(cb){
+      if (!cb.checked) cb.disabled = checked >= MAX_OPTIONS;
+    });
+  }
+
+  function buildOptionRow(label, isOther){
+    var row = document.createElement("label");
+    row.className = "option-row";
+    var cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.value = label;
+    var span = document.createElement("span");
+    span.textContent = label;
+    row.appendChild(cb);
+    row.appendChild(span);
+    optionGrid.appendChild(row);
+
+    var otherInputWrap = null;
+    if (isOther) {
+      otherInputWrap = document.createElement("div");
+      otherInputWrap.className = "option-other-input";
+      var otherInput = document.createElement("input");
+      otherInput.type = "text";
+      otherInput.placeholder = "Scrivi qui...";
+      otherInput.addEventListener("input", function(){ otherTextValue = otherInput.value.trim(); });
+      otherInput.addEventListener("click", function(e){ e.stopPropagation(); });
+      otherInputWrap.appendChild(otherInput);
+      optionGrid.appendChild(otherInputWrap);
+    }
+
+    cb.addEventListener("change", function(){
+      row.classList.toggle("checked", cb.checked);
+      if (otherInputWrap) otherInputWrap.style.display = cb.checked ? "block" : "none";
+      updateOptionCounter();
+    });
+  }
+
+  if (eventSlug) {
+    fetch("/api/event-tiers?event=" + encodeURIComponent(eventSlug))
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(data){
+        var options = (data && Array.isArray(data.feedbackOptions)) ? data.feedbackOptions : [];
+        if (!options.length) return;
+        options.forEach(function(label){ buildOptionRow(label, false); });
+        buildOptionRow("Altro", true);
+        likedTextField.style.display = "none";
+        likedOptionsField.style.display = "block";
+      })
+      .catch(function(){ /* resta il fallback testuale */ });
+  }
+
+  function collectLikedOptions(){
+    var checked = optionGrid.querySelectorAll('input[type="checkbox"]:checked');
+    var out = [];
+    Array.prototype.forEach.call(checked, function(cb){
+      if (cb.value === "Altro") {
+        out.push(otherTextValue ? ("Altro: " + otherTextValue) : "Altro");
+      } else {
+        out.push(cb.value);
+      }
+    });
+    return out;
+  }
+
   submitBtn.addEventListener("click", async function(){
     if (!rating) {
       errorMsg.style.display = "block";
@@ -179,6 +300,7 @@
     submitBtn.textContent = "Invio...";
     try {
       var name = document.getElementById("fbName").value.trim();
+      var usingOptions = likedOptionsField.style.display !== "none";
       var res = await fetch("/api/feedback-submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -186,8 +308,12 @@
           eventName: eventName,
           name: name,
           email: document.getElementById("fbEmail").value.trim(),
+          age: document.getElementById("fbAge").value.trim(),
+          university: document.getElementById("fbUniversity").value.trim(),
+          foundVia: document.getElementById("fbFoundVia").value.trim(),
           rating: rating,
-          liked: document.getElementById("liked").value,
+          likedOptions: usingOptions ? collectLikedOptions() : [],
+          liked: usingOptions ? "" : document.getElementById("liked").value,
           improve: document.getElementById("improve").value,
           wouldRecommend: recommend === "yes",
           comments: document.getElementById("comments").value

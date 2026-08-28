@@ -156,6 +156,41 @@
     grid-template-columns:repeat(3, 1fr); gap:10px;
   }
   .history-box.open{ display:grid; }
+
+  .walkin-btn{
+    padding:12px; border-radius:12px; border:1.5px solid rgba(251,246,240,0.25); background:rgba(251,246,240,0.06);
+    color:var(--cream); font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:13.5px; cursor:pointer;
+  }
+  .walkin-btn[hidden]{ display:none; }
+  .walkin-overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:30; display:flex; align-items:center;
+    justify-content:center; padding:20px;
+  }
+  .walkin-overlay[hidden]{ display:none; }
+  .walkin-card{ background:var(--purple-deeper); border-radius:18px; padding:24px 22px; max-width:360px; width:100%; }
+  .walkin-card h2{ font-family:'Space Grotesk', sans-serif; font-size:18px; margin-bottom:6px; }
+  .walkin-event{ font-size:12.5px; color:rgba(251,246,240,0.6); margin-bottom:16px; }
+  .walkin-field{ margin-bottom:14px; }
+  .walkin-field label{ display:block; font-size:12.5px; margin-bottom:6px; color:rgba(251,246,240,0.75); }
+  .walkin-field select, .walkin-field input{
+    width:100%; padding:12px 14px; border-radius:10px; border:1.5px solid rgba(251,246,240,0.25);
+    background:rgba(251,246,240,0.06); color:var(--cream); font-size:14px; font-family:'Inter',sans-serif;
+  }
+  .walkin-field select option{ color:#000; }
+  .walkin-checkbox-row{
+    display:flex; align-items:flex-start; gap:10px; font-size:12.5px; color:rgba(251,246,240,0.85);
+    margin-bottom:14px; cursor:pointer;
+  }
+  .walkin-checkbox-row input{ width:18px; height:18px; flex-shrink:0; margin-top:1px; }
+  .walkin-error{ color:#ff9494; font-size:12.5px; margin-bottom:10px; }
+  .walkin-actions{ display:flex; gap:10px; }
+  .walkin-actions button{
+    flex:1; padding:12px; border-radius:10px; border:none; font-family:'Space Grotesk',sans-serif;
+    font-weight:700; font-size:13.5px; cursor:pointer;
+  }
+  #walkinCancel{ background:rgba(251,246,240,0.1); color:var(--cream); }
+  #walkinSubmit{ background:var(--coral); color:#fff; }
+  #walkinSubmit:disabled{ opacity:.6; }
 </style>
 </head>
 <body>
@@ -209,8 +244,38 @@
     <button type="button" id="manualSubmit">Controlla</button>
   </div>
 
+  <button type="button" class="walkin-btn" id="walkinBtn" hidden>💶 Vendita in loco (senza biglietto online)</button>
+
   <div id="result"></div>
 </main>
+
+<div class="walkin-overlay" id="walkinOverlay" hidden>
+  <div class="walkin-card">
+    <h2>Vendita in loco</h2>
+    <p class="walkin-event" id="walkinEventName"></p>
+    <div class="walkin-field">
+      <label>Fascia</label>
+      <select id="walkinTier"></select>
+    </div>
+    <div class="walkin-field">
+      <label>Nome e cognome</label>
+      <input type="text" id="walkinName" placeholder="Nome e cognome cliente" required>
+    </div>
+    <div class="walkin-field">
+      <label>Email</label>
+      <input type="email" id="walkinEmail" placeholder="Email cliente" required>
+    </div>
+    <label class="walkin-checkbox-row">
+      <input type="checkbox" id="walkinWantsCard">
+      <span>Vuole creare la sua loyalty card GrowMi? (le mandiamo una password provvisoria via email)</span>
+    </label>
+    <p class="walkin-error" id="walkinError" hidden></p>
+    <div class="walkin-actions">
+      <button type="button" id="walkinCancel">Annulla</button>
+      <button type="button" id="walkinSubmit">Registra vendita</button>
+    </div>
+  </div>
+</div>
 
 <button type="button" class="change-key" id="changeKey">Cambia chiave staff</button>
 
@@ -271,6 +336,7 @@
     result.className = "";
     result.innerHTML = "";
     manualCode.value = "";
+    document.getElementById("walkinBtn").hidden = m !== "checkin" || !selectedEvent;
     if (changed) restartScannerForMode();
   }
 
@@ -295,6 +361,7 @@
     document.getElementById("historyLink").hidden = mode !== "checkin" || !selectedEvent;
     document.getElementById("historyBox").classList.remove("open");
     historyOpen = false;
+    document.getElementById("walkinBtn").hidden = mode !== "checkin" || !selectedEvent;
     refreshStats();
     closeDrawer();
   }
@@ -506,6 +573,103 @@
     else await lookupLoyalty(text);
     setTimeout(function(){ busy = false; }, 1200);
   }
+
+  // Vendita in loco: riusa /api/event-tiers (stesso endpoint pubblico dell'acquisto online) per
+  // mostrare le stesse fasce/prezzi netti già configurati per l'evento — nessun listino separato
+  // da tenere allineato a mano. Il biglietto creato è già "used:true" (la persona sta entrando
+  // ora), stessa logica di showResult/refreshStats di uno scan riuscito.
+  var walkinOverlay = document.getElementById("walkinOverlay");
+  var walkinTierSelect = document.getElementById("walkinTier");
+  var walkinError = document.getElementById("walkinError");
+  var walkinSubmitBtn = document.getElementById("walkinSubmit");
+
+  async function openWalkinPanel(){
+    if (!selectedEvent) return;
+    document.getElementById("walkinEventName").textContent = selectedEventName;
+    document.getElementById("walkinName").value = "";
+    document.getElementById("walkinEmail").value = "";
+    document.getElementById("walkinWantsCard").checked = false;
+    walkinError.hidden = true;
+    walkinTierSelect.innerHTML = '<option>Caricamento...</option>';
+    walkinOverlay.hidden = false;
+    try {
+      var res = await fetch("/api/event-tiers?event=" + encodeURIComponent(selectedEvent));
+      var data = await res.json();
+      walkinTierSelect.innerHTML = "";
+      (data.tiers || []).forEach(function(t){
+        t.options.forEach(function(o){
+          var opt = document.createElement("option");
+          opt.value = t.id + "::" + o.id;
+          opt.textContent = t.name + " — " + o.label + " (€" + (o.priceCents / 100).toFixed(2) + ")" + (t.soldOut ? " — esaurita" : "");
+          if (t.soldOut) opt.disabled = true;
+          walkinTierSelect.appendChild(opt);
+        });
+      });
+      if (!walkinTierSelect.children.length) {
+        walkinTierSelect.innerHTML = '<option value="">Nessuna fascia disponibile</option>';
+      }
+    } catch (e) {
+      walkinTierSelect.innerHTML = '<option value="">Errore nel caricamento delle fasce</option>';
+    }
+  }
+
+  function closeWalkinPanel(){ walkinOverlay.hidden = true; }
+
+  document.getElementById("walkinBtn").addEventListener("click", openWalkinPanel);
+  document.getElementById("walkinCancel").addEventListener("click", closeWalkinPanel);
+
+  walkinSubmitBtn.addEventListener("click", async function(){
+    var value = walkinTierSelect.value;
+    if (!value || value.indexOf("::") === -1) {
+      walkinError.textContent = "Scegli una fascia valida.";
+      walkinError.hidden = false;
+      return;
+    }
+    var walkinNameVal = document.getElementById("walkinName").value.trim();
+    var walkinEmailVal = document.getElementById("walkinEmail").value.trim();
+    if (!walkinNameVal || !walkinEmailVal) {
+      walkinError.textContent = "Nome, cognome ed email sono obbligatori.";
+      walkinError.hidden = false;
+      return;
+    }
+    var wantsCard = document.getElementById("walkinWantsCard").checked;
+    var parts = value.split("::");
+    walkinSubmitBtn.disabled = true;
+    walkinSubmitBtn.textContent = "Registrazione...";
+    walkinError.hidden = true;
+    try {
+      var res = await fetch("/api/manual-checkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Staff-Key": getStaffKey() },
+        body: JSON.stringify({
+          eventSlug: selectedEvent, tierId: parts[0], optionId: parts[1],
+          name: walkinNameVal, email: walkinEmailVal, wantsCard: wantsCard
+        })
+      });
+      if (res.status === 401) { onUnauthorized(); return; }
+      var data = await res.json();
+      if (res.ok && data.ok) {
+        closeWalkinPanel();
+        refreshStats();
+        var detail = [data.name, data.tierName, "€" + (data.priceCents / 100).toFixed(2)].filter(Boolean).join(" — ");
+        var extra = "";
+        if (data.cardCreated) {
+          extra = '<div class="reward unlocked" style="margin-top:12px;"><span>🎉 Loyalty card creata — n. cliente ' + data.customerNumber +
+            (data.emailSent ? '. Email con password provvisoria inviata.' : '. Email non inviata (controlla configurazione).') + '</span></div>';
+        }
+        showResult(true, "Vendita registrata", detail, extra);
+      } else {
+        walkinError.textContent = data.error || "Qualcosa è andato storto.";
+        walkinError.hidden = false;
+      }
+    } catch (e) {
+      walkinError.textContent = "Errore di rete, riprova.";
+      walkinError.hidden = false;
+    } finally {
+      walkinSubmitBtn.disabled = false;
+      walkinSubmitBtn.textContent = "Registra vendita";
+    }
+  });
 
   document.getElementById("manualSubmit").addEventListener("click", function(){
     var code = manualCode.value;

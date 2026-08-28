@@ -119,6 +119,27 @@
   .az-pill.newsletter{ background:#EAF7EE; color:#1E7A3A; }
   .az-pill.yes{ background:#EAF7EE; color:#1E7A3A; }
   .az-pill.no{ background:#F3ECE3; color:var(--grey); }
+  .az-pill.walkin{ background:#FDF1E4; color:#B4720F; }
+  .az-pill.stripe{ background:#EFE8FB; color:var(--purple-deep); }
+
+  /* Riepilogo feedback: barre semplici in CSS (nessuna libreria grafica), coerente col resto
+     della dashboard — bastano per capire a colpo d'occhio distribuzione voti e opzioni più scelte. */
+  .az-fb-summary{ margin-bottom:20px; }
+  .az-fb-summary select{
+    padding:9px 12px; border-radius:10px; border:1.5px solid var(--line); font-family:'Inter',sans-serif;
+    font-size:13.5px; margin-bottom:14px;
+  }
+  .az-fb-summary-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+  @media (max-width:900px){ .az-fb-summary-grid{ grid-template-columns:1fr; } }
+  .az-fb-summary-block{ background:#fff; border:1.5px solid var(--line); border-radius:16px; padding:16px 18px; }
+  .az-fb-summary-block h4{ font-family:'Space Grotesk',sans-serif; font-size:12.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--grey); margin-bottom:12px; }
+  .az-fb-bar-row{ display:flex; align-items:center; gap:8px; font-size:12.5px; margin-bottom:7px; }
+  .az-fb-bar-row .fb-label{ flex:0 0 auto; min-width:60px; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .az-fb-bar-row .fb-track{ flex:1; height:8px; border-radius:6px; background:#F3ECE3; overflow:hidden; }
+  .az-fb-bar-row .fb-fill{ height:100%; background:var(--coral); border-radius:6px; }
+  .az-fb-bar-row .fb-count{ flex:0 0 auto; color:var(--grey); font-size:11.5px; min-width:18px; text-align:right; }
+  .az-fb-big-stat{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:30px; }
+  .az-fb-big-stat .sub{ font-family:'Inter',sans-serif; font-weight:400; font-size:12.5px; color:var(--grey); display:block; margin-top:4px; }
 
   .az-empty{ color:var(--grey); font-size:14px; text-align:center; padding:30px 0; }
 
@@ -220,6 +241,8 @@
         <div class="az-stat wide"><span class="n" id="az-stat-revenue">—</span><span class="l">Incasso totale biglietti</span></div>
         <div class="az-stat"><span class="n" id="az-stat-sold">—</span><span class="l">Biglietti venduti</span></div>
         <div class="az-stat"><span class="n" id="az-stat-checkedin">—</span><span class="l">Entrati</span></div>
+        <div class="az-stat"><span class="n" id="az-stat-online">—</span><span class="l">Online (Stripe)</span></div>
+        <div class="az-stat"><span class="n" id="az-stat-walkin">—</span><span class="l">Vendite in loco</span></div>
         <div class="az-stat"><span class="n" id="az-stat-accounts">—</span><span class="l">Account registrati</span></div>
         <div class="az-stat"><span class="n" id="az-stat-newsletter">—</span><span class="l">Iscritti newsletter</span></div>
         <div class="az-stat"><span class="n" id="az-stat-fbcount">—</span><span class="l">Feedback ricevuti</span></div>
@@ -264,7 +287,7 @@
       </div>
       <div class="az-table-wrap">
         <table class="az-table">
-          <thead><tr><th>Nome</th><th>Email</th><th>Fascia</th><th>Check-in</th><th>Tipo</th></tr></thead>
+          <thead><tr><th>Nome</th><th>Email</th><th>Fascia</th><th>Check-in</th><th>Tipo</th><th>Origine</th></tr></thead>
           <tbody id="az-attendees-tbody"></tbody>
         </table>
       </div>
@@ -273,6 +296,23 @@
 
     <!-- Feedback -->
     <div class="az-panel" data-panel-content="feedback" hidden>
+      <div class="az-fb-summary">
+        <select id="az-fb-event-filter"><option value="">Tutti gli eventi</option></select>
+        <div class="az-fb-summary-grid">
+          <div class="az-fb-summary-block">
+            <h4>Distribuzione voti (1-10)</h4>
+            <div id="az-fb-rating-bars"></div>
+          </div>
+          <div class="az-fb-summary-block">
+            <h4>Cosa è piaciuto di più</h4>
+            <div id="az-fb-options-bars"></div>
+          </div>
+          <div class="az-fb-summary-block">
+            <h4>Consiglierebbero GrowMi</h4>
+            <div class="az-fb-big-stat" id="az-fb-recommend-stat">—<span class="sub" id="az-fb-recommend-sub"></span></div>
+          </div>
+        </div>
+      </div>
       <div class="az-toolbar">
         <span></span>
         <div class="actions">
@@ -282,7 +322,7 @@
       </div>
       <div class="az-table-wrap">
         <table class="az-table">
-          <thead><tr><th>Nome</th><th>Email</th><th>Evento</th><th>Voto</th><th>Consiglia</th><th>Piaciuto</th><th>Da migliorare</th><th>Altro</th><th>Data</th></tr></thead>
+          <thead><tr><th>Nome</th><th>Email</th><th>Età</th><th>Università</th><th>Come ci ha trovato</th><th>Evento</th><th>Voto</th><th>Consiglia</th><th>Piaciuto</th><th>Da migliorare</th><th>Altro</th><th>Data</th></tr></thead>
           <tbody id="az-feedback-tbody"></tbody>
         </table>
       </div>
@@ -318,6 +358,13 @@
             <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">I prezzi qui sotto sono netti (quello che incassi tu) — sul sito il cliente paga un po' di più, la commissione Stripe stimata si aggiunge in automatico al checkout.</p>
             <div id="az-ev-tiers"></div>
             <button type="button" class="az-mini-btn" id="az-ev-add-tier">+ Aggiungi fascia</button>
+          </div>
+
+          <div>
+            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Opzioni feedback ("cosa ti è piaciuto")</label>
+            <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Compaiono come checkbox nel form di feedback per questo evento. Facoltative: se non ne aggiungi, il form mostra un campo di testo libero.</p>
+            <div id="az-ev-feedback-options"></div>
+            <button type="button" class="az-mini-btn" id="az-ev-add-feedback-option">+ Aggiungi opzione</button>
           </div>
 
           <div style="display:flex; gap:10px; align-items:center;">
@@ -439,10 +486,14 @@
       document.getElementById('az-stat-revenue').textContent = euro(d.revenueCents);
       document.getElementById('az-stat-sold').textContent = d.ticketsSold;
       document.getElementById('az-stat-checkedin').textContent = d.ticketsCheckedIn;
+      if (d.ticketsBySource) {
+        document.getElementById('az-stat-online').textContent = d.ticketsBySource.stripe + ' · ' + euro(d.revenueBySource.stripe);
+        document.getElementById('az-stat-walkin').textContent = d.ticketsBySource.walkin + ' · ' + euro(d.revenueBySource.walkin);
+      }
       document.getElementById('az-stat-accounts').textContent = d.accountsTotal;
       document.getElementById('az-stat-newsletter').textContent = d.newsletterSubscribers;
       document.getElementById('az-stat-fbcount').textContent = d.feedbackCount;
-      document.getElementById('az-stat-avgrating').textContent = d.avgRating !== null ? (d.avgRating + ' / 5') : '—';
+      document.getElementById('az-stat-avgrating').textContent = d.avgRating !== null ? (d.avgRating + ' / 10') : '—';
     } catch (err) { /* i numeri restano com'erano */ }
   }
   panelLoaders.dashboard = { loaded: false, load: loadDashboardStats };
@@ -567,12 +618,14 @@
       var tr = document.createElement('tr');
       var time = a.usedAt ? new Date(a.usedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '—';
       var tipo = a.physicalCardClaimed ? '<span class="az-pill card">Carta fisica</span>' : (a.hasLoyaltyAccount ? '<span class="az-pill newsletter">Loyalty</span>' : '<span class="az-pill no">Ospite</span>');
+      var origine = a.source === 'walkin' ? '<span class="az-pill walkin">In loco</span>' : '<span class="az-pill stripe">Online</span>';
       tr.innerHTML =
         '<td>' + esc(a.name || '—') + '</td>' +
         '<td>' + esc(a.email) + '</td>' +
         '<td>' + esc(a.tierName || '—') + '</td>' +
         '<td>' + time + '</td>' +
-        '<td>' + tipo + '</td>';
+        '<td>' + tipo + '</td>' +
+        '<td>' + origine + '</td>';
       tbody.appendChild(tr);
     });
   }
@@ -611,6 +664,13 @@
   });
 
   // ---- Feedback (tabella) ----
+  var allFeedback = [];
+
+  function likedDisplay(r){
+    if (r.likedOptions && r.likedOptions.length) return r.likedOptions.join(', ');
+    return r.liked || '—';
+  }
+
   function renderFeedback(items){
     var tbody = document.getElementById('az-feedback-tbody');
     var empty = document.getElementById('az-feedback-empty');
@@ -623,21 +683,95 @@
       tr.innerHTML =
         '<td>' + esc(r.name || 'Anonimo') + '</td>' +
         '<td>' + esc(r.email || '—') + '</td>' +
+        '<td>' + (r.age || '—') + '</td>' +
+        '<td>' + esc(r.university || '—') + '</td>' +
+        '<td class="wrap">' + esc(r.foundVia || '—') + '</td>' +
         '<td>' + esc(r.eventName || '—') + '</td>' +
-        '<td>' + (r.rating || '—') + ' / 5</td>' +
+        '<td>' + (r.rating || '—') + ' / 10</td>' +
         '<td>' + (r.wouldRecommend ? '<span class="az-pill yes">Sì</span>' : '<span class="az-pill no">No</span>') + '</td>' +
-        '<td class="wrap">' + esc(r.liked || '—') + '</td>' +
+        '<td class="wrap">' + esc(likedDisplay(r)) + '</td>' +
         '<td class="wrap">' + esc(r.improve || '—') + '</td>' +
         '<td class="wrap">' + esc(r.comments || '—') + '</td>' +
         '<td>' + time + '</td>';
       tbody.appendChild(tr);
     });
   }
+
+  // Riepilogo calcolato lato client sui dati già scaricati (stessi volumi degli altri pannelli,
+  // niente bisogno di un endpoint di aggregazione dedicato): distribuzione voti, opzioni "cosa
+  // ti è piaciuto" più scelte, e % di chi consiglierebbe — il vero sostituto della lettura
+  // manuale dei commenti liberi che il pannello aveva prima.
+  function renderFeedbackBars(container, entries, maxCount){
+    container.innerHTML = '';
+    if (!entries.length) { container.innerHTML = '<p style="font-size:12.5px; color:var(--grey);">Nessun dato.</p>'; return; }
+    entries.forEach(function(e){
+      var row = document.createElement('div');
+      row.className = 'az-fb-bar-row';
+      var pct = maxCount ? Math.round((e.count / maxCount) * 100) : 0;
+      row.innerHTML =
+        '<span class="fb-label" title="' + esc(e.label) + '">' + esc(e.label) + '</span>' +
+        '<span class="fb-track"><span class="fb-fill" style="width:' + pct + '%;"></span></span>' +
+        '<span class="fb-count">' + e.count + '</span>';
+      container.appendChild(row);
+    });
+  }
+
+  function renderFeedbackSummary(items){
+    var ratingCounts = {};
+    for (var i = 1; i <= 10; i++) ratingCounts[i] = 0;
+    var optionCounts = {};
+    var recommendYes = 0, recommendTotal = 0;
+
+    items.forEach(function(r){
+      if (r.rating >= 1 && r.rating <= 10) ratingCounts[r.rating]++;
+      var opts = (r.likedOptions && r.likedOptions.length) ? r.likedOptions : [];
+      opts.forEach(function(o){ optionCounts[o] = (optionCounts[o] || 0) + 1; });
+      if (typeof r.wouldRecommend === 'boolean') {
+        recommendTotal++;
+        if (r.wouldRecommend) recommendYes++;
+      }
+    });
+
+    var ratingEntries = [];
+    for (var v = 10; v >= 1; v--) { if (ratingCounts[v] > 0) ratingEntries.push({ label: String(v), count: ratingCounts[v] }); }
+    var maxRating = Math.max.apply(null, ratingEntries.map(function(e){ return e.count; }).concat([0]));
+    renderFeedbackBars(document.getElementById('az-fb-rating-bars'), ratingEntries, maxRating);
+
+    var optionEntries = Object.keys(optionCounts).map(function(k){ return { label: k, count: optionCounts[k] }; });
+    optionEntries.sort(function(a, b){ return b.count - a.count; });
+    var maxOption = Math.max.apply(null, optionEntries.map(function(e){ return e.count; }).concat([0]));
+    renderFeedbackBars(document.getElementById('az-fb-options-bars'), optionEntries.slice(0, 8), maxOption);
+
+    var pct = recommendTotal ? Math.round((recommendYes / recommendTotal) * 100) : null;
+    document.getElementById('az-fb-recommend-stat').innerHTML = (pct === null ? '—' : pct + '%') +
+      '<span class="sub" id="az-fb-recommend-sub">' + (recommendTotal ? (recommendYes + ' su ' + recommendTotal) : 'Nessun dato') + '</span>';
+  }
+
+  function applyFeedbackFilter(){
+    var slug = document.getElementById('az-fb-event-filter').value;
+    var items = slug ? allFeedback.filter(function(r){ return r.eventName === slug; }) : allFeedback;
+    renderFeedback(items);
+    renderFeedbackSummary(items);
+  }
+
+  function populateFeedbackEventFilter(items){
+    var select = document.getElementById('az-fb-event-filter');
+    var current = select.value;
+    var names = Array.from(new Set(items.map(function(r){ return r.eventName; }).filter(Boolean)));
+    select.innerHTML = '<option value="">Tutti gli eventi</option>' +
+      names.map(function(n){ return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
+    select.value = names.indexOf(current) !== -1 ? current : '';
+  }
+
+  document.getElementById('az-fb-event-filter').addEventListener('change', applyFeedbackFilter);
+
   async function loadFeedback(){
     try {
       var res = await fetch('/api/feedback-list');
       var data = await res.json();
-      renderFeedback(data.responses || []);
+      allFeedback = data.responses || [];
+      populateFeedbackEventFilter(allFeedback);
+      applyFeedbackFilter();
     } catch (err) { document.getElementById('az-feedback-count').textContent = 'Errore di connessione.'; }
   }
   panelLoaders.feedback = { loaded: false, load: loadFeedback };
@@ -734,6 +868,17 @@
     }
   }
 
+  function addFeedbackOptionRow(label){
+    var row = document.createElement('div');
+    row.className = 'az-opt-row';
+    row.innerHTML =
+      '<input type="text" class="fbopt-label" placeholder="Es. DJ set, Location, Drink..." required>' +
+      '<button type="button" class="az-mini-btn danger">✕</button>';
+    row.querySelector('.fbopt-label').value = label || '';
+    row.querySelector('.danger').addEventListener('click', function(){ row.remove(); });
+    document.getElementById('az-ev-feedback-options').appendChild(row);
+  }
+
   function openEventForm(event){
     document.getElementById('az-event-form-wrap').hidden = false;
     document.getElementById('az-events-list').hidden = true;
@@ -752,6 +897,10 @@
     } else {
       addTierBlock(null);
     }
+    document.getElementById('az-ev-feedback-options').innerHTML = '';
+    if (event && event.feedbackOptions && event.feedbackOptions.length) {
+      event.feedbackOptions.forEach(function(o){ addFeedbackOptionRow(o); });
+    }
   }
   function closeEventForm(){
     document.getElementById('az-event-form-wrap').hidden = true;
@@ -761,6 +910,7 @@
   document.getElementById('az-event-new').addEventListener('click', function(){ openEventForm(null); });
   document.getElementById('az-ev-cancel').addEventListener('click', closeEventForm);
   document.getElementById('az-ev-add-tier').addEventListener('click', function(){ addTierBlock(null); });
+  document.getElementById('az-ev-add-feedback-option').addEventListener('click', function(){ addFeedbackOptionRow(null); });
 
   document.getElementById('az-event-form').addEventListener('submit', async function(e){
     e.preventDefault();
@@ -795,13 +945,17 @@
       });
     }
 
+    var feedbackOptionRows = Array.prototype.slice.call(document.querySelectorAll('#az-ev-feedback-options .fbopt-label'));
+    var feedbackOptions = feedbackOptionRows.map(function(input){ return input.value.trim(); }).filter(Boolean);
+
     var payload = {
       name: document.getElementById('az-ev-name').value.trim(),
       dateDisplay: document.getElementById('az-ev-datedisplay').value.trim(),
       dateIso: document.getElementById('az-ev-dateiso').value,
       location: document.getElementById('az-ev-location').value.trim(),
       teaser: document.getElementById('az-ev-teaser').value.trim(),
-      tiers: tiers
+      tiers: tiers,
+      feedbackOptions: feedbackOptions
     };
     var slug = document.getElementById('az-ev-slug').value;
     var isEdit = !!slug;

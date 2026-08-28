@@ -16,8 +16,8 @@ const GROWMI_TEAM = {
     lead: "Chi si occupa dei conti, dell'amministrazione e della sostenibilità economica di GrowMi.",
     members: [
       { name: "Roberta La Giusa", role: "Direttore d'area", photo: "assets/img/team/roberta-la-giusa.jpg" },
-      { name: "Alessandro Decollanz", role: "Direttore d'area" },
-      { name: "Colette Buelli", role: "Team" }
+      { name: "Alessandro Decollanz", role: "Direttore d'area", photo: "assets/img/team/alessandro-decollanz.jpg" },
+      { name: "Colette Buelli", role: "Team", photo: "assets/img/team/colette-buelli.jpg" }
     ]
   },
   artvenue: {
@@ -25,7 +25,7 @@ const GROWMI_TEAM = {
     lead: "Chi cerca, seleziona e segue gli artisti emergenti e i locali che ospitano gli eventi GrowMi.",
     members: [
       { name: "Daniela Pezzoni", role: "Direttore d'area", photo: "assets/img/team/daniela-pezzoni.jpg" },
-      { name: "Lulita Gorgoglione", role: "Team" }
+      { name: "Lulita Gorgoglione", role: "Team", photo: "assets/img/team/lulita-gorgoglione.jpg" }
     ]
   },
   comms: {
@@ -35,7 +35,7 @@ const GROWMI_TEAM = {
       { name: "Carlo Capizzoto", role: "Direttore d'area", photo: "assets/img/team/carlo-capizzoto.jpg" },
       { name: "Alice Amoruso", role: "Direttore d'area", photo: "assets/img/team/alice-amoruso.jpg" },
       { name: "Mihaela Doschinescu", role: "Team", photo: "assets/img/team/mihaela-doschinescu.jpg" },
-      { name: "Keiron Metaj", role: "Team" }
+      { name: "Keiron Metaj", role: "Team", photo: "assets/img/team/keiron-metaj.jpg" }
     ]
   },
   comm: {
@@ -43,7 +43,7 @@ const GROWMI_TEAM = {
     lead: "Chi cura le partnership, gli sponsor e le collaborazioni commerciali di GrowMi.",
     members: [
       { name: "Marco Capezzuoli", role: "Direttore d'area", photo: "assets/img/team/marco-capezzuoli.jpg" },
-      { name: "Francesco Ghioni", role: "Team" }
+      { name: "Francesco Ghioni", role: "Team", photo: "assets/img/team/francesco-ghioni.jpg" }
     ]
   },
   sw: {
