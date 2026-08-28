@@ -513,6 +513,53 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    if (url.pathname === "/api/admin/upload-image" && request.method === "POST") {
+      try {
+        return await handleUploadImage(request, env);
+      } catch (err) {
+        console.log("Errore admin/upload-image:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/admin/delete-image" && request.method === "POST") {
+      try {
+        return await handleDeleteImage(request, env);
+      } catch (err) {
+        console.log("Errore admin/delete-image:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/public-events" && request.method === "GET") {
+      try {
+        return await handlePublicEvents(request, env);
+      } catch (err) {
+        console.log("Errore public-events:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname.startsWith("/media/") && request.method === "GET") {
+      try {
+        return await handleMedia(request, env);
+      } catch (err) {
+        console.log("Errore media:", err.stack || err.message);
+        return new Response("Errore nel caricare l'immagine", { status: 500 });
+      }
+    }
+
+    if (url.pathname.startsWith("/evento/") && request.method === "GET") {
+      try {
+        const handled = await handleEventPage(request, env);
+        if (handled) return handled;
+        // Nessun evento pubblicato con questo slug: passa oltre, cade sul 404 statico normale
+        // (vedi not_found_handling in wrangler.toml) invece di inventare una risposta qui.
+      } catch (err) {
+        console.log("Errore evento page:", err.stack || err.message);
+      }
+    }
+
     if (url.pathname === "/api/account/profile" && request.method === "POST") {
       try {
         return await handleAccountProfile(request, env);
@@ -690,6 +737,249 @@ async function findTierOption(env, eventSlug, tierId, optionId) {
   const option = tier?.options.find(function(o){ return o.id === optionId; });
   if (!event || !tier || !option) return null;
   return { event, tier, option };
+}
+
+function mediaUrl(key) {
+  return key ? `/media/${key}` : null;
+}
+
+// Un evento senza "published" salvato è nato prima di questo campo (o non è mai stato
+// risalvato dal pannello dopo l'aggiunta): si considera pubblicato per non far sparire nulla
+// di già live. Solo published:false esplicito lo tiene in bozza.
+function isEventPublished(event) {
+  return event.published !== false;
+}
+
+// Elenco pubblico eventi (nessuna autenticazione: sono gli stessi dati già visibili sul sito)
+// per index.html/eventi.html — solo i campi che servono a mostrare una card, mai le fasce/
+// prezzi (quelli restano dietro /api/event-tiers, letti solo dalla pagina evento specifica).
+async function handlePublicEvents(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const slugs = await listAllEventSlugs(env);
+  const events = [];
+  for (const slug of slugs) {
+    const event = await getEvent(env, slug);
+    if (!event || !isEventPublished(event)) continue;
+    events.push({
+      slug, name: event.name, dateDisplay: event.dateDisplay, dateIso: event.dateIso,
+      location: event.location, teaser: event.teaser || "",
+      heroImageUrl: mediaUrl(event.heroImageKey), coverImageUrl: mediaUrl(event.coverImageKey),
+      pageUrl: `/evento/${slug}`
+    });
+  }
+  return jsonResponse({ events });
+}
+
+// Header/nav/footer/newsletter-popup identici a quelli già in ogni pagina statica (vedi
+// grow-with-us.html) — copiati qui una volta sola così una pagina evento generata dal pannello
+// è visivamente indistinguibile dalle altre, senza duplicare template altrove.
+function eventPageHTML(event, slug) {
+  const heroImg = event.heroImageKey
+    ? `<img class="ed-hero-photo" src="${mediaUrl(event.heroImageKey)}" alt=""><div class="ed-hero-video-overlay"></div>`
+    : "";
+  const coverBlock = event.coverImageKey
+    ? `<section class="ed-section-tight"><div class="wrap"><div class="ed-poster-feature"><img class="ed-poster-img" src="${mediaUrl(event.coverImageKey)}" alt="${event.name}"></div></div></section>`
+    : "";
+  const galleryItems = (event.gallery || []).map(function(key){
+    return `<div class="ed-gallery-item"><img src="${mediaUrl(key)}" alt="${event.name}" loading="lazy"></div>`;
+  }).join("");
+  const galleryBlock = galleryItems
+    ? `<section class="ed-section-tight"><div class="wrap"><div class="ed-gallery">${galleryItems}</div></div></section>`
+    : "";
+
+  return `<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${event.name} — GrowMi</title>
+<meta name="description" content="${event.teaser || event.name}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="stylesheet" href="/assets/mailerlite-form.css">
+<link rel="stylesheet" href="/assets/redesign.css">
+<link rel="stylesheet" href="/assets/interactive.css">
+<link rel="stylesheet" href="/assets/event-tickets.css">
+</head>
+<body>
+
+<header>
+  <nav class="wrap">
+    <a class="logo" href="/index.html"><img src="/assets/img/logo-growmi.png" alt="GrowMi"></a>
+    <div class="navlinks">
+      <a href="/index.html" data-i18n="nav_home">Home</a>
+      <a href="/eventi.html" class="active" data-i18n="nav_eventi">Eventi</a>
+      <a href="/artisti.html" data-i18n="nav_artisti">Artisti</a>
+      <a href="/loyalty-card.html" data-i18n="nav_loyalty">Loyalty Card</a>
+      <a href="/chi-siamo.html" data-i18n="nav_chisiamo">Chi siamo</a>
+      <a href="/contatti.html" data-i18n="nav_contatti">Contatti</a>
+      <div class="lang-switch mobile-lang-switch">
+        <button data-lang="it">IT</button>
+        <button data-lang="en">EN</button>
+      </div>
+    </div>
+    <div class="navright">
+      <div class="nav-account-wrap">
+        <a class="nav-account" href="/area-personale.html" data-i18n="nav_account">Accedi</a>
+        <button type="button" class="nav-account-icon" aria-label="Il mio account" aria-haspopup="true">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+        </button>
+        <div class="nav-account-menu"></div>
+      </div>
+      <div class="lang-switch">
+        <button data-lang="it">IT</button>
+        <button data-lang="en">EN</button>
+      </div>
+      <div class="nav-tickets"><a class="btn coral small nav-tickets-toggle" href="/eventi.html" data-i18n="nav_cta" aria-haspopup="true" aria-expanded="false">Biglietti</a><div class="nav-tickets-menu"></div></div>
+    </div>
+    <button type="button" class="nav-toggle" aria-label="Menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+</header>
+
+<section class="ed-hero" style="padding:110px 0 80px;">
+  ${heroImg}
+  <div class="wrap ed-wrap">
+    <p class="ed-eyebrow">${event.dateDisplay} · ${event.location}</p>
+    <h1 style="font-size:clamp(40px,7vw,96px);">${event.name}</h1>
+    ${event.teaser ? `<p class="ed-lead">${event.teaser}</p>` : ""}
+  </div>
+</section>
+
+${coverBlock}
+
+<section class="ed-section-tight">
+  <div class="wrap">
+    <div class="ed-head">
+      <p class="ed-eyebrow">Biglietti</p>
+      <h2>Prendi il tuo posto</h2>
+    </div>
+    <div class="event-tickets" data-event="${slug}">
+      <div class="et-tier-list" data-et-tier-list></div>
+      <div class="et-reg-step" data-et-reg-step hidden>
+        <p class="et-reg-step-selection">Hai scelto: <strong data-et-selection-label></strong></p>
+        <p class="et-price-breakdown" data-et-price-breakdown></p>
+        <form class="et-reg-form" data-et-reg-form>
+          <div class="et-form-row">
+            <input type="text" data-et-firstname placeholder="Nome" required>
+            <input type="text" data-et-lastname placeholder="Cognome" required>
+          </div>
+          <div class="et-form-row">
+            <select data-et-phone-prefix>
+              <option value="+39">🇮🇹 +39</option>
+              <option value="+41">🇨🇭 +41</option>
+              <option value="+33">🇫🇷 +33</option>
+              <option value="+49">🇩🇪 +49</option>
+              <option value="+44">🇬🇧 +44</option>
+              <option value="+34">🇪🇸 +34</option>
+            </select>
+            <input type="tel" data-et-phone placeholder="333 1234567" required>
+          </div>
+          <input type="email" data-et-email placeholder="Email" required>
+          <label><input type="checkbox" data-et-terms required> Accetto termini e condizioni</label>
+          <label><input type="checkbox" data-et-photo-consent required> Accetto il trattamento immagini</label>
+          <label><input type="checkbox" data-et-newsletter> Iscrivimi alla newsletter</label>
+          <input type="text" data-et-coupon placeholder="Codice coupon (facoltativo)" style="text-transform:uppercase;">
+          <button type="submit" class="btn coral" data-et-reg-submit>Vai al pagamento</button>
+          <p class="et-reg-status" data-et-reg-status hidden></p>
+        </form>
+      </div>
+      <div class="et-checkout-wrap" data-et-checkout-wrap hidden>
+        <div data-et-checkout-container></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+${galleryBlock}
+
+<section class="ed-cta compact">
+  <div class="wrap ed-cta-row">
+    <div>
+      <p class="ed-eyebrow" data-i18n="nl_eyebrow">Newsletter</p>
+      <h2 data-i18n="nl_title">Non perderti i prossimi eventi</h2>
+      <p data-i18n="nl_lead">Iscriviti alla newsletter di GrowMi: eventi, artisti e novità via email, senza spam.</p>
+    </div>
+    <button type="button" class="ed-btn-ghost" data-nl-open data-i18n="nl_submit">Iscrivimi</button>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div><a class="foot-logo" href="/index.html"><img src="/assets/img/logo-growmi.png" alt="GrowMi"></a></div>
+      <div>
+        <h4 data-i18n="foot_sito">Sito</h4>
+        <ul>
+          <li><a href="/eventi.html" data-i18n="nav_eventi">Eventi</a></li>
+          <li><a href="/artisti.html" data-i18n="nav_artisti">Artisti</a></li>
+          <li><a href="/chi-siamo.html" data-i18n="nav_chisiamo">Chi siamo</a></li>
+          <li><a href="/loyalty-card.html">Loyalty Card</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 data-i18n="foot_contatti">Contatti</h4>
+        <ul>
+          <li><a href="mailto:grow.mi@outlook.it">grow.mi@outlook.it</a></li>
+          <li><a href="/contatti.html" data-i18n="nav_contatti">Contatti</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 data-i18n="foot_social">Social</h4>
+        <ul>
+          <li><a href="https://www.instagram.com/growmiii/" target="_blank" rel="noopener">Instagram</a></li>
+          <li><a href="https://www.tiktok.com/@growmii_" target="_blank" rel="noopener">TikTok</a></li>
+          <li><a href="https://www.youtube.com/@GrowMiii" target="_blank" rel="noopener">YouTube</a></li>
+          <li><a href="https://www.linkedin.com/company/growmiagency/" target="_blank" rel="noopener">LinkedIn</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span data-i18n="foot_rights">© 2026 GrowMi. Milano.</span>
+      <span data-i18n="foot_madewith">Sito in fase di sviluppo</span>
+      <a href="/privacy-policy.html" style="color:#B39DC7;">Privacy Policy</a>
+    </div>
+  </div>
+</footer>
+
+<div class="nl-popup" id="nl-popup" hidden>
+  <div class="nl-popup-backdrop" data-nl-close></div>
+  <div class="nl-popup-card" role="dialog" aria-modal="true">
+    <button type="button" class="nl-popup-close" data-nl-close aria-label="Chiudi">&times;</button>
+    <p class="eyebrow" data-i18n="nl_eyebrow">Newsletter</p>
+    <h4 data-i18n="nl_title">Non perderti i prossimi eventi</h4>
+    <p data-i18n="nl_lead">Iscriviti alla newsletter di GrowMi: eventi, artisti e novità via email, senza spam.</p>
+    <div class="field"><input type="email" class="nl-email" placeholder="La tua email"></div>
+    <button type="button" class="btn coral nl-submit" data-i18n="nl_submit">Iscrivimi</button>
+    <p class="nl-fine" data-i18n="nl_fine">Puoi disiscriverti quando vuoi. Per maggiori dettagli, consulta la nostra Privacy Policy.</p>
+  </div>
+</div>
+
+<script src="/assets/events-data.js"></script>
+<script src="/assets/i18n.js"></script>
+<script src="/assets/cookie-banner.js"></script>
+<script src="/assets/newsletter.js"></script>
+<script src="/assets/interactive.js"></script>
+<script src="/assets/event-tickets.js"></script>
+</body>
+</html>`;
+}
+
+// Rotta pubblica /evento/<slug>: genera al volo la pagina di un evento creato dal pannello,
+// così creare un evento "semplice" non richiede più che uno sviluppatore costruisca una pagina
+// HTML apposita. Ritorna null (mai una Response) se non c'è nulla da mostrare, cosi' il
+// chiamante può lasciar cadere la richiesta sul normale 404 statico invece di inventarne uno qui.
+async function handleEventPage(request, env) {
+  if (!env.TICKETS) return null;
+  const slug = new URL(request.url).pathname.replace(/^\/evento\//, "").replace(/\/$/, "");
+  if (!slug) return null;
+  const event = await getEvent(env, slug);
+  if (!event || !isEventPublished(event)) return null;
+  return new Response(eventPageHTML(event, slug), { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
 
 // Genera un codice biglietto breve, facile da mostrare/leggere se serve anche a occhio
@@ -3027,7 +3317,91 @@ function validateEventPayload(body, existingTiers, sold) {
     if (feedbackOptions.length >= 15) break;
   }
 
-  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions } };
+  // Immagini (chiavi R2, mai URL assolute: si costruiscono con /media/<key> al momento di
+  // servirle) e stato di pubblicazione. Un evento senza "published" nel payload nasce bozza —
+  // non compare né su /api/public-events né su /evento/<slug> finché lo staff non lo pubblica
+  // esplicitamente dal pannello.
+  const heroImageKey = String(body.heroImageKey || "").trim() || null;
+  const coverImageKey = String(body.coverImageKey || "").trim() || null;
+  const gallery = Array.isArray(body.gallery)
+    ? body.gallery.map(function(k){ return String(k || "").trim(); }).filter(Boolean).slice(0, 40)
+    : [];
+  const published = body.published === true;
+
+  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, coverImageKey, gallery, published } };
+}
+
+const IMAGE_CONTENT_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+
+// Carica un'immagine su R2 per un evento (hero, copertina o una foto di galleria) — o, con
+// fixedKey, sovrascrive sempre la stessa chiave (usato per l'immagine hero di default di tutto
+// il sito: cambiando il file dietro la stessa chiave, ogni pagina che la referenzia si aggiorna
+// da sola, senza toccare CSS/HTML). Le chiavi generate includono un suffisso casuale così un
+// hero/copertina sostituiti non sovrascrivono mai il file vecchio (niente cache stantia sui
+// client che l'avevano già scaricato) — il record evento viene semplicemente aggiornato a
+// puntare alla chiave nuova, quella vecchia resta orfana su R2 (accettabile, storage economico).
+async function handleUploadImage(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.EVENT_IMAGES) throw new Error("Binding R2 'EVENT_IMAGES' non configurato");
+
+  const form = await request.formData();
+  const file = form.get("file");
+  const purpose = String(form.get("purpose") || "gallery");
+  const slug = String(form.get("slug") || "").trim();
+  const fixedKey = String(form.get("fixedKey") || "").trim();
+
+  if (!(file instanceof File)) return jsonResponse({ error: "nessun file ricevuto" }, 400);
+  const ext = IMAGE_CONTENT_TYPES[file.type];
+  if (!ext) return jsonResponse({ error: "formato non supportato (solo JPEG, PNG, WEBP)" }, 400);
+  if (file.size > MAX_IMAGE_BYTES) return jsonResponse({ error: "immagine troppo grande (max 8MB)" }, 400);
+
+  let key;
+  if (fixedKey) {
+    if (!/^[a-z0-9/_-]+$/.test(fixedKey)) return jsonResponse({ error: "fixedKey non valida" }, 400);
+    key = fixedKey;
+  } else {
+    if (!slug) return jsonResponse({ error: "slug evento mancante" }, 400);
+    key = `events/${slug}/${purpose}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+  }
+
+  await env.EVENT_IMAGES.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
+  return jsonResponse({ ok: true, key, url: `/media/${key}` });
+}
+
+// Rimuove un'immagine da R2 — usata quando lo staff toglie un'immagine dalla galleria/hero/
+// copertina di un evento prima di risalvare. Ristretto al prefisso "events/" così non si può
+// usare per cancellare a caso altre chiavi (es. l'hero di default del sito).
+async function handleDeleteImage(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.EVENT_IMAGES) throw new Error("Binding R2 'EVENT_IMAGES' non configurato");
+
+  const { key } = await request.json();
+  if (!key || typeof key !== "string" || !key.startsWith("events/")) {
+    return jsonResponse({ error: "chiave non valida" }, 400);
+  }
+  await env.EVENT_IMAGES.delete(key);
+  return jsonResponse({ ok: true });
+}
+
+// Serve i file caricati su R2 — pubblico, nessuna autenticazione (sono immagini di eventi
+// pubblici). Cache lunga: le chiavi generate da handleUploadImage includono un suffisso
+// casuale e non vengono mai sovrascritte, quindi il contenuto dietro una chiave non cambia mai
+// (eccetto per le fixedKey come l'hero di default — lì la cache lunga è un compromesso
+// accettato: un cambio richiede eventualmente qualche minuto per propagarsi agli edge cache).
+async function handleMedia(request, env) {
+  if (!env.EVENT_IMAGES) return new Response("Not found", { status: 404 });
+  const key = new URL(request.url).pathname.replace(/^\/media\//, "");
+  const object = await env.EVENT_IMAGES.get(key);
+  if (!object) return new Response("Not found", { status: 404 });
+  return new Response(object.body, {
+    headers: {
+      "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
+      "Cache-Control": "public, max-age=31536000, immutable"
+    }
+  });
 }
 
 // Elenco completo eventi per il pannello aziendale (dettaglio pieno, non solo nome/data come

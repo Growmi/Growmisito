@@ -53,14 +53,32 @@
 
   if(typeof GROWMI_EVENTS === 'undefined') return;
 
-  var today = todayISO();
-  var visible = GROWMI_EVENTS.filter(function(e){ return !e.draft; });
-  var upcoming = visible.filter(function(e){ return e.date >= today; })
-    .sort(function(a, b){ return a.date < b.date ? -1 : 1; });
-  var past = visible.filter(function(e){ return e.date < today; })
-    .sort(function(a, b){ return a.date > b.date ? -1 : 1; });
+  // Eventi creati/pubblicati dal pannello aziendale (KV, via /api/public-events) — spazio di
+  // slug indipendente da quello di GROWMI_EVENTS, quindi si accodano senza rischio di doppioni.
+  // Ognuno arriva già con pageUrl (/evento/<slug>) e le immagini caricate dal pannello, nello
+  // stesso shape {title, date, tag, location, url, cover, comingSoon} usato da cardHTML.
+  function fromPublicEvent(ev){
+    return {
+      title: ev.name, date: ev.dateIso, tag: ev.dateDisplay, location: ev.location,
+      url: ev.pageUrl, cover: ev.coverImageUrl || ev.heroImageUrl || null, comingSoon: false
+    };
+  }
 
-  render('upcoming-events-grid', upcoming, 'ev_empty', 'Nessun evento in programma al momento.');
-  render('past-events-grid', past, 'ev_past_empty', 'Il primo evento deve ancora succedere — a breve la prima retrospettiva.');
-  render('next-event-grid', upcoming.slice(0, 1), 'ev_empty', 'Nessun evento in programma al momento.');
+  function renderAll(dynamicEvents){
+    var all = GROWMI_EVENTS.filter(function(e){ return !e.draft; }).concat(dynamicEvents);
+    var today = todayISO();
+    var upcoming = all.filter(function(e){ return e.date >= today; })
+      .sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+    var past = all.filter(function(e){ return e.date < today; })
+      .sort(function(a, b){ return a.date > b.date ? -1 : 1; });
+
+    render('upcoming-events-grid', upcoming, 'ev_empty', 'Nessun evento in programma al momento.');
+    render('past-events-grid', past, 'ev_past_empty', 'Il primo evento deve ancora succedere — a breve la prima retrospettiva.');
+    render('next-event-grid', upcoming.slice(0, 1), 'ev_empty', 'Nessun evento in programma al momento.');
+  }
+
+  fetch('/api/public-events')
+    .then(function(r){ return r.ok ? r.json() : { events: [] }; })
+    .then(function(data){ renderAll((data.events || []).map(fromPublicEvent)); })
+    .catch(function(){ renderAll([]); });
 })();

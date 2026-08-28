@@ -68,14 +68,74 @@
   .az-msg.ok{ background:#EAF7EE; color:#1E7A3A; }
   .az-msg.error{ background:#FDE8E0; color:#B4400F; }
 
-  .az-dash-menu{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:28px; }
-  .az-dash-menu button, .az-dash-menu a{
-    padding:10px 16px; border-radius:20px; border:1.5px solid var(--line); background:#fff;
-    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; cursor:pointer; color:var(--ink);
-    text-decoration:none; display:inline-flex; align-items:center;
+  /* Shell a due colonne stile dashboard (sidebar fissa + area di lavoro), a tutta altezza —
+     sostituisce il vecchio menu a pillole centrato: più spazio utile per tabelle/form quando
+     ci sono molte sezioni (Dashboard, Clienti, Presenti, Eventi, Feedback, Impostazioni). */
+  .az-shell{ display:flex; min-height:100vh; min-height:100dvh; }
+  .az-shell[hidden]{ display:none; }
+
+  .az-sidebar-toggle{
+    display:none; position:fixed; top:14px; left:14px; z-index:25; width:40px; height:40px;
+    border-radius:10px; border:1.5px solid var(--line); background:#fff; font-size:18px; cursor:pointer;
   }
-  .az-dash-menu button.is-active{ background:var(--ink); border-color:var(--ink); color:#fff; }
+  .az-sidebar-backdrop{
+    display:none; position:fixed; inset:0; background:rgba(30,12,44,.5); z-index:19;
+  }
+  .az-sidebar-backdrop.open{ display:block; }
+
+  .az-sidebar{
+    width:260px; flex-shrink:0; background:#fff; border-right:1.5px solid var(--line);
+    display:flex; flex-direction:column; height:100vh; height:100dvh; position:sticky; top:0;
+  }
+  .az-sidebar-brand{
+    display:flex; align-items:center; gap:10px; padding:20px 20px 16px; font-family:'Space Grotesk',sans-serif;
+    font-weight:700; font-size:14px; border-bottom:1.5px solid var(--line);
+  }
+  .az-sidebar-brand img{ height:24px; width:auto; }
+  .az-sidebar-nav{ flex:1; overflow-y:auto; padding:16px 12px; }
+  .az-nav-group{ margin-bottom:18px; }
+  .az-nav-group-label{
+    font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--grey); padding:0 10px; margin-bottom:6px;
+  }
+  .az-nav-item{
+    display:block; width:100%; text-align:left; padding:10px 12px; border-radius:10px; border:none;
+    background:none; font-family:'Inter',sans-serif; font-weight:600; font-size:14px; color:var(--ink);
+    cursor:pointer; margin-bottom:2px;
+  }
+  .az-nav-item:hover{ background:var(--cream); }
+  .az-nav-item.is-active{ background:var(--purple-deeper); color:#fff; }
+  .az-sidebar-footer{
+    padding:14px 20px; border-top:1.5px solid var(--line); display:flex; align-items:center;
+    justify-content:space-between; gap:10px;
+  }
+  .az-sidebar-user{ font-size:12px; color:var(--grey); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  .az-main{ flex:1; min-width:0; overflow-y:auto; padding:32px 36px 60px; }
+  .az-main-header{ margin-bottom:28px; }
+  .az-main-header h1{ font-family:'Space Grotesk',sans-serif; font-size:clamp(22px,3vw,30px); font-weight:700; margin-bottom:4px; }
+  .az-main-header p{ color:var(--grey); font-size:14px; }
   .az-panel[hidden]{ display:none; }
+
+  @media (max-width:860px){
+    .az-sidebar-toggle{ display:block; }
+    .az-sidebar{
+      position:fixed; left:0; top:0; bottom:0; z-index:20; transform:translateX(-100%);
+      transition:transform .25s ease; box-shadow:0 0 40px rgba(0,0,0,.2);
+    }
+    .az-sidebar.open{ transform:translateX(0); }
+    .az-main{ padding:70px 20px 50px; }
+  }
+
+  .az-settings-card{ background:#fff; border:1.5px solid var(--line); border-radius:16px; padding:22px 24px; max-width:480px; }
+  .az-settings-card h3{ font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:8px; }
+  .az-settings-hint{ font-size:13px; color:var(--grey); margin-bottom:18px; }
+  .az-image-preview{
+    width:100%; aspect-ratio:16/7; border-radius:12px; background:var(--cream); border:1.5px dashed var(--line);
+    margin-bottom:12px; overflow:hidden; display:flex; align-items:center; justify-content:center;
+    color:var(--grey); font-size:12.5px; position:relative;
+  }
+  .az-image-preview img{ width:100%; height:100%; object-fit:cover; display:block; }
 
   .az-stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   .az-stat{ background:#fff; border:1.5px solid var(--line); border-radius:16px; padding:20px 18px; }
@@ -190,7 +250,7 @@
   <button type="button" class="logout" id="az-logout" hidden>Esci</button>
 </div>
 
-<div class="az-page">
+<div class="az-page" id="az-login-page">
 
   <div class="az-hero">
     <span class="eyebrow">Riservato allo staff</span>
@@ -225,14 +285,43 @@
     </form>
   </div>
 
-  <!-- DASHBOARD -->
-  <div id="az-dash" hidden>
-    <div class="az-dash-menu">
-      <button type="button" class="is-active" data-panel="dashboard">📊 Dashboard</button>
-      <button type="button" data-panel="clienti">🧑‍🤝‍🧑 Clienti</button>
-      <button type="button" data-panel="presenti">👥 Presenti</button>
-      <button type="button" data-panel="feedback">💬 Feedback</button>
-      <button type="button" data-panel="eventi">🎫 Eventi</button>
+</div>
+
+<!-- DASHBOARD -->
+<div class="az-shell" id="az-dash" hidden>
+  <button type="button" class="az-sidebar-toggle" id="az-sidebar-toggle" aria-label="Apri menu">☰</button>
+  <div class="az-sidebar-backdrop" id="az-sidebar-backdrop"></div>
+  <aside class="az-sidebar" id="az-sidebar">
+    <div class="az-sidebar-brand"><img src="assets/img/logo-growmi.png" alt="GrowMi"> Sezione aziendale</div>
+    <nav class="az-sidebar-nav">
+      <div class="az-nav-group">
+        <p class="az-nav-group-label">Panoramica</p>
+        <button type="button" class="az-nav-item is-active" data-panel="dashboard">📊 Dashboard</button>
+      </div>
+      <div class="az-nav-group">
+        <p class="az-nav-group-label">Persone</p>
+        <button type="button" class="az-nav-item" data-panel="clienti">🧑‍🤝‍🧑 Clienti</button>
+        <button type="button" class="az-nav-item" data-panel="presenti">👥 Presenti</button>
+      </div>
+      <div class="az-nav-group">
+        <p class="az-nav-group-label">Contenuti</p>
+        <button type="button" class="az-nav-item" data-panel="eventi">🎫 Eventi</button>
+        <button type="button" class="az-nav-item" data-panel="feedback">💬 Feedback</button>
+      </div>
+      <div class="az-nav-group">
+        <p class="az-nav-group-label">Impostazioni</p>
+        <button type="button" class="az-nav-item" data-panel="impostazioni">🎨 Grafica sito</button>
+      </div>
+    </nav>
+    <div class="az-sidebar-footer">
+      <span class="az-sidebar-user" id="az-sidebar-user"></span>
+      <button type="button" class="logout" id="az-logout-sidebar">Esci</button>
+    </div>
+  </aside>
+  <main class="az-main">
+    <div class="az-main-header">
+      <h1 id="az-dash-title">Ciao!</h1>
+      <p id="az-dash-lead">Ecco cosa succede su GrowMi.</p>
     </div>
 
     <!-- Dashboard -->
@@ -367,6 +456,35 @@
             <button type="button" class="az-mini-btn" id="az-ev-add-feedback-option">+ Aggiungi opzione</button>
           </div>
 
+          <div>
+            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Immagine hero</label>
+            <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Sfondo in cima alla pagina dell'evento.</p>
+            <div class="az-image-preview" id="az-ev-hero-preview">Nessuna immagine</div>
+            <input type="file" accept="image/jpeg,image/png,image/webp" id="az-ev-hero-input">
+            <button type="button" class="az-mini-btn danger" id="az-ev-hero-remove" hidden>Rimuovi</button>
+          </div>
+
+          <div>
+            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Immagine copertina</label>
+            <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Locandina/poster mostrata sulla pagina evento (e come immagine della card nell'elenco eventi, se non ne carichi una diversa).</p>
+            <div class="az-image-preview" id="az-ev-cover-preview">Nessuna immagine</div>
+            <input type="file" accept="image/jpeg,image/png,image/webp" id="az-ev-cover-input">
+            <button type="button" class="az-mini-btn danger" id="az-ev-cover-remove" hidden>Rimuovi</button>
+          </div>
+
+          <div>
+            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Galleria foto</label>
+            <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Foto dell'evento mostrate più in basso nella pagina — puoi caricarne più di una alla volta.</p>
+            <div id="az-ev-gallery" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:8px; margin-bottom:10px;"></div>
+            <input type="file" accept="image/jpeg,image/png,image/webp" id="az-ev-gallery-input" multiple>
+          </div>
+
+          <label style="display:flex; align-items:center; gap:10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; cursor:pointer;">
+            <input type="checkbox" id="az-ev-published" style="width:18px; height:18px;">
+            Pubblicato
+          </label>
+          <p style="font-size:12px; color:var(--grey); margin-top:-10px;">Finché non è spuntato, l'evento resta bozza: non compare sul sito né è raggiungibile su /evento/&lt;slug&gt;.</p>
+
           <div style="display:flex; gap:10px; align-items:center;">
             <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Salva evento</button>
             <button type="button" class="az-mini-btn" id="az-ev-cancel">Annulla</button>
@@ -375,17 +493,43 @@
         </form>
       </div>
     </div>
-  </div>
 
+    <!-- Grafica sito -->
+    <div class="az-panel" data-panel-content="impostazioni" hidden>
+      <div class="az-settings-card">
+        <h3>Immagine hero di default</h3>
+        <p class="az-settings-hint">Sfondo mostrato su eventi.html, artisti.html, chi-siamo.html, loyalty-card.html e su qualsiasi pagina futura senza una foto propria — la sostituisci qui, senza bisogno di sviluppo.</p>
+        <div class="az-image-upload" id="az-hero-default-upload">
+          <div class="az-image-preview" id="az-hero-default-preview"></div>
+          <input type="file" accept="image/jpeg,image/png,image/webp" id="az-hero-default-input">
+          <p class="az-msg" id="az-hero-default-msg" hidden></p>
+        </div>
+      </div>
+    </div>
+  </main>
 </div>
 
 <script>
 (function(){
-  var authBox = document.getElementById('az-auth');
+  var authBox = document.getElementById('az-login-page');
   var dashBox = document.getElementById('az-dash');
-  var heroTitle = document.getElementById('az-hero-title');
-  var heroLead = document.getElementById('az-hero-lead');
+  var topbar = document.querySelector('.az-topbar');
+  var heroTitle = document.getElementById('az-dash-title');
+  var heroLead = document.getElementById('az-dash-lead');
+  var sidebarUser = document.getElementById('az-sidebar-user');
   var logoutBtn = document.getElementById('az-logout');
+  var logoutBtnSidebar = document.getElementById('az-logout-sidebar');
+
+  // Menu laterale a scomparsa da sinistra su schermi stretti (stesso pattern del menu eventi
+  // in staff-checkin.html): il pulsante ☰ e il fondo scuro esistono solo per il mobile, su
+  // desktop il CSS li nasconde e la sidebar resta sempre visibile.
+  var sidebar = document.getElementById('az-sidebar');
+  var sidebarBackdrop = document.getElementById('az-sidebar-backdrop');
+  var sidebarToggle = document.getElementById('az-sidebar-toggle');
+  function openSidebar(){ sidebar.classList.add('open'); sidebarBackdrop.classList.add('open'); }
+  function closeSidebar(){ sidebar.classList.remove('open'); sidebarBackdrop.classList.remove('open'); }
+  sidebarToggle.addEventListener('click', openSidebar);
+  sidebarBackdrop.addEventListener('click', closeSidebar);
 
   function showMsg(el, text, isError){
     el.textContent = text;
@@ -452,16 +596,19 @@
     } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
   });
 
-  logoutBtn.addEventListener('click', async function(){
+  async function doLogout(){
     await fetch('/api/staff-account/logout', { method: 'POST' });
     window.location.reload();
-  });
+  }
+  logoutBtn.addEventListener('click', doLogout);
+  logoutBtnSidebar.addEventListener('click', doLogout);
 
   // ---- switching pannelli dashboard ----
   var panelLoaders = {};
-  document.querySelectorAll('.az-dash-menu button[data-panel]').forEach(function(btn){
+  document.querySelectorAll('.az-sidebar-nav button[data-panel]').forEach(function(btn){
     btn.addEventListener('click', function(){
-      document.querySelectorAll('.az-dash-menu button[data-panel]').forEach(function(b){ b.classList.remove('is-active'); });
+      closeSidebar();
+      document.querySelectorAll('.az-sidebar-nav button[data-panel]').forEach(function(b){ b.classList.remove('is-active'); });
       btn.classList.add('is-active');
       var target = btn.getAttribute('data-panel');
       document.querySelectorAll('[data-panel-content]').forEach(function(p){
@@ -781,6 +928,91 @@
 
   // ---- Eventi (pannello gestione eventi) ----
   var allEvents = [];
+
+  // ---- immagini evento (hero/copertina/galleria): caricate subito al selezionamento del
+  // file, non al salvataggio del form — così l'anteprima è immediata e un evento nuovo (senza
+  // ancora uno slug definitivo assegnato dal server) usa uno slug provvisorio solo per
+  // organizzare le chiavi R2; non deve combaciare con lo slug reale, /media/<chiave> funziona
+  // comunque perché la chiave è solo un nome, non un riferimento all'evento.
+  var evUploadSlug = null;
+  var evHeroKey = null;
+  var evCoverKey = null;
+  var evGallery = [];
+
+  function imagePreviewHTML(key){
+    return key ? '<img src="/media/' + key + '" alt="">' : 'Nessuna immagine';
+  }
+  function renderHeroPreview(){
+    document.getElementById('az-ev-hero-preview').innerHTML = imagePreviewHTML(evHeroKey);
+    document.getElementById('az-ev-hero-remove').hidden = !evHeroKey;
+  }
+  function renderCoverPreview(){
+    document.getElementById('az-ev-cover-preview').innerHTML = imagePreviewHTML(evCoverKey);
+    document.getElementById('az-ev-cover-remove').hidden = !evCoverKey;
+  }
+  function renderGalleryGrid(){
+    var grid = document.getElementById('az-ev-gallery');
+    grid.innerHTML = evGallery.map(function(key){
+      return '<div class="az-image-preview" style="aspect-ratio:1; margin-bottom:0;">' +
+        '<img src="/media/' + key + '" alt="">' +
+        '<button type="button" class="az-mini-btn danger" data-remove-gallery="' + key + '" ' +
+        'style="position:absolute; margin:4px;">✕</button></div>';
+    }).join('');
+    grid.querySelectorAll('[data-remove-gallery]').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        var key = btn.getAttribute('data-remove-gallery');
+        evGallery = evGallery.filter(function(k){ return k !== key; });
+        renderGalleryGrid();
+        try { await fetch('/api/admin/delete-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: key }) }); } catch (e) {}
+      });
+    });
+  }
+
+  async function uploadEventImage(file, purpose){
+    var formData = new FormData();
+    formData.append('file', file);
+    formData.append('purpose', purpose);
+    formData.append('slug', evUploadSlug);
+    var res = await fetch('/api/admin/upload-image', { method: 'POST', body: formData });
+    var data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Errore nel caricamento');
+    return data.key;
+  }
+
+  document.getElementById('az-ev-hero-input').addEventListener('change', async function(){
+    var file = this.files[0];
+    this.value = '';
+    if (!file) return;
+    try { evHeroKey = await uploadEventImage(file, 'hero'); renderHeroPreview(); }
+    catch (err) { alert(err.message); }
+  });
+  document.getElementById('az-ev-hero-remove').addEventListener('click', async function(){
+    if (!evHeroKey) return;
+    try { await fetch('/api/admin/delete-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: evHeroKey }) }); } catch (e) {}
+    evHeroKey = null;
+    renderHeroPreview();
+  });
+  document.getElementById('az-ev-cover-input').addEventListener('change', async function(){
+    var file = this.files[0];
+    this.value = '';
+    if (!file) return;
+    try { evCoverKey = await uploadEventImage(file, 'cover'); renderCoverPreview(); }
+    catch (err) { alert(err.message); }
+  });
+  document.getElementById('az-ev-cover-remove').addEventListener('click', async function(){
+    if (!evCoverKey) return;
+    try { await fetch('/api/admin/delete-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: evCoverKey }) }); } catch (e) {}
+    evCoverKey = null;
+    renderCoverPreview();
+  });
+  document.getElementById('az-ev-gallery-input').addEventListener('change', async function(){
+    var files = Array.prototype.slice.call(this.files);
+    this.value = '';
+    for (var i = 0; i < files.length; i++) {
+      try { evGallery.push(await uploadEventImage(files[i], 'gallery')); } catch (err) { alert(err.message); }
+    }
+    renderGalleryGrid();
+  });
   function eurosToCents(str){
     var n = parseFloat(String(str || '0').replace(',', '.'));
     if (isNaN(n) || n < 0) return null;
@@ -803,8 +1035,9 @@
         var optsLabel = t.options.map(function(o){ return o.label + ' ' + euro(o.priceCents); }).join(' · ');
         return '<div class="az-ev-tierrow"><span>' + esc(t.name) + ' — ' + sold + '/' + t.capacity + '</span><span class="opts">' + esc(optsLabel) + '</span></div>';
       }).join('');
+      var isPublished = ev.published !== false;
       card.innerHTML =
-        '<h4>' + esc(ev.name) + '</h4>' +
+        '<h4>' + esc(ev.name) + ' <span class="az-pill ' + (isPublished ? 'yes' : 'no') + '">' + (isPublished ? 'Pubblicato' : 'Bozza') + '</span></h4>' +
         '<div class="meta">' + esc(ev.dateDisplay) + ' · ' + esc(ev.location) + '</div>' +
         tierRows +
         '<button type="button" class="edit-btn">✏️ Modifica</button>';
@@ -822,6 +1055,35 @@
     } catch (err) { document.getElementById('az-events-empty').hidden = false; }
   }
   panelLoaders.eventi = { loaded: false, load: loadEvents };
+
+  // ---- Impostazioni: immagine hero di default (chiave R2 fissa "site/default-hero-image") ----
+  function loadSiteSettings(){
+    var preview = document.getElementById('az-hero-default-preview');
+    preview.innerHTML = '<img src="/media/site/default-hero-image" alt="" onerror="this.parentElement.textContent=\'Nessuna immagine caricata ancora\';">';
+  }
+  document.getElementById('az-hero-default-input').addEventListener('change', async function(){
+    var file = this.files[0];
+    if (!file) return;
+    var msg = document.getElementById('az-hero-default-msg');
+    msg.hidden = true;
+    var formData = new FormData();
+    formData.append('file', file);
+    formData.append('fixedKey', 'site/default-hero-image');
+    try {
+      var res = await fetch('/api/admin/upload-image', { method: 'POST', body: formData });
+      var data = await res.json();
+      if (res.ok && data.ok) {
+        loadSiteSettings();
+        showMsg(msg, 'Immagine aggiornata — visibile su tutte le pagine entro qualche minuto.', false);
+      } else {
+        showMsg(msg, data.error || 'Errore nel caricamento.', true);
+      }
+    } catch (err) {
+      showMsg(msg, 'Errore di connessione.', true);
+    }
+    this.value = '';
+  });
+  panelLoaders.impostazioni = { loaded: false, load: loadSiteSettings };
 
   // I valori vengono assegnati con .value dopo aver creato gli elementi, mai interpolati dentro
   // l'HTML come attributo value="..." — esc() serve a testo dentro tag, non ad attributi: un
@@ -901,6 +1163,18 @@
     if (event && event.feedbackOptions && event.feedbackOptions.length) {
       event.feedbackOptions.forEach(function(o){ addFeedbackOptionRow(o); });
     }
+
+    evUploadSlug = event ? event.slug : ('draft-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
+    evHeroKey = event ? (event.heroImageKey || null) : null;
+    evCoverKey = event ? (event.coverImageKey || null) : null;
+    evGallery = event ? (event.gallery || []).slice() : [];
+    renderHeroPreview();
+    renderCoverPreview();
+    renderGalleryGrid();
+    // Un evento senza "published" salvato (mai risalvato da quando esiste questo campo) si
+    // considera pubblicato — stessa regola di isEventPublished() lato server, per non far
+    // sembrare "in bozza" un evento già live. Uno nuovo invece nasce sempre non pubblicato.
+    document.getElementById('az-ev-published').checked = event ? (event.published !== false) : false;
   }
   function closeEventForm(){
     document.getElementById('az-event-form-wrap').hidden = true;
@@ -955,13 +1229,20 @@
       location: document.getElementById('az-ev-location').value.trim(),
       teaser: document.getElementById('az-ev-teaser').value.trim(),
       tiers: tiers,
-      feedbackOptions: feedbackOptions
+      feedbackOptions: feedbackOptions,
+      heroImageKey: evHeroKey,
+      coverImageKey: evCoverKey,
+      gallery: evGallery,
+      published: document.getElementById('az-ev-published').checked
     };
     var slug = document.getElementById('az-ev-slug').value;
     var isEdit = !!slug;
     if (isEdit) payload.slug = slug;
 
-    if (!confirm(isEdit ? 'Confermi le modifiche a questo evento? Sarà subito live sul sito.' : 'Confermi la creazione di questo evento? Sarà subito acquistabile sul sito.')) return;
+    var confirmText = payload.published
+      ? (isEdit ? 'Confermi le modifiche a questo evento? Sarà subito live sul sito.' : 'Confermi la creazione di questo evento? Sarà subito live e acquistabile sul sito.')
+      : 'Confermi il salvataggio? L\'evento resta in bozza (non visibile pubblicamente) finché non spunti "Pubblicato".';
+    if (!confirm(confirmText)) return;
 
     var submitBtn = document.querySelector('#az-event-form .az-submit');
     submitBtn.disabled = true;
@@ -977,6 +1258,9 @@
         closeEventForm();
         panelLoaders.eventi.loaded = true;
         loadEvents();
+        if (payload.published && data.slug) {
+          alert('Evento pubblicato: ' + window.location.origin + '/evento/' + data.slug);
+        }
       } else {
         showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
       }
@@ -1014,20 +1298,22 @@
   async function loadDashboard(){
     try {
       var res = await fetch('/api/staff-account/me');
-      if (!res.ok) { authBox.hidden = false; dashBox.hidden = true; logoutBtn.hidden = true; return; }
+      if (!res.ok) { authBox.hidden = false; dashBox.hidden = true; topbar.style.display = 'flex'; logoutBtn.hidden = true; return; }
       var data = await res.json();
       authBox.hidden = true;
       dashBox.hidden = false;
+      topbar.style.display = 'none';
       logoutBtn.hidden = false;
       var firstName = data.name ? data.name.split(' ')[0] : '';
       heroTitle.textContent = 'Ciao, ' + firstName + '!';
       heroLead.textContent = 'Ecco cosa succede su GrowMi.';
+      sidebarUser.textContent = data.email || '';
       loadDashboardStats();
       panelLoaders.dashboard.loaded = true;
 
       var wantedPanel = new URLSearchParams(window.location.search).get('panel');
       if (wantedPanel) {
-        var panelBtn = document.querySelector('.az-dash-menu button[data-panel="' + wantedPanel + '"]');
+        var panelBtn = document.querySelector('.az-sidebar-nav button[data-panel="' + wantedPanel + '"]');
         if (panelBtn) panelBtn.click();
       }
     } catch (err) { /* resta la schermata di login, riprovabile ricaricando */ }
