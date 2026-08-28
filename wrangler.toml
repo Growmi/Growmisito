@@ -18,6 +18,12 @@ not_found_handling = "404-page"
 binding = "TICKETS"
 id = "4b1c2c4b5d624f20ac9973b80a8a5430"
 
+# Immagini eventi (hero, copertina, galleria) + immagine hero di default del sito, caricate
+# dal pannello aziendale — vedi handleUploadImage/handleMedia in src/worker.js.
+[[r2_buckets]]
+binding = "EVENT_IMAGES"
+bucket_name = "growmi-event-images"
+
 # Rate limiting per IP sulle rotte sensibili (login/registrazione/checkout/coupon), per
 # rallentare brute-force e abusi senza toccare la logica dei singoli handler.
 [[ratelimits]]
