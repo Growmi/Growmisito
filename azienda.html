@@ -1791,9 +1791,10 @@
         return '<div class="az-ev-tierrow"><span>' + esc(t.name) + ' — ' + sold + '/' + t.capacity + '</span><span class="opts">' + esc(optsLabel) + '</span></div>';
       }).join('');
       var isPublished = ev.published !== false;
+      var positionLabel = typeof ev.sortOrder === 'number' ? ('Posizione ' + ev.sortOrder) : 'Posizione non impostata (ordine per data)';
       card.innerHTML =
         '<h4>' + esc(ev.name) + ' <span class="az-pill ' + (isPublished ? 'yes' : 'no') + '">' + (isPublished ? 'Pubblicato' : 'Bozza') + '</span></h4>' +
-        '<div class="meta">' + esc(ev.dateDisplay) + ' · ' + esc(ev.location) + '</div>' +
+        '<div class="meta">' + esc(ev.dateDisplay) + ' · ' + esc(ev.location) + ' · ' + positionLabel + '</div>' +
         tierRows +
         '<button type="button" class="edit-btn">✏️ Modifica</button>';
       card.querySelector('.edit-btn').addEventListener('click', function(){ openEventForm(ev); });
@@ -1967,7 +1968,7 @@
           '<input type="file" accept="image/jpeg,image/png,image/webp" style="margin-top:6px; font-size:11px; width:90px;">' +
         '</div>' +
         '<div style="display:flex; flex-direction:column; gap:8px;">' +
-          '<div style="font-size:11px; color:var(--grey);">' + esc(def.title) + (def.draft ? ' · bozza, non ancora sul sito' : '') + '</div>' +
+          '<div style="font-size:11px; color:var(--grey);">' + esc(def.title) + (def.draft ? ' · bozza, non ancora sul sito' : '') + ' · ' + (typeof o.sortOrder === 'number' ? ('posizione ' + o.sortOrder) : 'posizione non impostata') + '</div>' +
           '<input type="text" placeholder="Titolo" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
           '<input type="text" placeholder="Data mostrata (es. &quot;4 giugno 2026&quot;)" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
           '<input type="text" placeholder="Luogo" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
@@ -3430,17 +3431,24 @@
       '<div class="az-field" style="margin-bottom:10px;">' +
         '<label>Disponibilità</label>' +
         '<select class="tier-status">' +
-          '<option value="auto">Automatica (esaurita quando finiscono i posti)</option>' +
+          '<option value="auto">Automatica (esaurita quando finiscono i posti, più sotto la finestra oraria facoltativa)</option>' +
           '<option value="soldout">Forza "Esaurita" ora</option>' +
           '<option value="comingsoon">Non ancora in vendita (visibile, non acquistabile)</option>' +
         '</select>' +
       '</div>' +
+      '<div class="row2" style="margin-bottom:10px;">' +
+        '<div class="az-field"><label style="font-size:11px;">In vendita da (facoltativo)</label><input type="datetime-local" class="tier-available-from"></div>' +
+        '<div class="az-field"><label style="font-size:11px;">In vendita fino a (facoltativo)</label><input type="datetime-local" class="tier-available-until"></div>' +
+      '</div>' +
+      '<p style="font-size:11px; color:var(--grey); margin:-4px 0 10px;">Valgono solo con disponibilità "Automatica" — prima dell\'orario di apertura la fascia è visibile ma non acquistabile, dopo quello di chiusura risulta esaurita. Lascia vuoto per non avere limiti di orario.</p>' +
       '<div class="az-opts"></div>' +
       '<button type="button" class="az-mini-btn add-option">+ Aggiungi opzione</button>';
     block.querySelector('.tier-name').value = tier ? tier.name : '';
     block.querySelector('.tier-sub').value = tier ? tier.sub : '';
     block.querySelector('.tier-capacity').value = tier ? tier.capacity : '';
     block.querySelector('.tier-status').value = (tier && tier.status) || 'auto';
+    block.querySelector('.tier-available-from').value = (tier && tier.availableFrom) || '';
+    block.querySelector('.tier-available-until').value = (tier && tier.availableUntil) || '';
     block.querySelector('.remove-tier').addEventListener('click', function(){ block.remove(); });
     block.querySelector('.add-option').addEventListener('click', function(){ addOptionRow(block, null); });
     container.appendChild(block);
@@ -3539,6 +3547,8 @@
         sub: tb.querySelector('.tier-sub').value.trim(),
         capacity: parseInt(tb.querySelector('.tier-capacity').value, 10),
         status: tb.querySelector('.tier-status').value,
+        availableFrom: tb.querySelector('.tier-available-from').value || null,
+        availableUntil: tb.querySelector('.tier-available-until').value || null,
         options: options
       });
     }

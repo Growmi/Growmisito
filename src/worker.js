@@ -2242,10 +2242,25 @@ async function handleEventTiers(request, env) {
   const tiers = event.tiers.map(function(t){
     const sold = soldByTier[t.id] || 0;
     const status = t.status || "auto";
-    // "soldout"/"comingsoon" sono decisioni manuali dello staff e vincono sempre sul calcolo
-    // automatico da capienza — una fascia "comingsoon" non deve mai poter diventare quella attiva.
-    const soldOut = status === "soldout" ? true : (status === "comingsoon" ? false : sold >= t.capacity);
-    const forceUpcoming = status === "comingsoon";
+    // "soldout"/"comingsoon" sono decisioni manuali dello staff e vincono sempre — sia sul calcolo
+    // automatico da capienza sia sulla finestra di vendita oraria qui sotto. Solo quando lo stato
+    // è "auto" si guarda anche a availableFrom/availableUntil (se impostati): prima dell'apertura
+    // vendite la fascia è visibile ma non acquistabile, dopo la chiusura è "esaurita" — utile per
+    // aprire/chiudere le vendite di una fascia da sola, senza dover tornare nel pannello a un'ora
+    // precisa per spuntarla a mano.
+    let soldOut, forceUpcoming;
+    if (status === "soldout") {
+      soldOut = true; forceUpcoming = false;
+    } else if (status === "comingsoon") {
+      soldOut = false; forceUpcoming = true;
+    } else {
+      const now = new Date();
+      const notYetOpen = t.availableFrom && now < new Date(t.availableFrom);
+      const alreadyClosed = t.availableUntil && now > new Date(t.availableUntil);
+      if (notYetOpen) { soldOut = false; forceUpcoming = true; }
+      else if (alreadyClosed) { soldOut = true; forceUpcoming = false; }
+      else { soldOut = sold >= t.capacity; forceUpcoming = false; }
+    }
     const active = !soldOut && !forceUpcoming && !activeAssigned;
     if (active) activeAssigned = true;
     // priceCents resta il prezzo netto configurato nel pannello (quanto vogliamo incassare);
@@ -3485,7 +3500,13 @@ function validateEventPayload(body, existingTiers, sold) {
     // "Esaurita" indipendentemente dalla capienza; "comingsoon" la mostra visibile ma non ancora
     // acquistabile (utile prima che i biglietti siano davvero in vendita) — vedi handleEventTiers.
     const status = ["auto", "soldout", "comingsoon"].includes(rawTier.status) ? rawTier.status : "auto";
-    tiers.push({ id: tierId, name: tierName, sub: String(rawTier.sub || "").trim().slice(0, 200), capacity, options, status });
+    // Finestra di vendita facoltativa (solo quando status è "auto"): datetime ISO da un <input
+    // type="datetime-local">, validati ma tenuti così come sono (il confronto con "adesso" si fa
+    // al momento di servire /api/event-tiers, non qui — un salvataggio fatto oggi deve restare
+    // valido anche tra un mese). Stringa vuota/non valida = nessun limite su quel lato.
+    const availableFrom = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(rawTier.availableFrom || "") ? rawTier.availableFrom : null;
+    const availableUntil = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(rawTier.availableUntil || "") ? rawTier.availableUntil : null;
+    tiers.push({ id: tierId, name: tierName, sub: String(rawTier.sub || "").trim().slice(0, 200), capacity, options, status, availableFrom, availableUntil });
   }
 
   // Stessa protezione, a livello di fascia intera: non si può far sparire una fascia che ha già
