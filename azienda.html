@@ -1124,12 +1124,18 @@
     if (select.dataset.loaded) return;
     try {
       var res = await fetch('/api/admin/events');
+      if (!res.ok) {
+        console.error('loadDashboardEventFilter: /api/admin/events risposta non ok', res.status);
+        return; // niente dataset.loaded: ritenta al prossimo giro su Dashboard
+      }
       var data = await res.json();
       var events = data.events || [];
       select.innerHTML = '<option value="">Tutti gli eventi (totale)</option>' +
         events.map(function(e){ return '<option value="' + e.slug + '">' + esc(e.name) + '</option>'; }).join('');
       select.dataset.loaded = '1';
-    } catch (err) { /* resta solo "Tutti gli eventi" */ }
+    } catch (err) {
+      console.error('loadDashboardEventFilter: errore', err);
+    }
   }
   document.getElementById('az-dashboard-event-filter').addEventListener('change', loadDashboardStats);
   panelLoaders.dashboard = { loaded: false, load: function(){ loadDashboardEventFilter(); loadDashboardStats(); } };
