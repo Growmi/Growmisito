@@ -36,7 +36,10 @@ export default {
 function withSecurityHeaders(response) {
   const headers = new Headers(response.headers);
   headers.set("X-Content-Type-Options", "nosniff");
-  headers.set("X-Frame-Options", "DENY");
+  // SAMEORIGIN (non DENY): il pannello azienda.html deve poter incorporare le pagine pubbliche in
+  // un iframe per l'anteprima "Preview" — blocca comunque l'incorporamento da siti terzi, che è
+  // la protezione da clickjacking che conta davvero.
+  headers.set("X-Frame-Options", "SAMEORIGIN");
   headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
   headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
@@ -4021,9 +4024,43 @@ function validatePageContentPayload(body) {
     }
   }
 
+  // "teamAreas" (usato oggi solo da chi-siamo, "Staff"): stessa logica di generalità/undefined di
+  // founders — assente vuol dire "mostra le aree statiche della pagina", un array (anche vuoto)
+  // le sovrascrive. Una area è {key, name, lead, countLabel, iconKey, members:[{name, role, photoKey}]}.
+  let teamAreas;
+  if (Array.isArray(body.teamAreas)) {
+    teamAreas = [];
+    for (const raw of body.teamAreas) {
+      const name = String((raw && raw.name) || "").trim().slice(0, 100);
+      if (!name) continue;
+      const inputMembers = Array.isArray(raw && raw.members) ? raw.members : [];
+      const members = [];
+      for (const m of inputMembers) {
+        const mName = String((m && m.name) || "").trim().slice(0, 200);
+        if (!mName) continue;
+        members.push({
+          name: mName,
+          role: String((m && m.role) || "").trim().slice(0, 200),
+          photoKey: (m && String(m.photoKey || "").trim()) || null
+        });
+        if (members.length >= 20) break;
+      }
+      teamAreas.push({
+        key: String((raw && raw.key) || "").trim().slice(0, 40) || `area-${teamAreas.length + 1}`,
+        name,
+        lead: String((raw && raw.lead) || "").trim().slice(0, 300),
+        countLabel: String((raw && raw.countLabel) || "").trim().slice(0, 40),
+        iconKey: (raw && String(raw.iconKey || "").trim()) || null,
+        members
+      });
+      if (teamAreas.length >= 12) break;
+    }
+  }
+
   const content = { fields, extraSections };
   if (founders !== undefined) content.founders = founders;
   if (heroSlides !== undefined) content.heroSlides = heroSlides;
+  if (teamAreas !== undefined) content.teamAreas = teamAreas;
   return { ok: true, content };
 }
 
@@ -4285,8 +4322,13 @@ async function handleAdminGetSiteTheme(request, env) {
   if (auth.error) return auth.error;
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
   const theme = await getSiteTheme(env);
-  const fontPairs = Object.keys(FONT_PAIRS).map(function(key){ return { key, label: FONT_PAIRS[key].label }; });
-  return jsonResponse({ theme, fontPairs });
+  // Include famiglie e link Google Fonts (non solo l'etichetta): servono al pannello per mostrare
+  // un'anteprima dal vivo di ogni coppia di font prima di scegliere/salvare.
+  const fontPairs = Object.keys(FONT_PAIRS).map(function(key){
+    const fp = FONT_PAIRS[key];
+    return { key, label: fp.label, headingFamily: fp.headingFamily, bodyFamily: fp.bodyFamily, googleFontsHref: fp.googleFontsHref };
+  });
+  return jsonResponse({ theme, fontPairs, colorKeys: Object.keys(THEME_COLOR_KEYS) });
 }
 
 async function handleAdminSaveSiteTheme(request, env) {

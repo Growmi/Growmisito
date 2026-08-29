@@ -241,6 +241,34 @@
   .az-wipe-list li{ padding:5px 0; border-bottom:1px solid var(--line); }
   .az-wipe-list li:last-child{ border-bottom:none; }
   .az-wipe-emails{ color:var(--grey); font-size:12px; }
+
+  .az-preview-btn{
+    padding:14px 22px; border-radius:999px; border:1.5px solid var(--ink); background:#fff;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; cursor:pointer; color:var(--ink);
+  }
+  .az-preview-drawer{ position:fixed; inset:0; z-index:200; }
+  .az-preview-drawer-backdrop{
+    position:absolute; inset:0; background:rgba(30,12,44,.45);
+    opacity:0; transition:opacity .25s ease;
+  }
+  .az-preview-drawer.open .az-preview-drawer-backdrop{ opacity:1; }
+  .az-preview-drawer-panel{
+    position:absolute; top:0; right:0; bottom:0; width:min(760px, 94vw);
+    background:var(--cream); box-shadow:-20px 0 44px rgba(30,12,44,.28);
+    display:flex; flex-direction:column;
+    transform:translateX(100%); transition:transform .3s cubic-bezier(.22,1,.36,1);
+  }
+  .az-preview-drawer.open .az-preview-drawer-panel{ transform:translateX(0); }
+  .az-preview-drawer-header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 20px; border-bottom:1.5px solid var(--line);
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; flex:0 0 auto;
+  }
+  .az-preview-drawer-header button{
+    width:30px; height:30px; border-radius:50%; border:1.5px solid var(--line); background:#fff;
+    font-size:16px; cursor:pointer; line-height:1;
+  }
+  .az-preview-drawer-panel iframe{ flex:1 1 auto; width:100%; border:none; background:#fff; }
 </style>
 </head>
 <body>
@@ -637,7 +665,8 @@
         </div>
 
         <div style="display:flex; gap:10px; align-items:center;">
-          <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Salva home</button>
+          <button type="button" class="az-preview-btn" id="az-home-preview-btn">👁 Preview</button>
+          <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Pubblica home</button>
         </div>
         <p class="az-msg" id="az-home-msg" hidden></p>
       </form>
@@ -677,7 +706,8 @@
         </div>
 
         <div style="display:flex; gap:10px; align-items:center;">
-          <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Salva chi siamo</button>
+          <button type="button" class="az-preview-btn" id="az-chisiamo-preview-btn">👁 Preview</button>
+          <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Pubblica chi siamo</button>
         </div>
         <p class="az-msg" id="az-chisiamo-msg" hidden></p>
       </form>
@@ -700,7 +730,8 @@
         </div>
 
         <div style="display:flex; gap:10px; align-items:center;">
-          <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Salva contatti</button>
+          <button type="button" class="az-preview-btn" id="az-contatti-preview-btn">👁 Preview</button>
+          <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Pubblica contatti</button>
         </div>
         <p class="az-msg" id="az-contatti-msg" hidden></p>
       </form>
@@ -744,7 +775,8 @@
         </div>
 
         <div style="display:flex; gap:10px; align-items:center;">
-          <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Salva carta fedeltà</button>
+          <button type="button" class="az-preview-btn" id="az-loyalty-preview-btn">👁 Preview</button>
+          <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Pubblica carta fedeltà</button>
         </div>
         <p class="az-msg" id="az-loyalty-msg" hidden></p>
       </form>
@@ -774,8 +806,21 @@
             <p style="font-size:13px; font-weight:600; margin-bottom:10px;">Colori</p>
             <div id="az-theme-colors" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:14px;"></div>
           </div>
+
+          <div>
+            <p style="font-size:13px; font-weight:600; margin-bottom:10px;">Anteprima (si aggiorna mentre modifichi, prima ancora di salvare)</p>
+            <div id="az-theme-preview" style="border:1.5px solid var(--line); border-radius:14px; padding:22px; background:var(--cream);">
+              <p id="az-theme-preview-eyebrow" style="text-transform:uppercase; font-size:11px; letter-spacing:.12em; font-weight:700; margin-bottom:8px;">GrowMi</p>
+              <h2 id="az-theme-preview-heading" style="font-size:28px; font-weight:700; margin-bottom:10px; line-height:1.1;">Free to be GrowMi</h2>
+              <p id="az-theme-preview-body" style="font-size:14px; color:var(--grey); margin-bottom:16px;">Così apparirà il testo del sito con questa combinazione di font.</p>
+              <div id="az-theme-preview-btn" style="display:inline-block; padding:10px 20px; border-radius:999px; font-weight:700; font-size:13px; color:#fff;">Prendi il biglietto</div>
+              <div id="az-theme-preview-swatches" style="display:flex; gap:8px; margin-top:18px; flex-wrap:wrap;"></div>
+            </div>
+          </div>
+
           <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Salva font e colori</button>
+            <button type="button" class="az-preview-btn" id="az-theme-preview-btn">👁 Preview</button>
+            <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Pubblica font e colori</button>
             <button type="button" class="az-mini-btn" id="az-theme-reset">Ripristina originali</button>
           </div>
           <p class="az-msg" id="az-theme-msg" hidden></p>
@@ -783,6 +828,17 @@
       </div>
     </div>
   </main>
+</div>
+
+<div class="az-preview-drawer" id="az-preview-drawer" hidden>
+  <div class="az-preview-drawer-backdrop" id="az-preview-backdrop"></div>
+  <div class="az-preview-drawer-panel">
+    <div class="az-preview-drawer-header">
+      <span>Anteprima — modifiche non ancora pubblicate</span>
+      <button type="button" id="az-preview-close" aria-label="Chiudi anteprima">&times;</button>
+    </div>
+    <iframe id="az-preview-iframe" title="Anteprima pagina"></iframe>
+  </div>
 </div>
 
 <script>
@@ -1673,6 +1729,78 @@
     if (key.indexOf('http://') === 0 || key.indexOf('https://') === 0 || key.indexOf('/') === 0 || key.indexOf('assets/') === 0) return key;
     return '/media/' + key;
   }
+
+  // ---- Anteprima "Preview": mostra la pagina reale dentro un iframe con sopra applicate le
+  // modifiche NON ancora salvate — stessa identica logica di sovrascrittura del server
+  // (data-cms/data-cms-src, sezioni extra, sostituzione blocchi, aggiunta in coda), ma lato
+  // client su una copia caricata al volo, senza toccare mai il contenuto live finché non si preme
+  // "Pubblica". Riusata da tutti i pannelli pagina + font e colori. ----
+  function extraSectionsHTMLPreview(sections){
+    return (sections || []).map(function(s){
+      if (s.type === 'image') {
+        return '<section class="ed-section-tight"><div class="wrap"><img src="' + mediaSrc(s.key) + '" alt="' + (s.caption || '') + '" style="width:100%; border-radius:16px; display:block;">' + (s.caption ? '<p class="meta" style="margin-top:12px; text-align:center;">' + s.caption + '</p>' : '') + '</div></section>';
+      }
+      return '<section class="ed-section-tight"><div class="wrap"><div class="ed-head"><h2>' + (s.title || '') + '</h2></div>' + (s.body ? '<p>' + s.body + '</p>' : '') + '</div></section>';
+    }).join('');
+  }
+  function foundersHTMLPreview(founders){
+    return (founders || []).map(function(f){
+      var photo = f.photoKey ? '<img src="' + mediaSrc(f.photoKey) + '" alt="' + f.name + '" loading="lazy">' : '';
+      return '<div class="team-card"><div class="team-photo">' + photo + '</div><h3>' + f.name + '</h3><p class="role">' + (f.role || '') + '</p></div>';
+    }).join('');
+  }
+  function heroSlidesHTMLPreview(keys){
+    return (keys || []).map(function(key){ return '<div class="ed-hero-slide"><img src="' + mediaSrc(key) + '" alt=""></div>'; }).join('');
+  }
+
+  function applyPreviewOverrides(doc, opts){
+    var fields = opts.fields || {};
+    doc.querySelectorAll('[data-cms]').forEach(function(el){
+      var key = el.getAttribute('data-cms');
+      if (key && fields[key]) el.textContent = fields[key];
+    });
+    doc.querySelectorAll('[data-cms-src]').forEach(function(el){
+      var key = el.getAttribute('data-cms-src');
+      if (key && fields[key]) el.setAttribute('src', mediaSrc(fields[key]));
+    });
+    if (opts.extraSectionsSelector && opts.extraSectionsHtml) {
+      var extraEl = doc.querySelector(opts.extraSectionsSelector);
+      if (extraEl) extraEl.innerHTML = opts.extraSectionsHtml;
+    }
+    (opts.replaceTargets || []).forEach(function(r){
+      var el = doc.querySelector(r.selector);
+      if (el && r.html !== null && r.html !== undefined) el.innerHTML = r.html;
+    });
+    (opts.appendTargets || []).forEach(function(a){
+      var el = doc.querySelector(a.selector);
+      if (el && a.html) el.insertAdjacentHTML('beforeend', a.html);
+    });
+    if (opts.styleHtml) doc.head.insertAdjacentHTML('beforeend', opts.styleHtml);
+    if (opts.googleFontsHref) {
+      var link = doc.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = opts.googleFontsHref;
+      doc.head.appendChild(link);
+    }
+  }
+
+  var previewDrawer = document.getElementById('az-preview-drawer');
+  var previewIframe = document.getElementById('az-preview-iframe');
+  function openPreview(pageUrl, applyOpts){
+    previewDrawer.hidden = false;
+    requestAnimationFrame(function(){ previewDrawer.classList.add('open'); });
+    previewIframe.onload = function(){
+      try { applyPreviewOverrides(previewIframe.contentDocument, applyOpts); }
+      catch (err) { /* pagina non ancora caricata o cross-origin, si ignora */ }
+    };
+    previewIframe.src = pageUrl + (pageUrl.indexOf('?') === -1 ? '?' : '&') + '_preview=' + Date.now();
+  }
+  function closePreview(){
+    previewDrawer.classList.remove('open');
+    setTimeout(function(){ previewDrawer.hidden = true; previewIframe.src = 'about:blank'; }, 320);
+  }
+  document.getElementById('az-preview-close').addEventListener('click', closePreview);
+  document.getElementById('az-preview-backdrop').addEventListener('click', closePreview);
   // Generalizzazione minima di uploadArtistMedia per accettare anche "pages" come kind, senza
   // duplicare tutta la logica di upload.
   async function uploadArtistMediaGeneric(file, purpose, slug, kind){
@@ -1762,11 +1890,7 @@
   }
   panelLoaders['pagina-home'] = { loaded: false, load: loadHomeContent };
 
-  document.getElementById('az-home-form').addEventListener('submit', async function(e){
-    e.preventDefault();
-    var msg = document.getElementById('az-home-msg');
-    msg.hidden = true;
-
+  function collectHomeFields(){
     var fields = {};
     Object.keys(homeFieldInputs).forEach(function(key){
       var v = homeFieldInputs[key].value.trim();
@@ -1775,6 +1899,24 @@
     Object.keys(homeSlideKeys).forEach(function(key){
       if (homeSlideKeys[key]) fields[key] = homeSlideKeys[key];
     });
+    return fields;
+  }
+
+  document.getElementById('az-home-preview-btn').addEventListener('click', function(){
+    openPreview('/index.html', {
+      fields: collectHomeFields(),
+      extraSectionsSelector: '#home-extra-sections',
+      extraSectionsHtml: extraSectionsHTMLPreview(homeExtraSections),
+      appendTargets: [{ selector: '.ed-hero-slideshow', html: heroSlidesHTMLPreview(homeExtraSlides) }]
+    });
+  });
+
+  document.getElementById('az-home-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var msg = document.getElementById('az-home-msg');
+    msg.hidden = true;
+
+    var fields = collectHomeFields();
 
     var submitBtn = document.querySelector('#az-home-form .az-submit');
     submitBtn.disabled = true;
@@ -1795,7 +1937,7 @@
       showMsg(msg, 'Errore di connessione.', true);
     }
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Salva home';
+    submitBtn.textContent = 'Pubblica home';
   });
 
   // ---- Pagina Chi siamo ----
@@ -1971,16 +2113,30 @@
   }
   panelLoaders['pagina-chisiamo'] = { loaded: false, load: loadChisiamoContent };
 
-  document.getElementById('az-chisiamo-form').addEventListener('submit', async function(e){
-    e.preventDefault();
-    var msg = document.getElementById('az-chisiamo-msg');
-    msg.hidden = true;
-
+  function collectChisiamoFields(){
     var fields = {};
     Object.keys(chisiamoFieldInputs).forEach(function(key){
       var v = chisiamoFieldInputs[key].value.trim();
       if (v) fields[key] = v;
     });
+    return fields;
+  }
+
+  document.getElementById('az-chisiamo-preview-btn').addEventListener('click', function(){
+    openPreview('/chi-siamo.html', {
+      fields: collectChisiamoFields(),
+      extraSectionsSelector: '#cs-extra-sections',
+      extraSectionsHtml: extraSectionsHTMLPreview(chisiamoExtraSections),
+      replaceTargets: [{ selector: '#cs-founders-grid', html: foundersHTMLPreview(chisiamoFounders) }]
+    });
+  });
+
+  document.getElementById('az-chisiamo-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var msg = document.getElementById('az-chisiamo-msg');
+    msg.hidden = true;
+
+    var fields = collectChisiamoFields();
 
     var submitBtn = document.querySelector('#az-chisiamo-form .az-submit');
     submitBtn.disabled = true;
@@ -2001,7 +2157,7 @@
       showMsg(msg, 'Errore di connessione.', true);
     }
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Salva chi siamo';
+    submitBtn.textContent = 'Pubblica chi siamo';
   });
 
   // ---- Pagina Contatti ----
@@ -2082,15 +2238,28 @@
   }
   panelLoaders['pagina-contatti'] = { loaded: false, load: loadContattiContent };
 
-  document.getElementById('az-contatti-form').addEventListener('submit', async function(e){
-    e.preventDefault();
-    var msg = document.getElementById('az-contatti-msg');
-    msg.hidden = true;
+  function collectContattiFields(){
     var fields = {};
     Object.keys(contattiFieldInputs).forEach(function(key){
       var v = contattiFieldInputs[key].value.trim();
       if (v) fields[key] = v;
     });
+    return fields;
+  }
+
+  document.getElementById('az-contatti-preview-btn').addEventListener('click', function(){
+    openPreview('/contatti.html', {
+      fields: collectContattiFields(),
+      extraSectionsSelector: '#ct-extra-sections',
+      extraSectionsHtml: extraSectionsHTMLPreview(contattiExtraSections)
+    });
+  });
+
+  document.getElementById('az-contatti-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var msg = document.getElementById('az-contatti-msg');
+    msg.hidden = true;
+    var fields = collectContattiFields();
     var submitBtn = document.querySelector('#az-contatti-form .az-submit');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Salvataggio...';
@@ -2110,7 +2279,7 @@
       showMsg(msg, 'Errore di connessione.', true);
     }
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Salva contatti';
+    submitBtn.textContent = 'Pubblica contatti';
   });
 
   // ---- Pagina Carta fedeltà ----
@@ -2184,10 +2353,7 @@
   }
   panelLoaders['pagina-loyalty'] = { loaded: false, load: loadLoyaltyContent };
 
-  document.getElementById('az-loyalty-form').addEventListener('submit', async function(e){
-    e.preventDefault();
-    var msg = document.getElementById('az-loyalty-msg');
-    msg.hidden = true;
+  function collectLoyaltyFields(){
     var fields = {};
     Object.keys(loyaltyFieldInputs).forEach(function(key){
       var v = loyaltyFieldInputs[key].value.trim();
@@ -2196,6 +2362,22 @@
     Object.keys(loyaltyCardKeys).forEach(function(key){
       if (loyaltyCardKeys[key]) fields[key] = loyaltyCardKeys[key];
     });
+    return fields;
+  }
+
+  document.getElementById('az-loyalty-preview-btn').addEventListener('click', function(){
+    openPreview('/loyalty-card.html', {
+      fields: collectLoyaltyFields(),
+      extraSectionsSelector: '#loy-extra-sections',
+      extraSectionsHtml: extraSectionsHTMLPreview(loyaltyExtraSections)
+    });
+  });
+
+  document.getElementById('az-loyalty-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var msg = document.getElementById('az-loyalty-msg');
+    msg.hidden = true;
+    var fields = collectLoyaltyFields();
     var submitBtn = document.querySelector('#az-loyalty-form .az-submit');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Salvataggio...';
@@ -2215,7 +2397,7 @@
       showMsg(msg, 'Errore di connessione.', true);
     }
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Salva carta fedeltà';
+    submitBtn.textContent = 'Pubblica carta fedeltà';
   });
 
   // ---- Impostazioni: immagine hero di default (chiave R2 fissa "site/default-hero-image") ----
@@ -2270,29 +2452,102 @@
   }
   renderThemeColorInputs();
 
+  // Dati completi delle coppie di font (famiglie + link Google Fonts), non solo le etichette —
+  // servono per l'anteprima dal vivo, caricata la prima volta che arrivano dalla GET.
+  var themeFontPairsByKey = {};
+
+  function loadPreviewGoogleFont(href){
+    if (!href) return;
+    var link = document.getElementById('az-theme-preview-fonts');
+    if (!link) {
+      link = document.createElement('link');
+      link.id = 'az-theme-preview-fonts';
+      link.rel = 'stylesheet';
+      document.head.appendChild(link);
+    }
+    if (link.href !== href) link.href = href;
+  }
+
+  // Mostra SUBITO testi e colori attualmente scelti (salvati o di default), aggiornandosi a ogni
+  // modifica prima ancora di salvare — così si vede l'effetto reale prima di pubblicarlo.
+  function updateThemePreview(){
+    var fontKey = document.getElementById('az-theme-font-select').value;
+    var fp = themeFontPairsByKey[fontKey];
+    if (fp) {
+      loadPreviewGoogleFont(fp.googleFontsHref);
+      document.getElementById('az-theme-preview-heading').style.fontFamily = fp.headingFamily;
+      document.getElementById('az-theme-preview-eyebrow').style.fontFamily = fp.headingFamily;
+      document.getElementById('az-theme-preview-body').style.fontFamily = fp.bodyFamily;
+    }
+    var colors = {};
+    THEME_COLOR_DEFS.forEach(function(def){ colors[def.key] = themeColorInputs[def.key].value; });
+    document.getElementById('az-theme-preview-eyebrow').style.color = colors.coral;
+    document.getElementById('az-theme-preview-btn').style.background = colors.coral;
+    document.getElementById('az-theme-preview-heading').style.color = colors.purpleDeep;
+    var swatchWrap = document.getElementById('az-theme-preview-swatches');
+    swatchWrap.innerHTML = '';
+    THEME_COLOR_DEFS.forEach(function(def){
+      var sw = document.createElement('div');
+      sw.title = def.label;
+      sw.style.cssText = 'width:32px; height:32px; border-radius:8px; border:1.5px solid var(--line);';
+      sw.style.background = colors[def.key];
+      swatchWrap.appendChild(sw);
+    });
+  }
+
   async function loadThemeSettings(){
     try {
       var res = await fetch('/api/admin/site-theme');
       var data = await res.json();
       var select = document.getElementById('az-theme-font-select');
       select.innerHTML = '';
+      themeFontPairsByKey = {};
       (data.fontPairs || []).forEach(function(fp){
         var opt = document.createElement('option');
         opt.value = fp.key;
         opt.textContent = fp.label;
         select.appendChild(opt);
+        themeFontPairsByKey[fp.key] = fp;
       });
       var theme = data.theme || {};
       select.value = theme.fontPairKey || 'default';
       THEME_COLOR_DEFS.forEach(function(def){
         themeColorInputs[def.key].value = (theme.colors && theme.colors[def.key]) || def.default;
       });
+      updateThemePreview();
     } catch (err) { /* i campi restano ai valori di default, riprovabile ricaricando il pannello */ }
   }
+
+  document.getElementById('az-theme-font-select').addEventListener('change', updateThemePreview);
+  THEME_COLOR_DEFS.forEach(function(def){
+    themeColorInputs[def.key].addEventListener('input', updateThemePreview);
+  });
 
   document.getElementById('az-theme-reset').addEventListener('click', function(){
     document.getElementById('az-theme-font-select').value = 'default';
     THEME_COLOR_DEFS.forEach(function(def){ themeColorInputs[def.key].value = def.default; });
+    updateThemePreview();
+  });
+
+  var THEME_CSS_VAR_MAP = {
+    purpleDeep: '--purple-deep', purpleDeeper: '--purple-deeper', lilac: '--lilac',
+    coral: '--coral', yellow: '--yellow', magenta: '--magenta'
+  };
+  document.getElementById('az-theme-preview-btn').addEventListener('click', function(){
+    var fontKey = document.getElementById('az-theme-font-select').value;
+    var fp = themeFontPairsByKey[fontKey];
+    var decls = [];
+    if (fp && fontKey !== 'default') {
+      decls.push('--font-heading:' + fp.headingFamily);
+      decls.push('--font-body:' + fp.bodyFamily);
+    }
+    THEME_COLOR_DEFS.forEach(function(def){
+      decls.push(THEME_CSS_VAR_MAP[def.key] + ':' + themeColorInputs[def.key].value);
+    });
+    openPreview('/index.html', {
+      styleHtml: '<style>:root{' + decls.join(';') + '}</style>',
+      googleFontsHref: (fp && fontKey !== 'default') ? fp.googleFontsHref : null
+    });
   });
 
   document.getElementById('az-theme-form').addEventListener('submit', async function(e){
@@ -2321,7 +2576,7 @@
       showMsg(msg, 'Errore di connessione.', true);
     }
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Salva font e colori';
+    submitBtn.textContent = 'Pubblica font e colori';
   });
 
   panelLoaders.impostazioni = { loaded: false, load: function(){ loadSiteSettings(); loadThemeSettings(); } };
