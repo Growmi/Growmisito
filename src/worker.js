@@ -3703,6 +3703,25 @@ function isArtistPublished(artist) {
 // bio/media sono a blocchi liberi (aggiungi/rimuovi/riordina dal pannello) invece che campi
 // fissi: le 9 pagine artista esistenti hanno tutte una struttura diversa (chi ha 1 clip, chi 3,
 // chi mischia video e foto), un numero fisso di campi non ci sarebbe mai stato bene.
+// Zoom dell'inquadratura di una foto: 1 = adattata come sempre (object-fit:cover), più alto =
+// più ravvicinata. Clampato a un intervallo ragionevole così un valore corrotto/inatteso dal
+// client non produce mai un ingrandimento assurdo in pagina.
+function clampImageZoom(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 1;
+  return Math.min(3, Math.max(1, n));
+}
+
+// CSS inline per "sposta/ingrandisci" su un <img> con object-fit:cover: object-position sposta
+// l'inquadratura dentro il riquadro (già usato prima di avere lo zoom), transform:scale ingrandisce
+// mantenendo l'immagine ritagliata dal riquadro. zoom=1 non aggiunge transform, così un'immagine
+// mai toccata resta identica a prima (nessuna regressione visiva).
+function photoFramingStyle(position, zoom) {
+  const z = clampImageZoom(zoom);
+  const pos = `object-position:${position || "center"};`;
+  return z > 1 ? `${pos} transform:scale(${z});` : pos;
+}
+
 function validateArtistPayload(body) {
   const name = String(body.name || "").trim().slice(0, 200);
   const role = String(body.role || "").trim().slice(0, 100);
@@ -3711,9 +3730,12 @@ function validateArtistPayload(body) {
 
   const cardImageKey = String(body.cardImageKey || "").trim() || null;
   const cardImagePosition = String(body.cardImagePosition || "center").trim().slice(0, 30);
+  const cardImageZoom = clampImageZoom(body.cardImageZoom);
 
   const heroType = ["video", "image", "none"].includes(body.heroType) ? body.heroType : "none";
   const heroKey = heroType === "none" ? null : (String(body.heroKey || "").trim() || null);
+  const heroPosition = String(body.heroPosition || "center").trim().slice(0, 30);
+  const heroZoom = clampImageZoom(body.heroZoom);
 
   const bio = Array.isArray(body.bio)
     ? body.bio.map(function(p){ return String(p || "").trim().slice(0, 4000); }).filter(Boolean).slice(0, 20)
@@ -3725,7 +3747,11 @@ function validateArtistPayload(body) {
     const type = raw && raw.type === "video" ? "video" : "image";
     const key = raw && String(raw.key || "").trim();
     if (!key) continue;
-    media.push({ type, key, position: String((raw && raw.position) || "center").trim().slice(0, 30) });
+    media.push({
+      type, key,
+      position: String((raw && raw.position) || "center").trim().slice(0, 30),
+      zoom: clampImageZoom(raw && raw.zoom)
+    });
     if (media.length >= 20) break;
   }
 
@@ -3741,7 +3767,7 @@ function validateArtistPayload(body) {
     ? null
     : (Number.isFinite(Number(body.sortOrder)) ? Number(body.sortOrder) : null);
 
-  return { ok: true, artist: { name, role, cardImageKey, cardImagePosition, heroType, heroKey, bio, media, published, sortOrder } };
+  return { ok: true, artist: { name, role, cardImageKey, cardImagePosition, cardImageZoom, heroType, heroKey, heroPosition, heroZoom, bio, media, published, sortOrder } };
 }
 
 async function handleAdminListArtists(request, env) {
@@ -3809,6 +3835,7 @@ async function handlePublicArtists(request, env) {
     artists.push({
       slug, name: artist.name, role: artist.role,
       cardImageUrl: mediaUrl(artist.cardImageKey), cardImagePosition: artist.cardImagePosition,
+      cardImageZoom: typeof artist.cardImageZoom === "number" ? artist.cardImageZoom : 1,
       sortOrder: typeof artist.sortOrder === "number" ? artist.sortOrder : null,
       pageUrl: `/artista/${slug}`
     });
@@ -3828,7 +3855,7 @@ function artistPageHTML(artist, slug) {
   const heroInner = artist.heroType === "video"
     ? `<video class="ed-hero-video" autoplay muted loop playsinline><source src="${mediaUrl(artist.heroKey)}" type="video/mp4"></video><div class="ed-hero-video-overlay"></div>`
     : artist.heroType === "image"
-      ? `<img class="ed-hero-photo" src="${mediaUrl(artist.heroKey)}" alt=""><div class="ed-hero-video-overlay"></div>`
+      ? `<img class="ed-hero-photo" src="${mediaUrl(artist.heroKey)}" alt="" style="${photoFramingStyle(artist.heroPosition, artist.heroZoom)}"><div class="ed-hero-video-overlay"></div>`
       : "";
   const bioHTML = artist.bio.map(function(p){
     return `<p style="font-size:16.5px; margin-bottom:20px;">${p}</p>`;
@@ -3902,7 +3929,7 @@ function artistPageHTML(artist, slug) {
 
 <section class="ed-section-tight">
   <div class="wrap" style="max-width:980px;">
-    ${artist.cardImageKey ? `<div class="ed-card-media" style="aspect-ratio:16/10; margin-bottom:32px;"><img src="${mediaUrl(artist.cardImageKey)}" alt="${artist.name}" style="object-position:${artist.cardImagePosition};"></div>` : ""}
+    ${artist.cardImageKey ? `<div class="ed-card-media" style="aspect-ratio:16/10; margin-bottom:32px;"><img src="${mediaUrl(artist.cardImageKey)}" alt="${artist.name}" style="${photoFramingStyle(artist.cardImagePosition, artist.cardImageZoom)}"></div>` : ""}
     <div style="display:flex; gap:44px; flex-wrap:wrap; align-items:flex-start;">
       <div style="flex:1 1 380px; min-width:280px;">${bioHTML}</div>
       <div style="flex:1 1 340px; min-width:260px; max-width:480px;">${mediaHTML}</div>

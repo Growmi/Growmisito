@@ -600,14 +600,7 @@
             <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Mostrata nell'elenco artisti e come sfondo pagina se non c'è un'immagine hero.</p>
             <div class="az-image-preview" id="az-ar-card-preview">Nessuna immagine</div>
             <input type="file" accept="image/jpeg,image/png,image/webp" id="az-ar-card-input">
-            <div class="az-field" style="margin-top:8px;">
-              <label for="az-ar-card-position">Inquadratura</label>
-              <select id="az-ar-card-position">
-                <option value="center">Centro</option>
-                <option value="center 15%">Alto</option>
-                <option value="center 85%">Basso</option>
-              </select>
-            </div>
+            <div id="az-ar-card-framing"></div>
           </div>
 
           <div>
@@ -622,6 +615,7 @@
             <div class="az-image-preview" id="az-ar-hero-preview">Nessuna immagine/video</div>
             <input type="file" accept="video/mp4,image/jpeg,image/png,image/webp" id="az-ar-hero-input">
             <button type="button" class="az-mini-btn danger" id="az-ar-hero-remove" hidden>Rimuovi</button>
+            <div id="az-ar-hero-framing"></div>
           </div>
 
           <div>
@@ -1428,8 +1422,10 @@
 
   var arUploadSlug = null;
   var arCardKey = null;
+  var arCardFraming = { position: 'center', zoom: 1 };
   var arHeroType = 'none';
   var arHeroKey = null;
+  var arHeroFraming = { position: 'center', zoom: 1 };
   var arBio = [];
   var arMedia = []; // [{type:'video'|'image', key, position}]
 
@@ -1440,13 +1436,21 @@
       : '<img src="/media/' + key + '" alt="">';
   }
   function renderArCardPreview(){
-    document.getElementById('az-ar-card-preview').innerHTML = arCardKey ? '<img src="/media/' + arCardKey + '" alt="">' : 'Nessuna immagine';
+    var box = document.getElementById('az-ar-card-preview');
+    box.innerHTML = arCardKey ? '<img src="/media/' + arCardKey + '" alt="">' : 'Nessuna immagine';
+    var framingWrap = document.getElementById('az-ar-card-framing');
+    if (arCardKey) renderFramingControls(framingWrap, box.querySelector('img'), arCardFraming);
+    else framingWrap.innerHTML = '';
   }
   function renderArHeroPreview(){
-    document.getElementById('az-ar-hero-preview').innerHTML = arMediaPreviewHTML(arHeroKey, arHeroType);
+    var box = document.getElementById('az-ar-hero-preview');
+    box.innerHTML = arMediaPreviewHTML(arHeroKey, arHeroType);
     document.getElementById('az-ar-hero-remove').hidden = !arHeroKey;
     document.getElementById('az-ar-hero-input').hidden = arHeroType === 'none';
     document.getElementById('az-ar-hero-input').accept = arHeroType === 'video' ? 'video/mp4' : 'image/jpeg,image/png,image/webp';
+    var framingWrap = document.getElementById('az-ar-hero-framing');
+    if (arHeroKey && arHeroType === 'image') renderFramingControls(framingWrap, box.querySelector('img'), arHeroFraming);
+    else framingWrap.innerHTML = '';
   }
   function renderArBioList(){
     var wrap = document.getElementById('az-ar-bio');
@@ -1490,7 +1494,6 @@
     try { arCardKey = await uploadArtistMedia(file, 'card', arUploadSlug); renderArCardPreview(); }
     catch (err) { alert(err.message); }
   });
-  document.getElementById('az-ar-card-position').addEventListener('change', function(){});
   document.getElementById('az-ar-hero-type').addEventListener('change', function(){
     arHeroType = this.value;
     if (arHeroType === 'none') { deleteArtistMedia(arHeroKey); arHeroKey = null; }
@@ -1566,13 +1569,14 @@
     document.getElementById('az-ar-name').value = artist ? artist.name : '';
     document.getElementById('az-ar-role').value = artist ? artist.role : '';
     document.getElementById('az-ar-sortorder').value = (artist && typeof artist.sortOrder === 'number') ? artist.sortOrder : '';
-    document.getElementById('az-ar-card-position').value = artist ? (artist.cardImagePosition || 'center') : 'center';
     document.getElementById('az-ar-hero-type').value = artist ? artist.heroType : 'none';
 
     arUploadSlug = artist ? artist.slug : ('draft-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
     arCardKey = artist ? (artist.cardImageKey || null) : null;
+    arCardFraming = { position: (artist && artist.cardImagePosition) || 'center', zoom: (artist && artist.cardImageZoom) || 1 };
     arHeroType = artist ? artist.heroType : 'none';
     arHeroKey = artist ? (artist.heroKey || null) : null;
+    arHeroFraming = { position: (artist && artist.heroPosition) || 'center', zoom: (artist && artist.heroZoom) || 1 };
     arBio = artist ? artist.bio.slice() : [];
     arMedia = artist ? artist.media.slice() : [];
     renderArCardPreview();
@@ -1599,9 +1603,12 @@
       role: document.getElementById('az-ar-role').value.trim(),
       sortOrder: document.getElementById('az-ar-sortorder').value.trim() === '' ? null : Number(document.getElementById('az-ar-sortorder').value),
       cardImageKey: arCardKey,
-      cardImagePosition: document.getElementById('az-ar-card-position').value,
+      cardImagePosition: arCardFraming.position,
+      cardImageZoom: arCardFraming.zoom,
       heroType: arHeroType,
       heroKey: arHeroKey,
+      heroPosition: arHeroFraming.position,
+      heroZoom: arHeroFraming.zoom,
       bio: arBio,
       media: arMedia,
       published: document.getElementById('az-ar-published').checked
@@ -1895,6 +1902,55 @@
       } catch (err) { alert(err.message); }
     });
   });
+  // ---- Inquadratura foto: sposta (X/Y) e ingrandisce (zoom) qualunque immagine caricata,
+  // riusata identica in tutti i pannelli. "position" è lo stesso valore CSS object-position già
+  // salvato per artisti/media (es. "center", "center 15%") — capisce sia i preset di sempre che i
+  // nuovi valori "X% Y%" dei due cursori. "zoom" è un numero (1 = adattata come sempre). ----
+  function parseObjectPosition(pos){
+    if (!pos || pos === 'center') return { x: 50, y: 50 };
+    var parts = String(pos).trim().split(/\s+/);
+    function toPct(v, isY){
+      if (v === 'center') return 50;
+      if (v === 'top') return 0;
+      if (v === 'bottom') return 100;
+      if (v === 'left') return 0;
+      if (v === 'right') return 100;
+      var m = /^(-?\d+(\.\d+)?)%$/.exec(v);
+      return m ? Math.min(100, Math.max(0, parseFloat(m[1]))) : 50;
+    }
+    return { x: parts[0] ? toPct(parts[0]) : 50, y: parts[1] ? toPct(parts[1]) : 50 };
+  }
+  // state: {position, zoom} — mutato sul posto a ogni cursore mosso. previewImgEl: l'<img> dentro
+  // l'anteprima, aggiornato dal vivo (nessuna richiesta al server finché non si pubblica).
+  function renderFramingControls(wrapEl, previewImgEl, state){
+    var parsed = parseObjectPosition(state.position);
+    wrapEl.innerHTML =
+      '<div style="display:flex; flex-direction:column; gap:6px; margin-top:8px; padding:10px; border:1.5px solid var(--line); border-radius:10px;">' +
+        '<label style="font-size:11px; color:var(--grey);">Posizione orizzontale</label>' +
+        '<input type="range" min="0" max="100" class="az-frame-x">' +
+        '<label style="font-size:11px; color:var(--grey);">Posizione verticale</label>' +
+        '<input type="range" min="0" max="100" class="az-frame-y">' +
+        '<label style="font-size:11px; color:var(--grey);">Zoom</label>' +
+        '<input type="range" min="100" max="250" class="az-frame-zoom">' +
+      '</div>';
+    var xInput = wrapEl.querySelector('.az-frame-x');
+    var yInput = wrapEl.querySelector('.az-frame-y');
+    var zInput = wrapEl.querySelector('.az-frame-zoom');
+    xInput.value = parsed.x;
+    yInput.value = parsed.y;
+    zInput.value = Math.round((state.zoom || 1) * 100);
+    function apply(){
+      state.position = xInput.value + '% ' + yInput.value + '%';
+      state.zoom = Number(zInput.value) / 100;
+      if (previewImgEl){
+        previewImgEl.style.objectPosition = state.position;
+        previewImgEl.style.transform = state.zoom > 1 ? 'scale(' + state.zoom + ')' : '';
+      }
+    }
+    [xInput, yInput, zInput].forEach(function(inp){ inp.addEventListener('input', apply); });
+    apply();
+  }
+
   // Rispecchia mediaUrl() lato server: la maggior parte delle chiavi sono chiavi R2 da far
   // passare per /media/, ma alcune (es. i fondatori pre-popolati con le foto statiche già live)
   // sono percorsi relativi agli asset statici e vanno usati così come sono.

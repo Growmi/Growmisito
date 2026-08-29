@@ -11,8 +11,10 @@
 
   function cardHTML(a){
     var name = escapeHTML(a.name);
+    var zoom = typeof a.cardImageZoom === 'number' && a.cardImageZoom > 1 ? a.cardImageZoom : 1;
+    var transform = zoom > 1 ? ' transform:scale(' + zoom + ');' : '';
     var mediaInner = a.cardImageUrl
-      ? '<img src="' + a.cardImageUrl + '" alt="' + name + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;object-position:' + escapeHTML(a.cardImagePosition || 'center') + ';">'
+      ? '<img src="' + a.cardImageUrl + '" alt="' + name + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;object-position:' + escapeHTML(a.cardImagePosition || 'center') + ';' + transform + '">'
       : '<span>' + name + '</span>';
     var mediaClass = a.cardImageUrl ? '' : ' dark';
     return (
