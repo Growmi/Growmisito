@@ -229,9 +229,7 @@
 <div class="stats-bar" id="statsBar">
   <div class="stats-box"><span class="n" id="statTotal">—</span><span class="l">Venduti</span></div>
   <div class="stats-box"><span class="n" id="statCheckedIn">—</span><span class="l">Entrati</span></div>
-</div>
-<div class="stats-bar" id="loyaltyStatsBar" hidden>
-  <div class="stats-box"><span class="n" id="statLoyaltyScans">0</span><span class="l">Card scansionate (in questo turno)</span></div>
+  <div class="stats-box"><span class="n" id="statStampsGiven">0</span><span class="l">Timbri dati (in questo turno)</span></div>
 </div>
 <button type="button" class="history-link" id="historyLink" hidden>📊 Storico evento</button>
 <div class="history-box" id="historyBox">
@@ -305,12 +303,11 @@
   var result = document.getElementById("result");
   var statTotal = document.getElementById("statTotal");
   var statCheckedIn = document.getElementById("statCheckedIn");
-  // Solo per questo turno (non salvato/persistito): quante loyalty card sono state scansionate
-  // con esito positivo da quando è aperta questa pagina — resta a 0 finché non si scansiona
-  // qualcosa, si azzera solo ricaricando la pagina.
-  var loyaltyStatsBar = document.getElementById("loyaltyStatsBar");
-  var statLoyaltyScans = document.getElementById("statLoyaltyScans");
-  var loyaltyScanCount = 0;
+  // Solo per questo turno (non salvato/persistito): quante loyalty card hanno ricevuto un timbro
+  // (non quante sono state scansionate/cercate — il timbro scatta solo al check-in di un
+  // biglietto, vedi addLoyaltyStamp in src/worker.js) da quando è aperta questa pagina.
+  var statStampsGiven = document.getElementById("statStampsGiven");
+  var stampsGivenCount = 0;
   var statsBar = document.getElementById("statsBar");
   var manualCode = document.getElementById("manualCode");
   var pageTitle = document.getElementById("pageTitle");
@@ -338,7 +335,6 @@
     document.getElementById("tabCheckin").classList.toggle("is-active", m === "checkin");
     document.getElementById("tabLoyalty").classList.toggle("is-active", m === "loyalty");
     statsBar.hidden = m !== "checkin";
-    loyaltyStatsBar.hidden = m !== "loyalty";
     document.getElementById("historyLink").hidden = m !== "checkin" || !selectedEvent;
     document.getElementById("historyBox").classList.remove("open");
     historyOpen = false;
@@ -512,6 +508,10 @@
       var data = await res.json();
       if (data.valid) {
         refreshStats();
+        if (data.stamps !== null && data.stamps !== undefined) {
+          stampsGivenCount++;
+          statStampsGiven.textContent = stampsGivenCount;
+        }
         // Se questo check-in ha appena sbloccato una ricompensa loyalty, lo staff lo vede subito
         // qui — il timbro scatta solo alla presenza reale, vedi handleCheckin in src/worker.js.
         // Il 3° evento (drink) va dato di persona: pulsante per confermarlo. Il 5° evento (coupon
@@ -549,8 +549,6 @@
       if (res.status === 401) { onUnauthorized(); return; }
       var data = await res.json();
       if (data.found) {
-        loyaltyScanCount++;
-        statLoyaltyScans.textContent = loyaltyScanCount;
         // Il 3° evento (drink) lo staff lo dà di persona: pulsante finché non lo segna. Il 5°
         // evento (coupon) è sempre e solo informativo qui — parte da solo via email al momento
         // del timbro, non c'è nulla da "dare" allo scanner.
@@ -671,6 +669,10 @@
       if (res.ok && data.ok) {
         closeWalkinPanel();
         refreshStats();
+        if (data.stamps !== null && data.stamps !== undefined) {
+          stampsGivenCount++;
+          statStampsGiven.textContent = stampsGivenCount;
+        }
         var detail = [data.name, data.tierName, "€" + (data.priceCents / 100).toFixed(2)].filter(Boolean).join(" — ");
         var extra = "";
         if (data.cardCreated) {
