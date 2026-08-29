@@ -58,11 +58,12 @@
   .az-form{ display:flex; flex-direction:column; gap:16px; max-width:380px; }
   .az-form[hidden]{ display:none; }
   .az-field label{ display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:8px; }
-  .az-field input{
+  .az-field input, .az-field textarea, .az-field select{
     width:100%; padding:13px 15px; border-radius:10px; border:1.5px solid var(--line);
     font-family:'Inter',sans-serif; font-size:14.5px;
   }
-  .az-field input:focus{ outline:none; border-color:var(--coral); }
+  .az-field textarea{ resize:vertical; min-height:70px; }
+  .az-field input:focus, .az-field textarea:focus, .az-field select:focus{ outline:none; border-color:var(--coral); }
   .az-field .hint{ font-size:12px; color:var(--grey); margin-top:6px; }
   .az-submit{
     padding:14px; border-radius:12px; border:none; background:var(--coral); color:#fff;
@@ -153,6 +154,14 @@
     font-family:'Inter',sans-serif; font-size:14px; margin-bottom:14px;
   }
   .az-search:focus{ outline:none; border-color:var(--coral); }
+  /* Stile di base per ogni <select> del pannello (filtri per evento, disponibilità fasce, ecc.) —
+     senza questo restano con l'aspetto grezzo di sistema, diverso da bottoni/campi intorno. Regole
+     più specifiche (es. .az-field select) vincono comunque dove serve un aspetto diverso. */
+  .az-main select{
+    padding:10px 13px; border-radius:10px; border:1.5px solid var(--line); background:#fff;
+    font-family:'Inter',sans-serif; font-size:14px; color:var(--ink);
+  }
+  .az-main select:focus{ outline:none; border-color:var(--coral); }
   .az-toolbar{ display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
   .az-toolbar .actions{ display:flex; gap:10px; flex-wrap:wrap; }
   .az-toolbar button{
@@ -2612,7 +2621,7 @@
       if (s.type === 'text') {
         row.innerHTML =
           '<input type="text" placeholder="Titolo sezione" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
-          '<textarea placeholder="Testo" style="width:100%; min-height:70px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);"></textarea>' +
+          '<textarea placeholder="Testo" style="width:100%; min-height:70px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line); font-family:Inter,sans-serif; font-size:14.5px;"></textarea>' +
           '<button type="button" class="az-mini-btn danger" style="margin-top:8px;">Rimuovi sezione</button>';
         var titleInput = row.querySelector('input');
         var bodyInput = row.querySelector('textarea');
@@ -2909,7 +2918,7 @@
           '</div>' +
           '<div>' +
             '<input type="text" class="az-cs-area-name" placeholder="Nome area" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
-            '<textarea class="az-cs-area-lead" placeholder="Descrizione" style="width:100%; min-height:50px; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);"></textarea>' +
+            '<textarea class="az-cs-area-lead" placeholder="Descrizione" style="width:100%; min-height:50px; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line); font-family:Inter,sans-serif; font-size:14.5px;"></textarea>' +
             '<input type="text" class="az-cs-area-count" placeholder="Etichetta (es. &quot;3 persone&quot; o &quot;In crescita&quot;)" style="width:100%; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
           '</div>' +
         '</div>' +
@@ -3002,7 +3011,7 @@
       if (s.type === 'text') {
         row.innerHTML =
           '<input type="text" placeholder="Titolo sezione" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
-          '<textarea placeholder="Testo" style="width:100%; min-height:70px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);"></textarea>' +
+          '<textarea placeholder="Testo" style="width:100%; min-height:70px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line); font-family:Inter,sans-serif; font-size:14.5px;"></textarea>' +
           '<button type="button" class="az-mini-btn danger" style="margin-top:8px;">Rimuovi sezione</button>';
         var titleInput = row.querySelector('input');
         var bodyInput = row.querySelector('textarea');
@@ -3173,7 +3182,7 @@
       if (s.type === 'text') {
         row.innerHTML =
           '<input type="text" placeholder="Titolo sezione" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
-          '<textarea placeholder="Testo" style="width:100%; min-height:70px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);"></textarea>' +
+          '<textarea placeholder="Testo" style="width:100%; min-height:70px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line); font-family:Inter,sans-serif; font-size:14.5px;"></textarea>' +
           '<button type="button" class="az-mini-btn danger" style="margin-top:8px;">Rimuovi sezione</button>';
         var titleInput = row.querySelector('input');
         var bodyInput = row.querySelector('textarea');
