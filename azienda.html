@@ -448,6 +448,21 @@
 
     <!-- Feedback -->
     <div class="az-panel" data-panel-content="feedback" hidden>
+      <div style="margin-bottom:28px; padding-bottom:24px; border-bottom:1.5px solid var(--line);">
+        <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:10px;">Form di feedback</h3>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:18px;">
+          <a href="/feedback.html" target="_blank" rel="noopener" class="az-mini-btn" style="text-decoration:none; display:inline-block;">🔗 Apri il form pubblico</a>
+          <button type="button" class="az-preview-btn" id="az-fb-form-preview-btn">👁 Preview</button>
+        </div>
+        <p style="font-size:12px; color:var(--grey); margin-bottom:14px; max-width:600px;">Testi del form (le opzioni "cosa ti è piaciuto" restano legate al singolo evento, si modificano da lì). Campo vuoto = resta il testo attuale.</p>
+        <form id="az-fb-form" style="max-width:600px; display:flex; flex-direction:column; gap:16px;">
+          <div id="az-fb-form-fields" style="display:flex; flex-direction:column; gap:14px;"></div>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Pubblica form</button>
+          </div>
+          <p class="az-msg" id="az-fb-form-msg" hidden></p>
+        </form>
+      </div>
       <div class="az-fb-summary">
         <select id="az-fb-event-filter"><option value="">Tutti gli eventi</option></select>
         <div class="az-fb-summary-grid">
@@ -1311,6 +1326,77 @@
 
   document.getElementById('az-fb-event-filter').addEventListener('change', applyFeedbackFilter);
 
+  // ---- Testi del form di feedback (feedback.html) ----
+  var FEEDBACK_FIELD_GROUPS = {
+    hero: [
+      { key: 'hero.eyebrow', label: 'Eyebrow' },
+      { key: 'hero.title', label: 'Titolo' },
+      { key: 'hero.lead', label: 'Testo sotto il titolo', multiline: true }
+    ],
+    questions: [
+      { key: 'q.rating', label: 'Domanda — valutazione' },
+      { key: 'q.liked', label: 'Domanda — cosa è piaciuto' },
+      { key: 'q.improve', label: 'Domanda — cosa migliorare' },
+      { key: 'q.recommend', label: 'Domanda — consiglieresti' },
+      { key: 'q.comments', label: 'Domanda — altro' },
+      { key: 'submitLabel', label: 'Testo del bottone di invio' }
+    ],
+    thanks: [
+      { key: 'thanks.title', label: 'Titolo di ringraziamento' },
+      { key: 'thanks.text', label: 'Testo di ringraziamento', multiline: true }
+    ]
+  };
+  var fbFormFieldInputs = {};
+  var fbFormWrap = document.getElementById('az-fb-form-fields');
+  Object.keys(FEEDBACK_FIELD_GROUPS).forEach(function(group){
+    var heading = document.createElement('p');
+    heading.style.cssText = 'font-size:12px; font-weight:600; margin-top:6px;';
+    heading.textContent = group === 'hero' ? 'Intestazione' : (group === 'questions' ? 'Domande' : 'Messaggio di ringraziamento');
+    fbFormWrap.appendChild(heading);
+    var groupWrap = document.createElement('div');
+    groupWrap.style.cssText = 'display:flex; flex-direction:column; gap:14px;';
+    fbFormWrap.appendChild(groupWrap);
+    renderHomeFieldGroup(null, FEEDBACK_FIELD_GROUPS[group], fbFormFieldInputs, groupWrap);
+  });
+
+  document.getElementById('az-fb-form-preview-btn').addEventListener('click', function(){
+    var fields = {};
+    Object.keys(fbFormFieldInputs).forEach(function(key){ var v = fbFormFieldInputs[key].value.trim(); if (v) fields[key] = v; });
+    openPreview('/feedback.html', { fields: fields });
+  });
+
+  document.getElementById('az-fb-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var msg = document.getElementById('az-fb-form-msg');
+    msg.hidden = true;
+    var fields = {};
+    Object.keys(fbFormFieldInputs).forEach(function(key){ var v = fbFormFieldInputs[key].value.trim(); if (v) fields[key] = v; });
+    var submitBtn = document.querySelector('#az-fb-form .az-submit');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Salvataggio...';
+    try {
+      var res = await fetch('/api/admin/page-content', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page: 'feedback', fields: fields, extraSections: [] })
+      });
+      var data = await res.json();
+      if (res.ok) showMsg(msg, 'Salvato — il form è già aggiornato.', false);
+      else showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+    } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Pubblica form';
+  });
+
+  async function loadFeedbackFormContent(){
+    try {
+      var res = await fetch('/api/admin/page-content?page=feedback');
+      var data = await res.json();
+      var content = data.content || { fields: {} };
+      Object.keys(fbFormFieldInputs).forEach(function(key){ fbFormFieldInputs[key].value = content.fields[key] || ''; });
+    } catch (err) { /* riprovabile ricaricando il pannello */ }
+  }
+
   async function loadFeedback(){
     try {
       var res = await fetch('/api/feedback-list');
@@ -1319,6 +1405,7 @@
       populateFeedbackEventFilter(allFeedback);
       applyFeedbackFilter();
     } catch (err) { document.getElementById('az-feedback-count').textContent = 'Errore di connessione.'; }
+    await loadFeedbackFormContent();
   }
   panelLoaders.feedback = { loaded: false, load: loadFeedback };
   document.getElementById('az-feedback-export').addEventListener('click', async function(){
@@ -2005,9 +2092,11 @@
     } catch (err) { alert(err.message); }
   });
 
-  function renderHomeFieldGroup(containerId, defs, targetMap){
+  // containerId può essere l'id di un contenitore già in pagina, oppure (per gruppi costruiti al
+  // volo, es. il form di feedback) l'elemento stesso passato direttamente.
+  function renderHomeFieldGroup(containerId, defs, targetMap, containerEl){
     targetMap = targetMap || homeFieldInputs;
-    var wrap = document.getElementById(containerId);
+    var wrap = containerEl || document.getElementById(containerId);
     wrap.innerHTML = '';
     defs.forEach(function(def){
       var field = document.createElement('div');

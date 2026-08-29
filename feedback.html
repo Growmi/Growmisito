@@ -95,9 +95,9 @@
 
 <div class="card">
   <div id="formWrap">
-    <p class="eyebrow">Feedback</p>
-    <h1>Com'è andata?</h1>
-    <p class="lead">Ci vuole meno di un minuto, e ci aiuti tantissimo a migliorare i prossimi eventi.</p>
+    <p class="eyebrow" data-cms="hero.eyebrow">Feedback</p>
+    <h1 data-cms="hero.title">Com'è andata?</h1>
+    <p class="lead" data-cms="hero.lead">Ci vuole meno di un minuto, e ci aiuti tantissimo a migliorare i prossimi eventi.</p>
 
     <div class="field-row">
       <div class="field">
@@ -127,13 +127,13 @@
     </div>
 
     <div class="field">
-      <label>Come valuti l'evento nel complesso?</label>
+      <label data-cms="q.rating">Come valuti l'evento nel complesso?</label>
       <div class="rating-scale" id="ratingScale"></div>
       <div class="rating-scale-labels"><span>1 = pessimo</span><span>10 = fantastico</span></div>
     </div>
 
     <div class="field" id="likedTextField">
-      <label>Cosa ti è piaciuto di più?</label>
+      <label data-cms="q.liked">Cosa ti è piaciuto di più?</label>
       <textarea id="liked" placeholder="La musica, l'atmosfera, gli artisti..."></textarea>
     </div>
 
@@ -144,12 +144,12 @@
     </div>
 
     <div class="field">
-      <label>Cosa miglioreresti?</label>
+      <label data-cms="q.improve">Cosa miglioreresti?</label>
       <textarea id="improve" placeholder="Dicci pure tutto"></textarea>
     </div>
 
     <div class="field">
-      <label>Consiglieresti GrowMi a un amico?</label>
+      <label data-cms="q.recommend">Consiglieresti GrowMi a un amico?</label>
       <div class="toggle-row">
         <button type="button" id="recYes" data-v="yes">Sì, assolutamente</button>
         <button type="button" id="recNo" data-v="no">Non ancora</button>
@@ -157,18 +157,18 @@
     </div>
 
     <div class="field">
-      <label>Altro che vuoi dirci? (facoltativo)</label>
+      <label data-cms="q.comments">Altro che vuoi dirci? (facoltativo)</label>
       <textarea id="comments" placeholder="Scrivi qui"></textarea>
     </div>
 
-    <button type="button" class="submit-btn" id="submitBtn">Invia feedback</button>
+    <button type="button" class="submit-btn" id="submitBtn" data-cms="submitLabel">Invia feedback</button>
     <p class="error" id="errorMsg">Scegli almeno una valutazione prima di inviare.</p>
   </div>
 
   <div id="thanks">
     <div class="big">&#9989;</div>
-    <h2 id="thanksTitle">Grazie mille!</h2>
-    <p>Il tuo feedback è stato inviato ed è già nelle nostre mani. Ci aiuta tantissimo a rendere il prossimo evento ancora migliore.</p>
+    <h2 id="thanksTitle" data-cms="thanks.title">Grazie mille!</h2>
+    <p data-cms="thanks.text">Il tuo feedback è stato inviato ed è già nelle nostre mani. Ci aiuta tantissimo a rendere il prossimo evento ancora migliore.</p>
     <p style="margin-top:18px; font-family:'Space Grotesk',sans-serif; font-weight:700;">Keep growing &#127793;</p>
   </div>
 </div>

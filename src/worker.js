@@ -786,6 +786,15 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    if ((url.pathname === "/feedback" || url.pathname === "/feedback.html") && request.method === "GET") {
+      try {
+        const handled = await handleFeedbackPage(request, env);
+        if (handled) return await finalizePublicHtmlResponse(request, env, handled);
+      } catch (err) {
+        console.log("Errore feedback page:", err.stack || err.message);
+      }
+    }
+
     if (url.pathname === "/api/admin/site-theme" && request.method === "GET") {
       try {
         return await handleAdminGetSiteTheme(request, env);
@@ -4383,6 +4392,15 @@ async function handleArtMallCollabPage(request, env) {
 async function handleGrowWithUsPage(request, env) {
   return handleFixedPageRoute(request, env, "grow-with-us", function(){
     return { extraSections: "#ev-extra-sections", replace: [] };
+  });
+}
+
+// Form di feedback: pagina a sé (niente header/footer/style.css del resto del sito), le domande
+// sono testo fisso salvo le opzioni "cosa ti è piaciuto" che restano legate all'evento (già
+// modificabili da lì). Niente sezioni extra qui: è un form strutturato, non una pagina di contenuto.
+async function handleFeedbackPage(request, env) {
+  return handleFixedPageRoute(request, env, "feedback", function(){
+    return { replace: [] };
   });
 }
 
