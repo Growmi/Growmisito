@@ -49,6 +49,11 @@
       return;
     }
     el.innerHTML = list.map(cardHTML).join('');
+    // Le card arrivano qui dopo una fetch asincrona (/api/public-events): l'animazione "reveal"
+    // di assets/interactive.js scansiona la pagina una sola volta, prima che questa fetch
+    // finisca, quindi non le vedrebbe mai e resterebbero invisibili per sempre (link funzionante,
+    // ma card a opacità zero). Le rendiamo visibili subito invece di aspettare lo scroll.
+    el.querySelectorAll('.reveal').forEach(function(card){ card.classList.add('is-visible'); });
   }
 
   if(typeof GROWMI_EVENTS === 'undefined') return;
