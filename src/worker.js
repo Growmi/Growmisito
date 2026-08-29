@@ -3983,8 +3983,24 @@ function validatePageContentPayload(body) {
     }
   }
 
+  // "heroSlides" (usato oggi solo dalla home): foto aggiuntive per la slideshow dell'hero, oltre
+  // alle 3 di sempre — mai una sostituzione, solo aggiunte in coda. Assente/undefined o array
+  // vuoto hanno lo stesso effetto (nessuna foto extra), quindi qui non serve la stessa distinzione
+  // fatta per "founders".
+  let heroSlides;
+  if (Array.isArray(body.heroSlides)) {
+    heroSlides = [];
+    for (const raw of body.heroSlides) {
+      const key = String(raw || "").trim();
+      if (!key) continue;
+      heroSlides.push(key);
+      if (heroSlides.length >= 10) break;
+    }
+  }
+
   const content = { fields, extraSections };
   if (founders !== undefined) content.founders = founders;
+  if (heroSlides !== undefined) content.heroSlides = heroSlides;
   return { ok: true, content };
 }
 
@@ -4049,6 +4065,12 @@ class ReplaceContentHandler {
   constructor(html) { this.html = html; }
   element(el) { if (this.html !== null) el.setInnerContent(this.html, { html: true }); }
 }
+// Aggiunge HTML in coda ai figli già presenti in un nodo, senza toccarli — usato per le foto
+// extra della slideshow hero (si aggiungono alle 3 di sempre, non le sostituiscono).
+class AppendContentHandler {
+  constructor(html) { this.html = html; }
+  element(el) { if (this.html) el.append(this.html, { html: true }); }
+}
 
 function foundersHTML(founders){
   return founders.map(function(f){
@@ -4059,15 +4081,25 @@ function foundersHTML(founders){
   }).join("");
 }
 
+function heroSlidesHTML(keys){
+  return keys.map(function(key){
+    return `<div class="ed-hero-slide"><img src="${mediaUrl(key)}" alt=""></div>`;
+  }).join("");
+}
+
 // Applica gli override SOLO se ce n'è almeno uno salvato — altrimenti la risposta statica passa
 // invariata, zero lavoro in più per il caso comune (nessuna pagina fissa ancora personalizzata).
-// anchors: { extraSections: "#id", replace: [{ selector, data: array|undefined, render }] } —
-// stesso meccanismo per ogni pagina fissa (home, chi-siamo, ...), cambia solo cosa passa qui.
+// anchors: { extraSections: "#id", replace: [{ selector, data: array|undefined, render }],
+// append: [{ selector, data: array|undefined, render }] } — replace sostituisce interamente il
+// contenuto del nodo (es. i fondatori), append aggiunge in coda senza toccare l'esistente (es. le
+// foto extra della slideshow hero). Stesso meccanismo per ogni pagina fissa, cambia solo cosa
+// viene passato qui.
 async function applyPageOverrides(response, content, anchors) {
   const hasFields = content.fields && Object.keys(content.fields).length > 0;
   const hasExtra = content.extraSections && content.extraSections.length > 0;
   const replaceTargets = (anchors.replace || []).filter(function(r){ return r.data !== undefined; });
-  if (!hasFields && !hasExtra && !replaceTargets.length) return response;
+  const appendTargets = (anchors.append || []).filter(function(r){ return r.data && r.data.length > 0; });
+  if (!hasFields && !hasExtra && !replaceTargets.length && !appendTargets.length) return response;
 
   // Le chiavi immagine (quelle marcate data-cms-src nell'HTML, es. "hero.slide1") contengono una
   // chiave R2, mai un URL diretto — vanno sempre risolte con mediaUrl() prima di iniettarle.
@@ -4092,6 +4124,9 @@ async function applyPageOverrides(response, content, anchors) {
   for (const r of replaceTargets) {
     rewriter = rewriter.on(r.selector, new ReplaceContentHandler(r.render(r.data)));
   }
+  for (const a of appendTargets) {
+    rewriter = rewriter.on(a.selector, new AppendContentHandler(a.render(a.data)));
+  }
   return rewriter.transform(response);
 }
 
@@ -4106,8 +4141,12 @@ async function handleFixedPageRoute(request, env, page, buildAnchors) {
 }
 
 async function handleHomePage(request, env) {
-  return handleFixedPageRoute(request, env, "home", function(){
-    return { extraSections: "#home-extra-sections", replace: [] };
+  return handleFixedPageRoute(request, env, "home", function(content){
+    return {
+      extraSections: "#home-extra-sections",
+      replace: [],
+      append: [{ selector: ".ed-hero-slideshow", data: content.heroSlides, render: heroSlidesHTML }]
+    };
   });
 }
 

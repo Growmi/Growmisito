@@ -602,6 +602,12 @@
               <input type="file" accept="image/jpeg,image/png,image/webp" id="az-home-slide3-input" data-slide-key="hero.slide3">
             </div>
           </div>
+          <div style="margin-top:18px;">
+            <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Altre foto (facoltative) — si aggiungono in coda alle 3 di sopra, e la slideshow mostra automaticamente un pallino in più per ognuna.</p>
+            <div id="az-home-extra-slides" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:10px; margin-bottom:10px;"></div>
+            <button type="button" class="az-mini-btn" id="az-home-add-slide">+ Aggiungi foto</button>
+            <input type="file" accept="image/jpeg,image/png,image/webp" id="az-home-add-slide-input" style="display:none;">
+          </div>
         </div>
 
         <div>
@@ -1594,6 +1600,33 @@
   var homeFieldInputs = {}; // key -> input/textarea element
   var homeSlideKeys = { 'hero.slide1': null, 'hero.slide2': null, 'hero.slide3': null };
   var homeExtraSections = []; // [{type:'text', title, body} | {type:'image', key, caption}]
+  var homeExtraSlides = []; // [r2Key, ...] — foto in più oltre alle 3 fisse
+
+  function renderHomeExtraSlides(){
+    var wrap = document.getElementById('az-home-extra-slides');
+    wrap.innerHTML = '';
+    homeExtraSlides.forEach(function(key, i){
+      var cell = document.createElement('div');
+      cell.innerHTML =
+        '<div class="az-image-preview" style="aspect-ratio:9/16;"><img src="/media/' + key + '" alt=""></div>' +
+        '<button type="button" class="az-mini-btn danger" style="width:100%; margin-top:6px;">Rimuovi</button>';
+      cell.querySelector('.danger').addEventListener('click', function(){ homeExtraSlides.splice(i, 1); renderHomeExtraSlides(); });
+      wrap.appendChild(cell);
+    });
+  }
+  document.getElementById('az-home-add-slide').addEventListener('click', function(){
+    document.getElementById('az-home-add-slide-input').click();
+  });
+  document.getElementById('az-home-add-slide-input').addEventListener('change', async function(){
+    var file = this.files[0];
+    this.value = '';
+    if (!file) return;
+    try {
+      var key = await uploadArtistMediaGeneric(file, 'slide-extra', 'home', 'pages');
+      homeExtraSlides.push(key);
+      renderHomeExtraSlides();
+    } catch (err) { alert(err.message); }
+  });
 
   function renderHomeFieldGroup(containerId, defs, targetMap){
     targetMap = targetMap || homeFieldInputs;
@@ -1723,6 +1756,8 @@
       });
       homeExtraSections = (content.extraSections || []).slice();
       renderHomeExtraSections();
+      homeExtraSlides = (content.heroSlides || []).slice();
+      renderHomeExtraSlides();
     } catch (err) { /* i campi restano vuoti, riprovabile ricaricando il pannello */ }
   }
   panelLoaders['pagina-home'] = { loaded: false, load: loadHomeContent };
@@ -1748,7 +1783,7 @@
       var res = await fetch('/api/admin/page-content', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ page: 'home', fields: fields, extraSections: homeExtraSections })
+        body: JSON.stringify({ page: 'home', fields: fields, extraSections: homeExtraSections, heroSlides: homeExtraSlides })
       });
       var data = await res.json();
       if (res.ok) {
