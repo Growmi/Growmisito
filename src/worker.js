@@ -2241,8 +2241,12 @@ async function handleEventTiers(request, env) {
   let activeAssigned = false;
   const tiers = event.tiers.map(function(t){
     const sold = soldByTier[t.id] || 0;
-    const soldOut = sold >= t.capacity;
-    const active = !soldOut && !activeAssigned;
+    const status = t.status || "auto";
+    // "soldout"/"comingsoon" sono decisioni manuali dello staff e vincono sempre sul calcolo
+    // automatico da capienza — una fascia "comingsoon" non deve mai poter diventare quella attiva.
+    const soldOut = status === "soldout" ? true : (status === "comingsoon" ? false : sold >= t.capacity);
+    const forceUpcoming = status === "comingsoon";
+    const active = !soldOut && !forceUpcoming && !activeAssigned;
     if (active) activeAssigned = true;
     // priceCents resta il prezzo netto configurato nel pannello (quanto vogliamo incassare);
     // grossCents/feeCents sono calcolati qui cosi' il sito mostra sempre a schermo lo stesso
@@ -3476,7 +3480,12 @@ function validateEventPayload(body, existingTiers, sold) {
       }
     }
 
-    tiers.push({ id: tierId, name: tierName, sub: String(rawTier.sub || "").trim().slice(0, 200), capacity, options });
+    // Stato manuale della fascia (facoltativo, default "auto" = comportamento di sempre: esaurita
+    // solo quando la capienza è raggiunta, attiva la prima non esaurita in ordine). "soldout" forza
+    // "Esaurita" indipendentemente dalla capienza; "comingsoon" la mostra visibile ma non ancora
+    // acquistabile (utile prima che i biglietti siano davvero in vendita) — vedi handleEventTiers.
+    const status = ["auto", "soldout", "comingsoon"].includes(rawTier.status) ? rawTier.status : "auto";
+    tiers.push({ id: tierId, name: tierName, sub: String(rawTier.sub || "").trim().slice(0, 200), capacity, options, status });
   }
 
   // Stessa protezione, a livello di fascia intera: non si può far sparire una fascia che ha già

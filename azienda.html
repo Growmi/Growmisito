@@ -3427,11 +3427,20 @@
         '<input type="text" class="tier-sub" placeholder="Sottotitolo (es. Posti limitati)">' +
       '</div>' +
       '<div class="row-cap"><input type="number" min="1" class="tier-capacity" placeholder="Capienza (numero posti)" required></div>' +
+      '<div class="az-field" style="margin-bottom:10px;">' +
+        '<label>Disponibilità</label>' +
+        '<select class="tier-status">' +
+          '<option value="auto">Automatica (esaurita quando finiscono i posti)</option>' +
+          '<option value="soldout">Forza "Esaurita" ora</option>' +
+          '<option value="comingsoon">Non ancora in vendita (visibile, non acquistabile)</option>' +
+        '</select>' +
+      '</div>' +
       '<div class="az-opts"></div>' +
       '<button type="button" class="az-mini-btn add-option">+ Aggiungi opzione</button>';
     block.querySelector('.tier-name').value = tier ? tier.name : '';
     block.querySelector('.tier-sub').value = tier ? tier.sub : '';
     block.querySelector('.tier-capacity').value = tier ? tier.capacity : '';
+    block.querySelector('.tier-status').value = (tier && tier.status) || 'auto';
     block.querySelector('.remove-tier').addEventListener('click', function(){ block.remove(); });
     block.querySelector('.add-option').addEventListener('click', function(){ addOptionRow(block, null); });
     container.appendChild(block);
@@ -3529,6 +3538,7 @@
         name: tb.querySelector('.tier-name').value.trim(),
         sub: tb.querySelector('.tier-sub').value.trim(),
         capacity: parseInt(tb.querySelector('.tier-capacity').value, 10),
+        status: tb.querySelector('.tier-status').value,
         options: options
       });
     }
