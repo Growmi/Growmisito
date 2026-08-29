@@ -4383,7 +4383,13 @@ class CmsSrcHandler {
   element(el) {
     const key = el.getAttribute("data-cms-src");
     const value = key && this.fields[key];
-    if (value) el.setAttribute("src", value);
+    if (value) {
+      el.setAttribute("src", value);
+      // Alcune immagini (es. la foto hero facoltativa di chi-siamo/contatti) partono "hidden" nel
+      // markup statico finché non vengono personalizzate — appena c'è un valore salvato vanno
+      // rimostrate. Nessun effetto sulle altre pagine, che non usano l'attributo hidden qui.
+      el.removeAttribute("hidden");
+    }
     const style = key && this.framingStyles[key];
     if (style) el.setAttribute("style", style);
   }

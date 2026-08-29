@@ -768,7 +768,15 @@
     <div class="az-panel" data-panel-content="pagina-chisiamo" hidden>
       <p style="font-size:13px; color:var(--grey); margin-bottom:20px; max-width:600px;">Come per la Home: campo vuoto = resta il testo attuale del sito.</p>
       <form id="az-chisiamo-form" style="max-width:640px; display:flex; flex-direction:column; gap:28px;">
-        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Hero</h3><div id="az-cs-fields-hero" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+        <div>
+          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Hero</h3>
+          <div id="az-cs-fields-hero" style="display:flex; flex-direction:column; gap:14px; margin-bottom:14px;"></div>
+          <label style="font-size:12px; color:var(--grey); display:block; margin-bottom:6px;">Foto di sfondo hero (facoltativa — se vuota resta lo sfondo di default del sito)</label>
+          <div class="az-image-preview" id="az-cs-hero-preview" style="aspect-ratio:16/9;">Nessuna immagine</div>
+          <input type="file" accept="image/jpeg,image/png,image/webp" id="az-cs-hero-input">
+          <button type="button" class="az-mini-btn danger" id="az-cs-hero-remove" style="margin-top:6px;">Rimuovi (torna allo sfondo di default)</button>
+          <div id="az-cs-hero-framing" style="margin-top:10px;"></div>
+        </div>
         <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Testo introduttivo</h3><div id="az-cs-fields-intro" style="display:flex; flex-direction:column; gap:14px;"></div></div>
         <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Sezione video</h3><div id="az-cs-fields-video" style="display:flex; flex-direction:column; gap:14px;"></div></div>
         <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Evoluzione contenuti</h3><div id="az-cs-fields-evoluzione" style="display:flex; flex-direction:column; gap:14px;"></div></div>
@@ -817,7 +825,15 @@
     <div class="az-panel" data-panel-content="pagina-contatti" hidden>
       <p style="font-size:13px; color:var(--grey); margin-bottom:20px; max-width:600px;">Come per le altre pagine: campo vuoto = resta il testo attuale del sito.</p>
       <form id="az-contatti-form" style="max-width:640px; display:flex; flex-direction:column; gap:28px;">
-        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Hero</h3><div id="az-ct-fields-hero" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+        <div>
+          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Hero</h3>
+          <div id="az-ct-fields-hero" style="display:flex; flex-direction:column; gap:14px; margin-bottom:14px;"></div>
+          <label style="font-size:12px; color:var(--grey); display:block; margin-bottom:6px;">Foto di sfondo hero (facoltativa — se vuota resta il video attuale)</label>
+          <div class="az-image-preview" id="az-ct-hero-preview" style="aspect-ratio:16/9;">Nessuna immagine</div>
+          <input type="file" accept="image/jpeg,image/png,image/webp" id="az-ct-hero-input">
+          <button type="button" class="az-mini-btn danger" id="az-ct-hero-remove" style="margin-top:6px;">Rimuovi (torna al video attuale)</button>
+          <div id="az-ct-hero-framing" style="margin-top:10px;"></div>
+        </div>
 
         <div>
           <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Sezioni extra</h3>
@@ -2460,7 +2476,10 @@
     });
     doc.querySelectorAll('[data-cms-src]').forEach(function(el){
       var key = el.getAttribute('data-cms-src');
-      if (key && fields[key]) el.setAttribute('src', mediaSrc(fields[key]));
+      if (key && fields[key]) {
+        el.setAttribute('src', mediaSrc(fields[key]));
+        el.removeAttribute('hidden');
+      }
     });
     if (opts.extraSectionsSelector && opts.extraSectionsHtml) {
       var extraEl = doc.querySelector(opts.extraSectionsSelector);
@@ -2758,6 +2777,28 @@
   renderHomeFieldGroup('az-cs-fields-cta', CHISIAMO_FIELD_GROUPS.cta, chisiamoFieldInputs);
   renderHomeFieldGroup('az-cs-fields-social', CHISIAMO_FIELD_GROUPS.social, chisiamoFieldInputs);
 
+  // Foto di sfondo hero facoltativa: senza override mostra lo sfondo di default del sito
+  // attualmente live (stesso principio delle slide home/carta fedeltà), non un placeholder vuoto.
+  var chisiamoHeroKey = null;
+  var chisiamoHeroFraming = { position: 'center', zoom: 1 };
+  document.getElementById('az-cs-hero-input').addEventListener('change', async function(){
+    var file = this.files[0];
+    this.value = '';
+    if (!file) return;
+    try {
+      chisiamoHeroKey = await uploadArtistMediaGeneric(file, 'hero', 'chi-siamo', 'pages');
+      var box = document.getElementById('az-cs-hero-preview');
+      box.innerHTML = '<img src="' + mediaSrc(chisiamoHeroKey) + '" alt="">';
+      renderFramingControls(document.getElementById('az-cs-hero-framing'), box.querySelector('img'), chisiamoHeroFraming);
+    } catch (err) { alert(err.message); }
+  });
+  document.getElementById('az-cs-hero-remove').addEventListener('click', function(){
+    chisiamoHeroKey = null;
+    var box = document.getElementById('az-cs-hero-preview');
+    box.innerHTML = '<img src="/media/site/default-hero-image" alt="">';
+    renderFramingControls(document.getElementById('az-cs-hero-framing'), box.querySelector('img'), chisiamoHeroFraming);
+  });
+
   function renderChisiamoFounders(){
     var wrap = document.getElementById('az-cs-founders');
     wrap.innerHTML = '';
@@ -2989,6 +3030,11 @@
       renderChisiamoTeamAreas();
       chisiamoExtraSections = (content.extraSections || []).slice();
       renderChisiamoExtraSections();
+      chisiamoHeroKey = content.fields['hero.image'] || null;
+      chisiamoHeroFraming = { position: content.fields['hero.image.position'] || 'center', zoom: Number(content.fields['hero.image.zoom']) || 1 };
+      var heroBox = document.getElementById('az-cs-hero-preview');
+      heroBox.innerHTML = '<img src="' + (chisiamoHeroKey ? mediaSrc(chisiamoHeroKey) : '/media/site/default-hero-image') + '" alt="">';
+      renderFramingControls(document.getElementById('az-cs-hero-framing'), heroBox.querySelector('img'), chisiamoHeroFraming);
     } catch (err) { /* i campi restano vuoti, riprovabile ricaricando il pannello */ }
   }
   panelLoaders['pagina-chisiamo'] = { loaded: false, load: loadChisiamoContent };
@@ -2999,6 +3045,11 @@
       var v = chisiamoFieldInputs[key].value.trim();
       if (v) fields[key] = v;
     });
+    if (chisiamoHeroKey) {
+      fields['hero.image'] = chisiamoHeroKey;
+      fields['hero.image.position'] = chisiamoHeroFraming.position;
+      fields['hero.image.zoom'] = String(chisiamoHeroFraming.zoom);
+    }
     return fields;
   }
 
@@ -3055,6 +3106,36 @@
   var contattiExtraSections = [];
 
   renderHomeFieldGroup('az-ct-fields-hero', CONTATTI_FIELD_GROUPS.hero, contattiFieldInputs);
+
+  // Foto di sfondo hero facoltativa: sostituisce il video attuale (assets/video/contatti-bg.mp4)
+  // solo se caricata. Senza override non c'è una foto da inquadrare (è un video), quindi qui
+  // sotto niente controlli di posizione/zoom finché non se ne carica una.
+  var contattiHeroKey = null;
+  var contattiHeroFraming = { position: 'center', zoom: 1 };
+  function renderContattiHeroPreview(){
+    var box = document.getElementById('az-ct-hero-preview');
+    var framingWrap = document.getElementById('az-ct-hero-framing');
+    if (contattiHeroKey) {
+      box.innerHTML = '<img src="' + mediaSrc(contattiHeroKey) + '" alt="">';
+      renderFramingControls(framingWrap, box.querySelector('img'), contattiHeroFraming);
+    } else {
+      box.innerHTML = 'Attualmente: video di sfondo';
+      framingWrap.innerHTML = '';
+    }
+  }
+  document.getElementById('az-ct-hero-input').addEventListener('change', async function(){
+    var file = this.files[0];
+    this.value = '';
+    if (!file) return;
+    try {
+      contattiHeroKey = await uploadArtistMediaGeneric(file, 'hero', 'contatti', 'pages');
+      renderContattiHeroPreview();
+    } catch (err) { alert(err.message); }
+  });
+  document.getElementById('az-ct-hero-remove').addEventListener('click', function(){
+    contattiHeroKey = null;
+    renderContattiHeroPreview();
+  });
 
   function renderExtraSectionsGeneric(wrapId, list, slug, rerender){
     var wrap = document.getElementById(wrapId);
@@ -3117,6 +3198,9 @@
       });
       contattiExtraSections = (content.extraSections || []).slice();
       renderContattiExtraSections();
+      contattiHeroKey = content.fields['hero.image'] || null;
+      contattiHeroFraming = { position: content.fields['hero.image.position'] || 'center', zoom: Number(content.fields['hero.image.zoom']) || 1 };
+      renderContattiHeroPreview();
     } catch (err) { /* i campi restano vuoti, riprovabile ricaricando il pannello */ }
   }
   panelLoaders['pagina-contatti'] = { loaded: false, load: loadContattiContent };
@@ -3127,6 +3211,11 @@
       var v = contattiFieldInputs[key].value.trim();
       if (v) fields[key] = v;
     });
+    if (contattiHeroKey) {
+      fields['hero.image'] = contattiHeroKey;
+      fields['hero.image.position'] = contattiHeroFraming.position;
+      fields['hero.image.zoom'] = String(contattiHeroFraming.zoom);
+    }
     return fields;
   }
 
