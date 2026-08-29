@@ -768,6 +768,24 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    if ((url.pathname === "/art-mall-collab" || url.pathname === "/art-mall-collab.html") && request.method === "GET") {
+      try {
+        const handled = await handleArtMallCollabPage(request, env);
+        if (handled) return await finalizePublicHtmlResponse(request, env, handled);
+      } catch (err) {
+        console.log("Errore art-mall-collab page:", err.stack || err.message);
+      }
+    }
+
+    if ((url.pathname === "/grow-with-us" || url.pathname === "/grow-with-us.html") && request.method === "GET") {
+      try {
+        const handled = await handleGrowWithUsPage(request, env);
+        if (handled) return await finalizePublicHtmlResponse(request, env, handled);
+      } catch (err) {
+        console.log("Errore grow-with-us page:", err.stack || err.message);
+      }
+    }
+
     if (url.pathname === "/api/admin/site-theme" && request.method === "GET") {
       try {
         return await handleAdminGetSiteTheme(request, env);
@@ -4351,6 +4369,20 @@ async function handleContattiPage(request, env) {
 async function handleLoyaltyCardPage(request, env) {
   return handleFixedPageRoute(request, env, "loyalty-card", function(){
     return { extraSections: "#loy-extra-sections", replace: [] };
+  });
+}
+
+// Pagine dei singoli eventi "storici" (assets/events-data.js — vedi anche site:legacy-events più
+// sotto per titolo/data/luogo/copertina della CARD): stesso pattern data-cms delle altre pagine
+// fisse, per il contenuto vero e proprio DENTRO la pagina dell'evento.
+async function handleArtMallCollabPage(request, env) {
+  return handleFixedPageRoute(request, env, "art-mall-collab", function(){
+    return { extraSections: "#ev-extra-sections", replace: [] };
+  });
+}
+async function handleGrowWithUsPage(request, env) {
+  return handleFixedPageRoute(request, env, "grow-with-us", function(){
+    return { extraSections: "#ev-extra-sections", replace: [] };
   });
 }
 

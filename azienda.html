@@ -572,6 +572,13 @@
         </div>
         <p class="az-msg" id="az-legacy-events-msg" hidden></p>
       </div>
+
+      <div style="margin-top:36px; padding-top:28px; border-top:1.5px solid var(--line);">
+        <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Contenuto delle pagine eventi passati</h3>
+        <p style="font-size:12px; color:var(--grey); margin-bottom:16px; max-width:600px;">Testi e foto principali dentro ciascuna pagina evento (non solo la card nell'elenco). Campo vuoto = resta il testo attuale.</p>
+        <div id="az-legacy-page-art-mall-collab"></div>
+        <div id="az-legacy-page-grow-with-us" style="margin-top:28px;"></div>
+      </div>
     </div>
 
     <!-- Artisti -->
@@ -1681,6 +1688,135 @@
     });
   }
 
+  // ---- Contenuto delle pagine dei singoli eventi passati (non solo la card nell'elenco) ----
+  // Stesso pattern data-cms/extraSections delle pagine fisse, generalizzato in una funzione sola
+  // dato che le due pagine hanno la stessa identica struttura (hero + sezione "La serata").
+  function createLegacyEventPageEditor(containerId, pageKey, label, defaults){
+    var container = document.getElementById(containerId);
+    container.innerHTML =
+      '<h4 style="font-family:\'Space Grotesk\',sans-serif; font-size:14px; margin-bottom:12px;">' + label + '</h4>' +
+      '<form class="az-legacy-page-form" style="display:flex; flex-direction:column; gap:16px; max-width:600px;">' +
+        '<div id="' + containerId + '-fields" style="display:flex; flex-direction:column; gap:14px;"></div>' +
+        '<div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px;">' +
+          '<div>' +
+            '<label style="font-size:12px; color:var(--grey); display:block; margin-bottom:6px;">Foto hero</label>' +
+            '<div class="az-image-preview" id="' + containerId + '-hero-preview" style="aspect-ratio:16/9;"></div>' +
+            '<input type="file" accept="image/jpeg,image/png,image/webp" id="' + containerId + '-hero-input">' +
+          '</div>' +
+          '<div>' +
+            '<label style="font-size:12px; color:var(--grey); display:block; margin-bottom:6px;">Poster</label>' +
+            '<div class="az-image-preview" id="' + containerId + '-poster-preview" style="aspect-ratio:16/9;"></div>' +
+            '<input type="file" accept="image/jpeg,image/png,image/webp" id="' + containerId + '-poster-input">' +
+          '</div>' +
+        '</div>' +
+        '<div>' +
+          '<p style="font-size:12px; font-weight:600; margin-bottom:8px;">Sezioni extra</p>' +
+          '<div id="' + containerId + '-extra" style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;"></div>' +
+          '<div style="display:flex; gap:10px;">' +
+            '<button type="button" class="az-mini-btn" data-action="add-text">+ Sezione di testo</button>' +
+            '<button type="button" class="az-mini-btn" data-action="add-image">+ Sezione immagine</button>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex; gap:10px; align-items:center;">' +
+          '<button type="button" class="az-preview-btn" data-action="preview">👁 Preview</button>' +
+          '<button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Pubblica</button>' +
+        '</div>' +
+        '<p class="az-msg" hidden></p>' +
+      '</form>';
+
+    var FIELD_DEFS = [
+      { key: 'hero.eyebrow', label: 'Eyebrow (data/luogo)' },
+      { key: 'hero.title', label: 'Titolo' },
+      { key: 'hero.lead', label: 'Testo sotto il titolo', multiline: true },
+      { key: 'story.eyebrow', label: 'Sezione "La serata" — eyebrow' },
+      { key: 'story.title', label: 'Sezione "La serata" — titolo' },
+      { key: 'story.text', label: 'Sezione "La serata" — testo', multiline: true }
+    ];
+    var fieldInputs = {};
+    renderHomeFieldGroup(containerId + '-fields', FIELD_DEFS, fieldInputs);
+
+    var heroKey = null, posterKey = null, extraSections = [];
+    var form = container.querySelector('.az-legacy-page-form');
+    var heroInput = document.getElementById(containerId + '-hero-input');
+    var posterInput = document.getElementById(containerId + '-poster-input');
+    var heroPreview = document.getElementById(containerId + '-hero-preview');
+    var posterPreview = document.getElementById(containerId + '-poster-preview');
+
+    function renderHeroPreview(){ heroPreview.innerHTML = '<img src="' + mediaSrc(heroKey || defaults.heroKey) + '" alt="">'; }
+    function renderPosterPreview(){ posterPreview.innerHTML = '<img src="' + mediaSrc(posterKey || defaults.posterKey) + '" alt="">'; }
+    heroInput.addEventListener('change', async function(){
+      var file = this.files[0]; this.value = ''; if (!file) return;
+      try { heroKey = await uploadArtistMediaGeneric(file, 'hero', pageKey, 'pages'); renderHeroPreview(); } catch (err) { alert(err.message); }
+    });
+    posterInput.addEventListener('change', async function(){
+      var file = this.files[0]; this.value = ''; if (!file) return;
+      try { posterKey = await uploadArtistMediaGeneric(file, 'poster', pageKey, 'pages'); renderPosterPreview(); } catch (err) { alert(err.message); }
+    });
+
+    function renderExtra(){ renderExtraSectionsGeneric(containerId + '-extra', extraSections, pageKey, renderExtra); }
+    form.querySelector('[data-action="add-text"]').addEventListener('click', function(){ extraSections.push({ type: 'text', title: '', body: '' }); renderExtra(); });
+    form.querySelector('[data-action="add-image"]').addEventListener('click', function(){ extraSections.push({ type: 'image', key: null, caption: '' }); renderExtra(); });
+
+    var msg = form.querySelector('.az-msg');
+
+    function collectFields(){
+      var fields = {};
+      Object.keys(fieldInputs).forEach(function(key){ var v = fieldInputs[key].value.trim(); if (v) fields[key] = v; });
+      if (heroKey) fields['hero.image'] = heroKey;
+      if (posterKey) fields['poster.image'] = posterKey;
+      return fields;
+    }
+
+    form.querySelector('[data-action="preview"]').addEventListener('click', function(){
+      openPreview('/' + pageKey + '.html', {
+        fields: collectFields(),
+        extraSectionsSelector: '#ev-extra-sections',
+        extraSectionsHtml: extraSectionsHTMLPreview(extraSections)
+      });
+    });
+
+    form.addEventListener('submit', async function(e){
+      e.preventDefault();
+      msg.hidden = true;
+      var submitBtn = form.querySelector('.az-submit');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Salvataggio...';
+      try {
+        var res = await fetch('/api/admin/page-content', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ page: pageKey, fields: collectFields(), extraSections: extraSections })
+        });
+        var data = await res.json();
+        if (res.ok) showMsg(msg, 'Salvato — la pagina è già aggiornata.', false);
+        else showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+      } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Pubblica';
+    });
+
+    return async function load(){
+      try {
+        var res = await fetch('/api/admin/page-content?page=' + pageKey);
+        var data = await res.json();
+        var content = data.content || { fields: {}, extraSections: [] };
+        Object.keys(fieldInputs).forEach(function(key){ fieldInputs[key].value = content.fields[key] || ''; });
+        heroKey = content.fields['hero.image'] || null;
+        posterKey = content.fields['poster.image'] || null;
+        renderHeroPreview();
+        renderPosterPreview();
+        extraSections = (content.extraSections || []).slice();
+        renderExtra();
+      } catch (err) { /* riprovabile ricaricando il pannello */ }
+    };
+  }
+  var loadArtMallCollabPage = createLegacyEventPageEditor('az-legacy-page-art-mall-collab', 'art-mall-collab', 'The Art of Being Yourself (4 giugno 2026)', {
+    heroKey: 'assets/img/eventi/art-mall-collab/sticker-bg.jpg', posterKey: 'assets/img/eventi/art-mall-collab/poster.png'
+  });
+  var loadGrowWithUsPage = createLegacyEventPageEditor('az-legacy-page-grow-with-us', 'grow-with-us', 'Grow With Us (6 maggio 2025)', {
+    heroKey: 'assets/img/eventi/grow-with-us/cover.jpg', posterKey: 'assets/img/eventi/grow-with-us/poster.png'
+  });
+
   async function loadEvents(){
     try {
       var res = await fetch('/api/admin/events');
@@ -1689,6 +1825,8 @@
       renderEventsList(allEvents);
     } catch (err) { document.getElementById('az-events-empty').hidden = false; }
     await loadLegacyEvents();
+    await loadArtMallCollabPage();
+    await loadGrowWithUsPage();
   }
   panelLoaders.eventi = { loaded: false, load: loadEvents };
 
