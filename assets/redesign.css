@@ -54,7 +54,10 @@
 
 /* slideshow di sfondo per l'hero della home: foto che si alternano lentamente in dissolvenza
    (vedi assets/interactive.js → initHeroSlideshow), stesso principio del video di contatti.html */
-.ed-hero-slideshow{ position:absolute; inset:0; z-index:-3; }
+/* z-index -2 (non -3): deve stare allo stesso livello di .ed-hero-photo/.ed-hero-video per
+   coprire correttamente lo sfondo di default (.ed-hero::before, anch'esso -2) grazie all'ordine
+   nel DOM — con -3 restava sotto e lo sfondo di default lo copriva del tutto (bug). */
+.ed-hero-slideshow{ position:absolute; inset:0; z-index:-2; }
 .ed-hero-slide{ position:absolute; inset:0; opacity:0; transition:opacity 1.4s ease; }
 .ed-hero-slide.is-active{ opacity:1; }
 .ed-hero-slide img{ width:100%; height:100%; object-fit:cover; display:block; }
