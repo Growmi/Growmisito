@@ -4147,19 +4147,58 @@ function heroSlidesHTML(keys){
   }).join("");
 }
 
+// Inserisce HTML SUBITO DOPO un nodo (come fratello successivo, non dentro) — usato per iniettare
+// lo script con i dati del team appena dopo <script src="assets/team-data.js">, così sovrascrive
+// la variabile globale GROWMI_TEAM prima che initTeamOverlay() (interactive.js, a fondo pagina)
+// la legga.
+class InsertAfterHandler {
+  constructor(html) { this.html = html; }
+  element(el) { if (this.html) el.after(this.html, { html: true }); }
+}
+
+function teamAreaGridHTML(areas){
+  return areas.map(function(area){
+    const icon = area.iconKey ? `<img src="${mediaUrl(area.iconKey)}" alt="" loading="lazy">` : "";
+    return `<div class="team-area-item" data-team-area="${area.key}"><button type="button" class="ed-card team-area-trigger"><div class="ed-card-media">${icon}</div><span class="tag">${area.countLabel || ""}</span><h3>${area.name}</h3></button><div class="team-area-panel" hidden></div></div>`;
+  }).join("");
+}
+
+// GROWMI_TEAM (assets/team-data.js, dichiarata "var" apposta) viene sovrascritta con i dati
+// salvati dal pannello — stessa forma che interactive.js/initTeamOverlay() già si aspetta
+// (member.photo, non photoKey: qui si risolve subito con mediaUrl()).
+function teamOverrideScriptHTML(areas){
+  const data = {};
+  for (const area of areas) {
+    data[area.key] = {
+      name: area.name,
+      lead: area.lead || "",
+      members: area.members.map(function(m){
+        return { name: m.name, role: m.role || "", photo: m.photoKey ? mediaUrl(m.photoKey) : undefined };
+      })
+    };
+  }
+  // Precauzione contro un valore testuale che contenga "</script>" e chiuderebbe il tag prima del
+  // previsto — non serve altro escaping, il contenuto resta comunque solo dati letti come JSON.
+  const json = JSON.stringify(data).replace(/</g, "\\u003c");
+  return `<script>GROWMI_TEAM = ${json};</script>`;
+}
+
 // Applica gli override SOLO se ce n'è almeno uno salvato — altrimenti la risposta statica passa
 // invariata, zero lavoro in più per il caso comune (nessuna pagina fissa ancora personalizzata).
 // anchors: { extraSections: "#id", replace: [{ selector, data: array|undefined, render }],
-// append: [{ selector, data: array|undefined, render }] } — replace sostituisce interamente il
-// contenuto del nodo (es. i fondatori), append aggiunge in coda senza toccare l'esistente (es. le
-// foto extra della slideshow hero). Stesso meccanismo per ogni pagina fissa, cambia solo cosa
-// viene passato qui.
+// append: [{ selector, data: array|undefined, render }],
+// insertAfter: [{ selector, data: array|undefined, render }] } — replace sostituisce interamente
+// il contenuto del nodo (es. i fondatori), append aggiunge in coda senza toccare l'esistente (es.
+// le foto extra della slideshow hero), insertAfter inserisce un fratello subito dopo il nodo (es.
+// lo script con i dati del team, dopo <script src="team-data.js">). Stesso meccanismo per ogni
+// pagina fissa, cambia solo cosa viene passato qui.
 async function applyPageOverrides(response, content, anchors) {
   const hasFields = content.fields && Object.keys(content.fields).length > 0;
   const hasExtra = content.extraSections && content.extraSections.length > 0;
   const replaceTargets = (anchors.replace || []).filter(function(r){ return r.data !== undefined; });
   const appendTargets = (anchors.append || []).filter(function(r){ return r.data && r.data.length > 0; });
-  if (!hasFields && !hasExtra && !replaceTargets.length && !appendTargets.length) return response;
+  const insertAfterTargets = (anchors.insertAfter || []).filter(function(r){ return r.data !== undefined; });
+  if (!hasFields && !hasExtra && !replaceTargets.length && !appendTargets.length && !insertAfterTargets.length) return response;
 
   // Le chiavi immagine (quelle marcate data-cms-src nell'HTML, es. "hero.slide1") contengono una
   // chiave R2, mai un URL diretto — vanno sempre risolte con mediaUrl() prima di iniettarle.
@@ -4186,6 +4225,9 @@ async function applyPageOverrides(response, content, anchors) {
   }
   for (const a of appendTargets) {
     rewriter = rewriter.on(a.selector, new AppendContentHandler(a.render(a.data)));
+  }
+  for (const ia of insertAfterTargets) {
+    rewriter = rewriter.on(ia.selector, new InsertAfterHandler(ia.render(ia.data)));
   }
   return rewriter.transform(response);
 }
@@ -4214,7 +4256,13 @@ async function handleChiSiamoPage(request, env) {
   return handleFixedPageRoute(request, env, "chi-siamo", function(content){
     return {
       extraSections: "#cs-extra-sections",
-      replace: [{ selector: "#cs-founders-grid", data: content.founders, render: foundersHTML }]
+      replace: [
+        { selector: "#cs-founders-grid", data: content.founders, render: foundersHTML },
+        { selector: "#team-area-grid", data: content.teamAreas, render: teamAreaGridHTML }
+      ],
+      insertAfter: [
+        { selector: 'script[src$="team-data.js"]', data: content.teamAreas, render: teamOverrideScriptHTML }
+      ]
     };
   });
 }

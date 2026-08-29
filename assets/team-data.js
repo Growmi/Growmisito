@@ -10,7 +10,7 @@
    - members: elenco persone { name, role, photo } — role tipicamente "Direttore d'area" o
      "Team"; photo è facoltativo (assets/img/team/<slug>.jpg) — chi non ce l'ha ancora mostra
      solo il riquadro sfumato, niente foto rotte */
-const GROWMI_TEAM = {
+var GROWMI_TEAM = {
   amm: {
     name: "Amministrazione e Finanza",
     lead: "Chi si occupa dei conti, dell'amministrazione e della sostenibilità economica di GrowMi.",

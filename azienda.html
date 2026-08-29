@@ -692,6 +692,14 @@
         </div>
 
         <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Sezione staff</h3><div id="az-cs-fields-staff" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+
+        <div>
+          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Aree del team</h3>
+          <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Le card che si aprono in "Il team GrowMi" — ogni area ha un'icona, un nome, una descrizione e le persone che ne fanno parte.</p>
+          <div id="az-cs-team-areas" style="display:flex; flex-direction:column; gap:16px; margin-bottom:10px;"></div>
+          <button type="button" class="az-mini-btn" id="az-cs-add-team-area">+ Aggiungi area</button>
+        </div>
+
         <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">CTA "Vuoi entrare come staff"</h3><div id="az-cs-fields-cta" style="display:flex; flex-direction:column; gap:14px;"></div></div>
         <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Sezione social</h3><div id="az-cs-fields-social" style="display:flex; flex-direction:column; gap:14px;"></div></div>
 
@@ -1752,6 +1760,15 @@
   function heroSlidesHTMLPreview(keys){
     return (keys || []).map(function(key){ return '<div class="ed-hero-slide"><img src="' + mediaSrc(key) + '" alt=""></div>'; }).join('');
   }
+  // Anteprima solo delle card (nome/icona/etichetta) — il pannello a comparsa con le persone
+  // usa GROWMI_TEAM lato pagina reale, non aggiornabile qui senza toccare initTeamOverlay():
+  // limite noto, le card si vedono correttamente, il click mostrerà l'ultimo salvato finché non pubblichi.
+  function teamAreaGridHTMLPreview(areas){
+    return (areas || []).map(function(area){
+      var icon = area.iconKey ? '<img src="' + mediaSrc(area.iconKey) + '" alt="" loading="lazy">' : '';
+      return '<div class="team-area-item" data-team-area="' + (area.key || '') + '"><button type="button" class="ed-card team-area-trigger"><div class="ed-card-media">' + icon + '</div><span class="tag">' + (area.countLabel || '') + '</span><h3>' + area.name + '</h3></button><div class="team-area-panel" hidden></div></div>';
+    }).join('');
+  }
 
   function applyPreviewOverrides(doc, opts){
     var fields = opts.fields || {};
@@ -2048,6 +2065,131 @@
     renderChisiamoFounders();
   });
 
+  // ---- Aree del team (Staff) — lista annidata: aree, ognuna con una lista di persone ----
+  var chisiamoTeamAreas = []; // [{key, name, lead, countLabel, iconKey, members:[{name, role, photoKey}]}]
+  var CHISIAMO_DEFAULT_TEAM_AREAS = [
+    { key: 'amm', name: 'Amministrazione e Finanza', lead: "Chi si occupa dei conti, dell'amministrazione e della sostenibilità economica di GrowMi.", countLabel: '3 persone', iconKey: 'assets/img/team-areas/amm.svg', members: [
+      { name: 'Roberta La Giusa', role: "Direttore d'area", photoKey: 'assets/img/team/roberta-la-giusa.jpg' },
+      { name: 'Alessandro Decollanz', role: "Direttore d'area", photoKey: 'assets/img/team/alessandro-decollanz.jpg' },
+      { name: 'Colette Buelli', role: 'Team', photoKey: 'assets/img/team/colette-buelli.jpg' }
+    ] },
+    { key: 'artvenue', name: 'Artisti & Locali', lead: 'Chi cerca, seleziona e segue gli artisti emergenti e i locali che ospitano gli eventi GrowMi.', countLabel: '2 persone', iconKey: 'assets/img/team-areas/artvenue.svg', members: [
+      { name: 'Daniela Pezzoni', role: "Direttore d'area", photoKey: 'assets/img/team/daniela-pezzoni.jpg' },
+      { name: 'Lourdes Gorgoglione', role: 'Team', photoKey: 'assets/img/team/lourdes-gorgoglione.jpg' }
+    ] },
+    { key: 'comms', name: 'Comunicazione & Marketing', lead: 'Chi racconta GrowMi: contenuti, social, storytelling e la voce del progetto verso l\'esterno.', countLabel: '4 persone', iconKey: 'assets/img/team-areas/comms.svg', members: [
+      { name: 'Carlo Capizzoto', role: "Direttore d'area", photoKey: 'assets/img/team/carlo-capizzoto.jpg' },
+      { name: 'Alice Amoruso', role: "Direttore d'area", photoKey: 'assets/img/team/alice-amoruso.jpg' },
+      { name: 'Mihaela Doschinescu', role: 'Team', photoKey: 'assets/img/team/mihaela-doschinescu.jpg' },
+      { name: 'Keiron Metaj', role: 'Team', photoKey: 'assets/img/team/keiron-metaj.jpg' }
+    ] },
+    { key: 'comm', name: 'Commerciale', lead: 'Chi cura le partnership, gli sponsor e le collaborazioni commerciali di GrowMi.', countLabel: '2 persone', iconKey: 'assets/img/team-areas/comm.svg', members: [
+      { name: 'Marco Capezzuoli', role: "Direttore d'area", photoKey: 'assets/img/team/marco-capezzuoli.jpg' },
+      { name: 'Francesco Ghioni', role: 'Team', photoKey: 'assets/img/team/francesco-ghioni.jpg' }
+    ] },
+    { key: 'sw', name: 'Software e Piattaforme', lead: 'Chi sviluppa e mantiene il sito e gli strumenti digitali di GrowMi.', countLabel: 'In crescita', iconKey: 'assets/img/team-areas/sw.svg', members: [
+      { name: 'Carlo Capizzoto', role: "Direttore d'area", photoKey: 'assets/img/team/carlo-capizzoto.jpg' }
+    ] }
+  ];
+
+  function renderChisiamoTeamAreas(){
+    var wrap = document.getElementById('az-cs-team-areas');
+    wrap.innerHTML = '';
+    chisiamoTeamAreas.forEach(function(area, i){
+      var card = document.createElement('div');
+      card.style.cssText = 'border:1.5px solid var(--line); border-radius:12px; padding:14px;';
+      card.innerHTML =
+        '<div style="display:grid; grid-template-columns:70px 1fr; gap:12px; margin-bottom:12px;">' +
+          '<div>' +
+            '<div class="az-image-preview" style="aspect-ratio:1/1;">' + (area.iconKey ? '<img src="' + mediaSrc(area.iconKey) + '" alt="">' : 'Icona') + '</div>' +
+            '<input type="file" class="az-cs-area-icon-input" accept="image/jpeg,image/png,image/webp,image/svg+xml" style="margin-top:6px; font-size:11px; width:70px;">' +
+          '</div>' +
+          '<div>' +
+            '<input type="text" class="az-cs-area-name" placeholder="Nome area" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
+            '<textarea class="az-cs-area-lead" placeholder="Descrizione" style="width:100%; min-height:50px; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);"></textarea>' +
+            '<input type="text" class="az-cs-area-count" placeholder="Etichetta (es. &quot;3 persone&quot; o &quot;In crescita&quot;)" style="width:100%; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '</div>' +
+        '</div>' +
+        '<p style="font-size:12px; font-weight:600; margin-bottom:8px;">Persone</p>' +
+        '<div class="az-cs-team-area-members" style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;"></div>' +
+        '<div style="display:flex; gap:10px;">' +
+          '<button type="button" class="az-mini-btn az-cs-add-member">+ Aggiungi persona</button>' +
+          '<button type="button" class="az-mini-btn danger az-cs-remove-area">Rimuovi area</button>' +
+        '</div>';
+
+      var iconFileInput = card.querySelector('.az-cs-area-icon-input');
+      var nameInput = card.querySelector('.az-cs-area-name');
+      var leadInput = card.querySelector('.az-cs-area-lead');
+      var countInput = card.querySelector('.az-cs-area-count');
+      nameInput.value = area.name || '';
+      leadInput.value = area.lead || '';
+      countInput.value = area.countLabel || '';
+      nameInput.addEventListener('input', function(){ area.name = nameInput.value; });
+      leadInput.addEventListener('input', function(){ area.lead = leadInput.value; });
+      countInput.addEventListener('input', function(){ area.countLabel = countInput.value; });
+      iconFileInput.addEventListener('change', async function(){
+        var file = iconFileInput.files[0];
+        if (!file) return;
+        try {
+          area.iconKey = await uploadArtistMediaGeneric(file, 'team-icon', 'chi-siamo', 'pages');
+          renderChisiamoTeamAreas();
+        } catch (err) { alert(err.message); }
+      });
+      card.querySelector('.az-cs-remove-area').addEventListener('click', function(){
+        chisiamoTeamAreas.splice(i, 1);
+        renderChisiamoTeamAreas();
+      });
+
+      var membersWrap = card.querySelector('.az-cs-team-area-members');
+      function renderMembers(){
+        membersWrap.innerHTML = '';
+        area.members.forEach(function(m, mi){
+          var row = document.createElement('div');
+          row.style.cssText = 'border:1.5px solid var(--line); border-radius:10px; padding:10px; display:grid; grid-template-columns:56px 1fr; gap:10px;';
+          row.innerHTML =
+            '<div>' +
+              '<div class="az-image-preview" style="aspect-ratio:1/1;">' + (m.photoKey ? '<img src="' + mediaSrc(m.photoKey) + '" alt="">' : 'Foto') + '</div>' +
+              '<input type="file" accept="image/jpeg,image/png,image/webp" style="margin-top:4px; font-size:10px; width:56px;">' +
+            '</div>' +
+            '<div>' +
+              '<input type="text" placeholder="Nome" style="width:100%; margin-bottom:6px; padding:7px 9px; border-radius:7px; border:1.5px solid var(--line); font-size:13px;">' +
+              '<input type="text" placeholder="Ruolo" style="width:100%; margin-bottom:6px; padding:7px 9px; border-radius:7px; border:1.5px solid var(--line); font-size:13px;">' +
+              '<button type="button" class="az-mini-btn danger" style="font-size:11px; padding:6px 10px;">Rimuovi</button>' +
+            '</div>';
+          var mFile = row.querySelector('input[type=file]');
+          var mName = row.querySelectorAll('input[type=text]')[0];
+          var mRole = row.querySelectorAll('input[type=text]')[1];
+          mName.value = m.name || '';
+          mRole.value = m.role || '';
+          mName.addEventListener('input', function(){ m.name = mName.value; });
+          mRole.addEventListener('input', function(){ m.role = mRole.value; });
+          mFile.addEventListener('change', async function(){
+            var file = mFile.files[0];
+            if (!file) return;
+            try {
+              m.photoKey = await uploadArtistMediaGeneric(file, 'team-member', 'chi-siamo', 'pages');
+              renderMembers();
+            } catch (err) { alert(err.message); }
+          });
+          row.querySelector('.danger').addEventListener('click', function(){ area.members.splice(mi, 1); renderMembers(); });
+          membersWrap.appendChild(row);
+        });
+      }
+      renderMembers();
+
+      card.querySelector('.az-cs-add-member').addEventListener('click', function(){
+        area.members.push({ name: '', role: '', photoKey: null });
+        renderMembers();
+      });
+
+      wrap.appendChild(card);
+    });
+  }
+  document.getElementById('az-cs-add-team-area').addEventListener('click', function(){
+    chisiamoTeamAreas.push({ key: '', name: '', lead: '', countLabel: '', iconKey: null, members: [] });
+    renderChisiamoTeamAreas();
+  });
+
   function renderChisiamoExtraSections(){
     var wrap = document.getElementById('az-cs-extra');
     wrap.innerHTML = '';
@@ -2107,6 +2249,8 @@
       });
       chisiamoFounders = (content.founders !== undefined ? content.founders : CHISIAMO_DEFAULT_FOUNDERS).slice();
       renderChisiamoFounders();
+      chisiamoTeamAreas = (content.teamAreas !== undefined ? content.teamAreas : CHISIAMO_DEFAULT_TEAM_AREAS).slice();
+      renderChisiamoTeamAreas();
       chisiamoExtraSections = (content.extraSections || []).slice();
       renderChisiamoExtraSections();
     } catch (err) { /* i campi restano vuoti, riprovabile ricaricando il pannello */ }
@@ -2127,7 +2271,10 @@
       fields: collectChisiamoFields(),
       extraSectionsSelector: '#cs-extra-sections',
       extraSectionsHtml: extraSectionsHTMLPreview(chisiamoExtraSections),
-      replaceTargets: [{ selector: '#cs-founders-grid', html: foundersHTMLPreview(chisiamoFounders) }]
+      replaceTargets: [
+        { selector: '#cs-founders-grid', html: foundersHTMLPreview(chisiamoFounders) },
+        { selector: '#team-area-grid', html: teamAreaGridHTMLPreview(chisiamoTeamAreas) }
+      ]
     });
   });
 
@@ -2145,7 +2292,7 @@
       var res = await fetch('/api/admin/page-content', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ page: 'chi-siamo', fields: fields, extraSections: chisiamoExtraSections, founders: chisiamoFounders })
+        body: JSON.stringify({ page: 'chi-siamo', fields: fields, extraSections: chisiamoExtraSections, founders: chisiamoFounders, teamAreas: chisiamoTeamAreas })
       });
       var data = await res.json();
       if (res.ok) {
