@@ -3542,13 +3542,36 @@ async function handleMedia(request, env) {
   if (!env.EVENT_IMAGES) return new Response("Not found", { status: 404 });
   const key = new URL(request.url).pathname.replace(/^\/media\//, "");
   const object = await env.EVENT_IMAGES.get(key);
-  if (!object) return new Response("Not found", { status: 404 });
-  return new Response(object.body, {
-    headers: {
-      "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
-      "Cache-Control": "public, max-age=31536000, immutable"
+  if (object) {
+    // Le chiavi "site/*" sono a posto fisso e sovrascrivibili in place (es. l'immagine hero di
+    // default, ricaricabile in ogni momento dal pannello "Grafica sito"): cache breve, non
+    // immutabile — altrimenti un nuovo caricamento non si vedrebbe per fino a un anno. Le chiavi
+    // events/artists/pages invece sono sempre nuove a ogni upload, quindi restano davvero immutabili.
+    const isFixedSiteAsset = key.startsWith("site/");
+    return new Response(object.body, {
+      headers: {
+        "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
+        "Cache-Control": isFixedSiteAsset ? "public, max-age=300" : "public, max-age=31536000, immutable"
+      }
+    });
+  }
+  // Nessuna immagine caricata dal pannello per l'hero di default: si serve quella già presente
+  // nel sito come asset statico, così /media/site/default-hero-image funziona da subito, senza
+  // bisogno di una migrazione manuale — stesso principio "nessun valore salvato = resta il
+  // default" usato in tutto il resto del pannello.
+  if (key === "site/default-hero-image") {
+    const fallbackUrl = new URL("/assets/img/hero/default-hero.jpg", request.url);
+    const fallbackRes = await env.ASSETS.fetch(new Request(fallbackUrl, request));
+    if (fallbackRes.ok) {
+      return new Response(fallbackRes.body, {
+        headers: {
+          "Content-Type": fallbackRes.headers.get("content-type") || "image/jpeg",
+          "Cache-Control": "public, max-age=300"
+        }
+      });
     }
-  });
+  }
+  return new Response("Not found", { status: 404 });
 }
 
 // Elenco completo eventi per il pannello aziendale (dettaglio pieno, non solo nome/data come
