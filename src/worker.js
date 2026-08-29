@@ -958,7 +958,7 @@ async function handlePublicEvents(request, env) {
 // è visivamente indistinguibile dalle altre, senza duplicare template altrove.
 function eventPageHTML(event, slug) {
   const heroImg = event.heroImageKey
-    ? `<img class="ed-hero-photo" src="${mediaUrl(event.heroImageKey)}" alt=""><div class="ed-hero-video-overlay"></div>`
+    ? `<img class="ed-hero-photo" src="${mediaUrl(event.heroImageKey)}" alt="" style="${photoFramingStyle(event.heroPosition, event.heroZoom)}"><div class="ed-hero-video-overlay"></div>`
     : "";
   const coverBlock = event.coverImageKey
     ? `<section class="ed-section-tight"><div class="wrap"><div class="ed-poster-feature"><img class="ed-poster-img" src="${mediaUrl(event.coverImageKey)}" alt="${event.name}"></div></div></section>`
@@ -3505,6 +3505,8 @@ function validateEventPayload(body, existingTiers, sold) {
   // non compare né su /api/public-events né su /evento/<slug> finché lo staff non lo pubblica
   // esplicitamente dal pannello.
   const heroImageKey = String(body.heroImageKey || "").trim() || null;
+  const heroPosition = String(body.heroPosition || "center").trim().slice(0, 30);
+  const heroZoom = clampImageZoom(body.heroZoom);
   const coverImageKey = String(body.coverImageKey || "").trim() || null;
   const gallery = Array.isArray(body.gallery)
     ? body.gallery.map(function(k){ return String(k || "").trim(); }).filter(Boolean).slice(0, 40)
@@ -3521,7 +3523,7 @@ function validateEventPayload(body, existingTiers, sold) {
     ? null
     : (Number.isFinite(Number(body.sortOrder)) ? Number(body.sortOrder) : null);
 
-  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, coverImageKey, gallery, published, sortOrder } };
+  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder } };
 }
 
 const IMAGE_CONTENT_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };

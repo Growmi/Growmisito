@@ -546,6 +546,7 @@
             <div class="az-image-preview" id="az-ev-hero-preview">Nessuna immagine</div>
             <input type="file" accept="image/jpeg,image/png,image/webp" id="az-ev-hero-input">
             <button type="button" class="az-mini-btn danger" id="az-ev-hero-remove" hidden>Rimuovi</button>
+            <div id="az-ev-hero-framing"></div>
           </div>
 
           <div>
@@ -1422,6 +1423,7 @@
   // comunque perché la chiave è solo un nome, non un riferimento all'evento.
   var evUploadSlug = null;
   var evHeroKey = null;
+  var evHeroFraming = { position: 'center', zoom: 1 };
   var evCoverKey = null;
   var evGallery = [];
 
@@ -1429,8 +1431,12 @@
     return key ? '<img src="/media/' + key + '" alt="">' : 'Nessuna immagine';
   }
   function renderHeroPreview(){
-    document.getElementById('az-ev-hero-preview').innerHTML = imagePreviewHTML(evHeroKey);
+    var box = document.getElementById('az-ev-hero-preview');
+    box.innerHTML = imagePreviewHTML(evHeroKey);
     document.getElementById('az-ev-hero-remove').hidden = !evHeroKey;
+    var framingWrap = document.getElementById('az-ev-hero-framing');
+    if (evHeroKey) renderFramingControls(framingWrap, box.querySelector('img'), evHeroFraming);
+    else framingWrap.innerHTML = '';
   }
   function renderCoverPreview(){
     document.getElementById('az-ev-cover-preview').innerHTML = imagePreviewHTML(evCoverKey);
@@ -3383,6 +3389,7 @@
 
     evUploadSlug = event ? event.slug : ('draft-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
     evHeroKey = event ? (event.heroImageKey || null) : null;
+    evHeroFraming = { position: (event && event.heroPosition) || 'center', zoom: (event && event.heroZoom) || 1 };
     evCoverKey = event ? (event.coverImageKey || null) : null;
     evGallery = event ? (event.gallery || []).slice() : [];
     renderHeroPreview();
@@ -3449,6 +3456,8 @@
       tiers: tiers,
       feedbackOptions: feedbackOptions,
       heroImageKey: evHeroKey,
+      heroPosition: evHeroFraming.position,
+      heroZoom: evHeroFraming.zoom,
       coverImageKey: evCoverKey,
       gallery: evGallery,
       published: document.getElementById('az-ev-published').checked
