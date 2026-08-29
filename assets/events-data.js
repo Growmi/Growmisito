@@ -15,7 +15,7 @@
    - ticketsAnchor: opzionale, es. "#mise-tickets" — se l'evento ha una sezione
      biglietti dedicata nella sua pagina, il menu a tendina "Biglietti" nell'header
      punta lì direttamente invece che all'inizio della pagina */
-const GROWMI_EVENTS = [
+var GROWMI_EVENTS = [
   {
     slug: "miseducation",
     draft: true,

@@ -786,6 +786,24 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    if (url.pathname === "/api/admin/legacy-events" && request.method === "GET") {
+      try {
+        return await handleAdminGetLegacyEvents(request, env);
+      } catch (err) {
+        console.log("Errore admin/legacy-events GET:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/admin/legacy-events" && request.method === "PUT") {
+      try {
+        return await handleAdminSaveLegacyEvents(request, env);
+      } catch (err) {
+        console.log("Errore admin/legacy-events PUT:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     const fallthrough = await env.ASSETS.fetch(request);
     if (request.method === "GET") return await finalizePublicHtmlResponse(request, env, fallthrough);
     return fallthrough;
@@ -4479,6 +4497,74 @@ function isPublicThemedPath(pathname) {
 
 // Punto unico di uscita per ogni risposta HTML pubblica (statica o generata dal Worker): applica
 // il tema salvato, se presente. Senza tema salvato la risposta torna invariata (pass-through).
+// ============================================================================
+// Eventi "storici" (assets/events-data.js): 3 voci scritte a mano, ognuna con la propria pagina
+// HTML su misura (art-mall-collab.html, grow-with-us.html, the-miseducation-of-growmi.html) — da
+// prima che esistesse il pannello Eventi con vendita biglietti (KV + /evento/<slug>). Non sono
+// collegate al KV in nessun modo: senza questo sistema non c'era modo di modificarle dal
+// pannello. Stessa tecnica già usata per assets/team-data.js — GROWMI_EVENTS dichiarata "var"
+// apposta, un override viene iniettato subito dopo il suo <script> e sovrascrive solo i campi
+// salvati (titolo, data, luogo, copertina), mai gli slug/url/draft che sono legati al codice.
+async function getLegacyEventsOverride(env) {
+  const raw = await env.TICKETS.get("site:legacy-events");
+  return raw ? JSON.parse(raw) : {};
+}
+
+function validateLegacyEventsPayload(body) {
+  const inputOverrides = body && body.overrides && typeof body.overrides === "object" ? body.overrides : {};
+  const overrides = {};
+  for (const slug of Object.keys(inputOverrides).slice(0, 20)) {
+    const raw = inputOverrides[slug];
+    const entry = {};
+    if (raw && raw.title) entry.title = String(raw.title).trim().slice(0, 150);
+    if (raw && raw.tag) entry.tag = String(raw.tag).trim().slice(0, 80);
+    if (raw && raw.location) entry.location = String(raw.location).trim().slice(0, 150);
+    if (raw && raw.dateIso) entry.dateIso = String(raw.dateIso).trim().slice(0, 10);
+    if (raw && raw.coverKey) entry.coverKey = String(raw.coverKey).trim();
+    if (Object.keys(entry).length) overrides[String(slug).trim().slice(0, 60)] = entry;
+  }
+  return { ok: true, overrides };
+}
+
+async function handleAdminGetLegacyEvents(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  return jsonResponse({ overrides: await getLegacyEventsOverride(env) });
+}
+
+async function handleAdminSaveLegacyEvents(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const validated = validateLegacyEventsPayload(body);
+  await env.TICKETS.put("site:legacy-events", JSON.stringify(validated.overrides));
+  return jsonResponse({ ok: true, overrides: validated.overrides });
+}
+
+function legacyEventsOverrideScriptHTML(overrides) {
+  const resolved = {};
+  for (const slug of Object.keys(overrides)) {
+    const o = overrides[slug];
+    const entry = {};
+    if (o.title) entry.title = o.title;
+    if (o.tag) entry.tag = o.tag;
+    if (o.location) entry.location = o.location;
+    if (o.dateIso) entry.date = o.dateIso;
+    if (o.coverKey) entry.cover = mediaUrl(o.coverKey);
+    resolved[slug] = entry;
+  }
+  const json = JSON.stringify(resolved).replace(/</g, "\\u003c");
+  return `<script>(function(){var o=${json};if(typeof GROWMI_EVENTS!=="undefined"){GROWMI_EVENTS.forEach(function(ev){var e=o[ev.slug];if(e)Object.keys(e).forEach(function(k){ev[k]=e[k];});});}})();</script>`;
+}
+
+async function applyLegacyEventsOverride(response, overrides) {
+  if (!overrides || !Object.keys(overrides).length) return response;
+  const html = legacyEventsOverrideScriptHTML(overrides);
+  return new HTMLRewriter().on('script[src$="events-data.js"]', new InsertAfterHandler(html)).transform(response);
+}
+
 async function finalizePublicHtmlResponse(request, env, response) {
   if (!env.TICKETS || !response) return response;
   const url = new URL(request.url);
@@ -4486,8 +4572,10 @@ async function finalizePublicHtmlResponse(request, env, response) {
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("text/html")) return response;
   try {
-    const theme = await getSiteTheme(env);
-    return await applySiteTheme(response, theme);
+    const [theme, legacyEventsOverride] = await Promise.all([getSiteTheme(env), getLegacyEventsOverride(env)]);
+    let out = await applySiteTheme(response, theme);
+    out = await applyLegacyEventsOverride(out, legacyEventsOverride);
+    return out;
   } catch (err) {
     console.log("Errore tema sito:", err.stack || err.message);
     return response;

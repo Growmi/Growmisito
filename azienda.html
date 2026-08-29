@@ -19,7 +19,12 @@
   body{
     background:var(--cream); color:var(--ink); font-family:'Inter', system-ui, sans-serif;
     min-height:100vh; min-height:100dvh;
+    /* Rete di sicurezza: senza, un elemento troppo largo (es. due <input type="file"> affiancati
+       in una griglia stretta) allarga tutta la pagina invece di restare contenuto — succedeva su
+       telefono nella scheda Carta fedeltà. */
+    overflow-x:hidden;
   }
+  input, select, textarea{ max-width:100%; }
 
   /* Header minimale, apposta SEPARATO dalla navigazione del sito pubblico — questa è
      un'applicazione interna, non una pagina del sito con cui ci si aspetta di navigare avanti
@@ -274,6 +279,23 @@
     font-size:16px; cursor:pointer; line-height:1;
   }
   .az-preview-drawer-panel iframe{ flex:1 1 auto; width:100%; border:none; background:#fff; }
+
+  /* Righe di più foto affiancate (slide della home, fronte/retro della carta fedeltà, ecc.):
+     su schermi stretti (telefono, iPad in verticale) una griglia rigida a più colonne non si
+     restringe abbastanza — le colonne diventano più larghe della pagina e la spingono a scorrere
+     tutta di lato. Sotto i 760px diventano invece una fila che scorre orizzontalmente da sola,
+     con una vera barra di scorrimento e "aggancio" a ogni foto (scroll-snap) — coerente su
+     iPhone, iPad e desktop stretto. */
+  .az-photo-row{ display:grid; gap:10px; }
+  .az-photo-row-2{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+  .az-photo-row-3{ grid-template-columns:repeat(3, minmax(0,1fr)); }
+  @media (max-width:760px){
+    .az-photo-row{
+      display:flex; overflow-x:auto; -webkit-overflow-scrolling:touch;
+      scroll-snap-type:x mandatory; padding-bottom:8px; margin:0 -4px 6px;
+    }
+    .az-photo-row > *{ flex:0 0 auto; width:min(240px, 70vw); scroll-snap-align:start; margin:0 4px; }
+  }
 </style>
 </head>
 <body>
@@ -533,6 +555,16 @@
           <p class="az-msg" id="az-event-msg" hidden></p>
         </form>
       </div>
+
+      <div style="margin-top:36px; padding-top:28px; border-top:1.5px solid var(--line);">
+        <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Eventi passati (pagine storiche)</h3>
+        <p style="font-size:12px; color:var(--grey); margin-bottom:16px; max-width:600px;">Le prime edizioni, con una pagina propria invece che generata dal biglietto online — titolo, data, luogo e copertina modificabili qui.</p>
+        <div id="az-legacy-events" style="display:flex; flex-direction:column; gap:16px;"></div>
+        <div style="display:flex; gap:10px; align-items:center; margin-top:16px;">
+          <button type="button" class="az-submit" id="az-legacy-events-save" style="flex:0 0 auto; padding:14px 26px;">Pubblica eventi passati</button>
+        </div>
+        <p class="az-msg" id="az-legacy-events-msg" hidden></p>
+      </div>
     </div>
 
     <!-- Artisti -->
@@ -621,7 +653,7 @@
         <div>
           <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Hero</h3>
           <div id="az-home-fields-hero" style="display:flex; flex-direction:column; gap:14px;"></div>
-          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px;">
+          <div class="az-photo-row az-photo-row-3" style="margin-top:14px;">
             <div>
               <div class="az-image-preview" id="az-home-slide1-preview" style="aspect-ratio:9/16;">Slide 1</div>
               <input type="file" accept="image/jpeg,image/png,image/webp" id="az-home-slide1-input" data-slide-key="hero.slide1">
@@ -764,7 +796,7 @@
         <div>
           <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Card fisica</h3>
           <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Le due facce della card (si gira al tocco) e il testo del suggerimento.</p>
-          <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:14px;">
+          <div class="az-photo-row az-photo-row-2" style="margin-bottom:14px;">
             <div>
               <div class="az-image-preview" id="az-loy-front-preview" style="aspect-ratio:9/14;">Fronte</div>
               <input type="file" accept="image/jpeg,image/png,image/webp" id="az-loy-front-input">
@@ -1635,8 +1667,110 @@
       allEvents = data.events || [];
       renderEventsList(allEvents);
     } catch (err) { document.getElementById('az-events-empty').hidden = false; }
+    await loadLegacyEvents();
   }
   panelLoaders.eventi = { loaded: false, load: loadEvents };
+
+  // ---- Eventi passati (assets/events-data.js, non collegati al KV) — le 3 voci già live sul
+  // sito, usate come stato iniziale finché non viene salvato un override. draft/url non sono
+  // modificabili qui (sono legati al codice/alla pagina HTML della pagina).
+  var LEGACY_EVENTS_DEFAULTS = [
+    { slug: 'miseducation', draft: true, title: 'The Miseducation of GrowMI', tag: 'GIO 10 SETT 2026 · APERTURA 19:00', location: 'Art Mall Milano · Milano', dateIso: '2026-09-10', coverKey: null },
+    { slug: 'art-mall', draft: false, title: 'The Art of Being Yourself', tag: '4 GIUGNO 2026', location: 'Art Mall · Milano', dateIso: '2026-06-04', coverKey: 'assets/img/eventi/art-mall-collab/01.jpg' },
+    { slug: 'grow-with-us', draft: false, title: 'Grow With Us', tag: '6 MAGGIO 2025', location: 'Black (by Mixum) · Milano', dateIso: '2025-05-06', coverKey: 'assets/img/eventi/grow-with-us/01.jpg' }
+  ];
+  var legacyEventInputs = {}; // slug -> {title, tag, location, dateIso, coverKey: {input, preview}}
+
+  function renderLegacyEvents(overrides){
+    var wrap = document.getElementById('az-legacy-events');
+    wrap.innerHTML = '';
+    legacyEventInputs = {};
+    LEGACY_EVENTS_DEFAULTS.forEach(function(def){
+      var o = overrides[def.slug] || {};
+      var card = document.createElement('div');
+      card.style.cssText = 'border:1.5px solid var(--line); border-radius:12px; padding:14px; display:grid; grid-template-columns:90px 1fr; gap:14px;';
+      card.innerHTML =
+        '<div>' +
+          '<div class="az-image-preview" style="aspect-ratio:1/1;">' + ((o.coverKey || def.coverKey) ? '<img src="' + mediaSrc(o.coverKey || def.coverKey) + '" alt="">' : 'Copertina') + '</div>' +
+          '<input type="file" accept="image/jpeg,image/png,image/webp" style="margin-top:6px; font-size:11px; width:90px;">' +
+        '</div>' +
+        '<div style="display:flex; flex-direction:column; gap:8px;">' +
+          '<div style="font-size:11px; color:var(--grey);">' + esc(def.title) + (def.draft ? ' · bozza, non ancora sul sito' : '') + '</div>' +
+          '<input type="text" placeholder="Titolo" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<input type="text" placeholder="Data mostrata (es. &quot;4 giugno 2026&quot;)" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<input type="text" placeholder="Luogo" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<input type="date" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+        '</div>';
+      var fileInput = card.querySelector('input[type=file]');
+      var texts = card.querySelectorAll('input[type=text]');
+      var dateInput = card.querySelector('input[type=date]');
+      // Pre-compilati con i valori attualmente live (non un placeholder vuoto): si vede subito
+      // cosa c'è ora, e pubblicare senza toccare nulla riproduce esattamente la pagina di oggi.
+      texts[0].value = o.title || def.title;
+      texts[1].value = o.tag || def.tag;
+      texts[2].value = o.location || def.location;
+      dateInput.value = o.dateIso || def.dateIso;
+      var state = { titleEl: texts[0], tagEl: texts[1], locationEl: texts[2], dateEl: dateInput, coverKey: o.coverKey || null };
+      fileInput.addEventListener('change', async function(){
+        var file = fileInput.files[0];
+        if (!file) return;
+        try {
+          state.coverKey = await uploadArtistMediaGeneric(file, 'cover', def.slug, 'pages');
+          renderLegacyEvents(Object.assign({}, overrides, buildLegacyEventsPayload()));
+        } catch (err) { alert(err.message); }
+      });
+      legacyEventInputs[def.slug] = state;
+      wrap.appendChild(card);
+    });
+  }
+
+  function buildLegacyEventsPayload(){
+    var overrides = {};
+    Object.keys(legacyEventInputs).forEach(function(slug){
+      var s = legacyEventInputs[slug];
+      var entry = {};
+      if (s.titleEl.value.trim()) entry.title = s.titleEl.value.trim();
+      if (s.tagEl.value.trim()) entry.tag = s.tagEl.value.trim();
+      if (s.locationEl.value.trim()) entry.location = s.locationEl.value.trim();
+      if (s.dateEl.value) entry.dateIso = s.dateEl.value;
+      if (s.coverKey) entry.coverKey = s.coverKey;
+      if (Object.keys(entry).length) overrides[slug] = entry;
+    });
+    return overrides;
+  }
+
+  async function loadLegacyEvents(){
+    try {
+      var res = await fetch('/api/admin/legacy-events');
+      var data = await res.json();
+      renderLegacyEvents(data.overrides || {});
+    } catch (err) { renderLegacyEvents({}); }
+  }
+
+  document.getElementById('az-legacy-events-save').addEventListener('click', async function(){
+    var msg = document.getElementById('az-legacy-events-msg');
+    msg.hidden = true;
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Salvataggio...';
+    try {
+      var res = await fetch('/api/admin/legacy-events', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ overrides: buildLegacyEventsPayload() })
+      });
+      var data = await res.json();
+      if (res.ok) {
+        showMsg(msg, 'Salvato — gli eventi passati sono già aggiornati.', false);
+      } else {
+        showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+      }
+    } catch (err) {
+      showMsg(msg, 'Errore di connessione.', true);
+    }
+    btn.disabled = false;
+    btn.textContent = 'Pubblica eventi passati';
+  });
 
   // ---- Pagina Home: campi liberi chiave->testo (le chiavi combaciano con i data-cms nell'HTML
   // della pagina) + sezioni extra a blocchi, stesso pattern di aggiunta/rimozione già usato per
