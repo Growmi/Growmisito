@@ -230,6 +230,9 @@
   <div class="stats-box"><span class="n" id="statTotal">—</span><span class="l">Venduti</span></div>
   <div class="stats-box"><span class="n" id="statCheckedIn">—</span><span class="l">Entrati</span></div>
 </div>
+<div class="stats-bar" id="loyaltyStatsBar" hidden>
+  <div class="stats-box"><span class="n" id="statLoyaltyScans">0</span><span class="l">Card scansionate (in questo turno)</span></div>
+</div>
 <button type="button" class="history-link" id="historyLink" hidden>📊 Storico evento</button>
 <div class="history-box" id="historyBox">
   <div class="stats-box"><span class="n" id="histCard">—</span><span class="l">Con card</span></div>
@@ -302,6 +305,12 @@
   var result = document.getElementById("result");
   var statTotal = document.getElementById("statTotal");
   var statCheckedIn = document.getElementById("statCheckedIn");
+  // Solo per questo turno (non salvato/persistito): quante loyalty card sono state scansionate
+  // con esito positivo da quando è aperta questa pagina — resta a 0 finché non si scansiona
+  // qualcosa, si azzera solo ricaricando la pagina.
+  var loyaltyStatsBar = document.getElementById("loyaltyStatsBar");
+  var statLoyaltyScans = document.getElementById("statLoyaltyScans");
+  var loyaltyScanCount = 0;
   var statsBar = document.getElementById("statsBar");
   var manualCode = document.getElementById("manualCode");
   var pageTitle = document.getElementById("pageTitle");
@@ -329,6 +338,7 @@
     document.getElementById("tabCheckin").classList.toggle("is-active", m === "checkin");
     document.getElementById("tabLoyalty").classList.toggle("is-active", m === "loyalty");
     statsBar.hidden = m !== "checkin";
+    loyaltyStatsBar.hidden = m !== "loyalty";
     document.getElementById("historyLink").hidden = m !== "checkin" || !selectedEvent;
     document.getElementById("historyBox").classList.remove("open");
     historyOpen = false;
@@ -539,6 +549,8 @@
       if (res.status === 401) { onUnauthorized(); return; }
       var data = await res.json();
       if (data.found) {
+        loyaltyScanCount++;
+        statLoyaltyScans.textContent = loyaltyScanCount;
         // Il 3° evento (drink) lo staff lo dà di persona: pulsante finché non lo segna. Il 5°
         // evento (coupon) è sempre e solo informativo qui — parte da solo via email al momento
         // del timbro, non c'è nulla da "dare" allo scanner.
