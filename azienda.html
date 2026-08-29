@@ -486,6 +486,7 @@
       <div class="az-toolbar">
         <span></span>
         <div class="actions">
+          <button type="button" class="az-preview-btn" id="az-events-preview-list-btn">👁 Preview pagina eventi</button>
           <button type="button" class="primary" id="az-event-new">+ Nuovo evento</button>
         </div>
       </div>
@@ -554,6 +555,7 @@
           <p style="font-size:12px; color:var(--grey); margin-top:-10px;">Finché non è spuntato, l'evento resta bozza: non compare sul sito né è raggiungibile su /evento/&lt;slug&gt;.</p>
 
           <div style="display:flex; gap:10px; align-items:center;">
+            <button type="button" class="az-preview-btn" id="az-ev-preview-btn">👁 Preview pagina evento</button>
             <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Salva evento</button>
             <button type="button" class="az-mini-btn" id="az-ev-cancel">Annulla</button>
           </div>
@@ -1993,6 +1995,10 @@
   }
 
   function applyPreviewOverrides(doc, opts){
+    // Per pagine generate da un template server-side senza data-cms (es. /evento/<slug>): una
+    // funzione dedicata che sa quali selettori del suo template aggiornare, invece del
+    // meccanismo generico pensato per le pagine fisse statiche.
+    if (opts.customApply) { opts.customApply(doc); return; }
     var fields = opts.fields || {};
     doc.querySelectorAll('[data-cms]').forEach(function(el){
       var key = el.getAttribute('data-cms');
@@ -2050,7 +2056,7 @@
   // sfogliando l'anteprima. Gli altri (contenuti di UNA pagina specifica, es. i campi della home)
   // si vedono solo mentre l'anteprima mostra proprio quella pagina.
   function isPageSpecificPreview(opts){
-    return !!((opts.fields && Object.keys(opts.fields).length) || opts.extraSectionsHtml ||
+    return !!(opts.customApply || (opts.fields && Object.keys(opts.fields).length) || opts.extraSectionsHtml ||
       (opts.replaceTargets && opts.replaceTargets.length) || (opts.appendTargets && opts.appendTargets.length));
   }
   function loadPreviewPage(pageUrl){
@@ -3254,6 +3260,42 @@
     }
     submitBtn.disabled = false;
     submitBtn.textContent = 'Salva evento';
+  });
+
+  // La pagina evento (/evento/<slug>) è generata da un template lato server, non da data-cms su
+  // un HTML statico come le pagine fisse — qui si punta direttamente ai selettori stabili del
+  // template (worker.js, eventPageHTML) invece di riusare applyPreviewOverrides.
+  function applyEventPreviewOverrides(doc, pending){
+    var h1 = doc.querySelector('.ed-hero h1');
+    if (h1 && pending.name) h1.textContent = pending.name;
+    var eyebrow = doc.querySelector('.ed-hero .ed-eyebrow');
+    if (eyebrow && (pending.dateDisplay || pending.location)) {
+      eyebrow.textContent = (pending.dateDisplay || '') + ' · ' + (pending.location || '');
+    }
+    var lead = doc.querySelector('.ed-hero .ed-lead');
+    if (lead && pending.teaser) lead.textContent = pending.teaser;
+    var heroImg = doc.querySelector('.ed-hero-photo');
+    if (heroImg && pending.heroImageKey) heroImg.setAttribute('src', mediaSrc(pending.heroImageKey));
+    var coverImg = doc.querySelector('.ed-poster-img');
+    if (coverImg && pending.coverImageKey) coverImg.setAttribute('src', mediaSrc(pending.coverImageKey));
+  }
+
+  document.getElementById('az-ev-preview-btn').addEventListener('click', function(){
+    var slug = document.getElementById('az-ev-slug').value;
+    if (!slug) { alert('Salva l\'evento almeno una volta per poter vedere l\'anteprima della sua pagina — finché non esiste uno slug non c\'è ancora una pagina da mostrare.'); return; }
+    var pending = {
+      name: document.getElementById('az-ev-name').value.trim(),
+      dateDisplay: document.getElementById('az-ev-datedisplay').value.trim(),
+      location: document.getElementById('az-ev-location').value.trim(),
+      teaser: document.getElementById('az-ev-teaser').value.trim(),
+      heroImageKey: evHeroKey,
+      coverImageKey: evCoverKey
+    };
+    openPreview('/evento/' + slug, { customApply: function(doc){ applyEventPreviewOverrides(doc, pending); } });
+  });
+
+  document.getElementById('az-events-preview-list-btn').addEventListener('click', function(){
+    openPreview('/eventi.html', {});
   });
 
   // ---- helper download CSV comune ----
