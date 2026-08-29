@@ -312,6 +312,7 @@
       <div class="az-nav-group">
         <p class="az-nav-group-label">Pagine</p>
         <button type="button" class="az-nav-item" data-panel="pagina-home">🏠 Home</button>
+        <button type="button" class="az-nav-item" data-panel="pagina-chisiamo">👥 Chi siamo</button>
       </div>
       <div class="az-nav-group">
         <p class="az-nav-group-label">Impostazioni</p>
@@ -631,6 +632,46 @@
           <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Salva home</button>
         </div>
         <p class="az-msg" id="az-home-msg" hidden></p>
+      </form>
+    </div>
+
+    <!-- Pagina Chi siamo -->
+    <div class="az-panel" data-panel-content="pagina-chisiamo" hidden>
+      <p style="font-size:13px; color:var(--grey); margin-bottom:20px; max-width:600px;">Come per la Home: campo vuoto = resta il testo attuale del sito.</p>
+      <form id="az-chisiamo-form" style="max-width:640px; display:flex; flex-direction:column; gap:28px;">
+        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Hero</h3><div id="az-cs-fields-hero" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Testo introduttivo</h3><div id="az-cs-fields-intro" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Sezione video</h3><div id="az-cs-fields-video" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Evoluzione contenuti</h3><div id="az-cs-fields-evoluzione" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Loghi del passato</h3><div id="az-cs-fields-loghi" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Mission &amp; Vision</h3><div id="az-cs-fields-mv" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+
+        <div>
+          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Fondatori</h3>
+          <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Titolo sezione, e la lista delle persone mostrate — aggiungi, rimuovi o modifica.</p>
+          <div id="az-cs-fields-fondatori-header" style="display:flex; flex-direction:column; gap:14px; margin-bottom:14px;"></div>
+          <div id="az-cs-founders" style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;"></div>
+          <button type="button" class="az-mini-btn" id="az-cs-add-founder">+ Aggiungi fondatore</button>
+        </div>
+
+        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Sezione staff</h3><div id="az-cs-fields-staff" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">CTA "Vuoi entrare come staff"</h3><div id="az-cs-fields-cta" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Sezione social</h3><div id="az-cs-fields-social" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+
+        <div>
+          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Sezioni extra</h3>
+          <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Aggiunte in un unico punto fisso, appena prima della newsletter.</p>
+          <div id="az-cs-extra" style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;"></div>
+          <div style="display:flex; gap:10px;">
+            <button type="button" class="az-mini-btn" id="az-cs-add-text-section">+ Aggiungi sezione di testo</button>
+            <button type="button" class="az-mini-btn" id="az-cs-add-image-section">+ Aggiungi sezione immagine</button>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Salva chi siamo</button>
+        </div>
+        <p class="az-msg" id="az-chisiamo-msg" hidden></p>
       </form>
     </div>
 
@@ -1465,7 +1506,8 @@
   var homeSlideKeys = { 'hero.slide1': null, 'hero.slide2': null, 'hero.slide3': null };
   var homeExtraSections = []; // [{type:'text', title, body} | {type:'image', key, caption}]
 
-  function renderHomeFieldGroup(containerId, defs){
+  function renderHomeFieldGroup(containerId, defs, targetMap){
+    targetMap = targetMap || homeFieldInputs;
     var wrap = document.getElementById(containerId);
     wrap.innerHTML = '';
     defs.forEach(function(def){
@@ -1480,7 +1522,7 @@
       field.appendChild(label);
       field.appendChild(input);
       wrap.appendChild(field);
-      homeFieldInputs[def.key] = input;
+      targetMap[def.key] = input;
     });
   }
   renderHomeFieldGroup('az-home-fields-hero', HOME_FIELD_GROUPS.hero);
@@ -1618,6 +1660,205 @@
     }
     submitBtn.disabled = false;
     submitBtn.textContent = 'Salva home';
+  });
+
+  // ---- Pagina Chi siamo ----
+  var CHISIAMO_FIELD_GROUPS = {
+    hero: [
+      { key: 'hero.eyebrow', label: 'Eyebrow (sopra il titolo)' },
+      { key: 'hero.title', label: 'Titolo' }
+    ],
+    intro: [
+      { key: 'intro.p1', label: 'Testo introduttivo — paragrafo 1', multiline: true },
+      { key: 'intro.p2', label: 'Testo introduttivo — paragrafo 2', multiline: true }
+    ],
+    video: [
+      { key: 'video.eyebrow', label: 'Eyebrow' },
+      { key: 'video.title', label: 'Titolo' }
+    ],
+    evoluzione: [
+      { key: 'evoluzione.eyebrow', label: 'Eyebrow' },
+      { key: 'evoluzione.title', label: 'Titolo' }
+    ],
+    loghi: [
+      { key: 'loghi.eyebrow', label: 'Eyebrow' },
+      { key: 'loghi.title', label: 'Titolo' }
+    ],
+    mv: [
+      { key: 'mission.title', label: 'Mission — titolo' },
+      { key: 'mission.text', label: 'Mission — testo', multiline: true },
+      { key: 'vision.title', label: 'Vision — titolo' },
+      { key: 'vision.text', label: 'Vision — testo', multiline: true }
+    ],
+    fondatoriHeader: [
+      { key: 'fondatori.eyebrow', label: 'Eyebrow' },
+      { key: 'fondatori.title', label: 'Titolo sezione' }
+    ],
+    staff: [
+      { key: 'staff.eyebrow', label: 'Eyebrow' },
+      { key: 'staff.title', label: 'Titolo' }
+    ],
+    cta: [
+      { key: 'cta.title', label: 'Titolo' },
+      { key: 'cta.text', label: 'Testo', multiline: true },
+      { key: 'cta.buttonText', label: 'Testo del bottone' }
+    ],
+    social: [
+      { key: 'social.eyebrow', label: 'Eyebrow' },
+      { key: 'social.title', label: 'Titolo' }
+    ]
+  };
+  var chisiamoFieldInputs = {}; // key -> input/textarea element
+  var chisiamoFounders = []; // [{name, role, photoKey}]
+  var chisiamoExtraSections = []; // [{type:'text', title, body} | {type:'image', key, caption}]
+
+  renderHomeFieldGroup('az-cs-fields-hero', CHISIAMO_FIELD_GROUPS.hero, chisiamoFieldInputs);
+  renderHomeFieldGroup('az-cs-fields-intro', CHISIAMO_FIELD_GROUPS.intro, chisiamoFieldInputs);
+  renderHomeFieldGroup('az-cs-fields-video', CHISIAMO_FIELD_GROUPS.video, chisiamoFieldInputs);
+  renderHomeFieldGroup('az-cs-fields-evoluzione', CHISIAMO_FIELD_GROUPS.evoluzione, chisiamoFieldInputs);
+  renderHomeFieldGroup('az-cs-fields-loghi', CHISIAMO_FIELD_GROUPS.loghi, chisiamoFieldInputs);
+  renderHomeFieldGroup('az-cs-fields-mv', CHISIAMO_FIELD_GROUPS.mv, chisiamoFieldInputs);
+  renderHomeFieldGroup('az-cs-fields-fondatori-header', CHISIAMO_FIELD_GROUPS.fondatoriHeader, chisiamoFieldInputs);
+  renderHomeFieldGroup('az-cs-fields-staff', CHISIAMO_FIELD_GROUPS.staff, chisiamoFieldInputs);
+  renderHomeFieldGroup('az-cs-fields-cta', CHISIAMO_FIELD_GROUPS.cta, chisiamoFieldInputs);
+  renderHomeFieldGroup('az-cs-fields-social', CHISIAMO_FIELD_GROUPS.social, chisiamoFieldInputs);
+
+  function renderChisiamoFounders(){
+    var wrap = document.getElementById('az-cs-founders');
+    wrap.innerHTML = '';
+    chisiamoFounders.forEach(function(f, i){
+      var row = document.createElement('div');
+      row.style.cssText = 'border:1.5px solid var(--line); border-radius:10px; padding:12px; display:grid; grid-template-columns:80px 1fr; gap:12px;';
+      row.innerHTML =
+        '<div>' +
+          '<div class="az-image-preview" style="aspect-ratio:1/1;">' + (f.photoKey ? '<img src="/media/' + f.photoKey + '" alt="">' : 'Foto') + '</div>' +
+          '<input type="file" accept="image/jpeg,image/png,image/webp" style="margin-top:6px; font-size:11px;">' +
+        '</div>' +
+        '<div>' +
+          '<input type="text" placeholder="Nome" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<input type="text" placeholder="Ruolo" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<button type="button" class="az-mini-btn danger">Rimuovi fondatore</button>' +
+        '</div>';
+      var fileInput = row.querySelector('input[type=file]');
+      var nameInput = row.querySelectorAll('input[type=text]')[0];
+      var roleInput = row.querySelectorAll('input[type=text]')[1];
+      nameInput.value = f.name || '';
+      roleInput.value = f.role || '';
+      nameInput.addEventListener('input', function(){ f.name = nameInput.value; });
+      roleInput.addEventListener('input', function(){ f.role = roleInput.value; });
+      fileInput.addEventListener('change', async function(){
+        var file = fileInput.files[0];
+        if (!file) return;
+        try {
+          f.photoKey = await uploadArtistMediaGeneric(file, 'founder', 'chi-siamo', 'pages');
+          renderChisiamoFounders();
+        } catch (err) { alert(err.message); }
+      });
+      row.querySelector('.danger').addEventListener('click', function(){ chisiamoFounders.splice(i, 1); renderChisiamoFounders(); });
+      wrap.appendChild(row);
+    });
+  }
+  document.getElementById('az-cs-add-founder').addEventListener('click', function(){
+    chisiamoFounders.push({ name: '', role: '', photoKey: null });
+    renderChisiamoFounders();
+  });
+
+  function renderChisiamoExtraSections(){
+    var wrap = document.getElementById('az-cs-extra');
+    wrap.innerHTML = '';
+    chisiamoExtraSections.forEach(function(s, i){
+      var row = document.createElement('div');
+      row.style.cssText = 'border:1.5px solid var(--line); border-radius:10px; padding:12px;';
+      if (s.type === 'text') {
+        row.innerHTML =
+          '<input type="text" placeholder="Titolo sezione" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<textarea placeholder="Testo" style="width:100%; min-height:70px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);"></textarea>' +
+          '<button type="button" class="az-mini-btn danger" style="margin-top:8px;">Rimuovi sezione</button>';
+        var titleInput = row.querySelector('input');
+        var bodyInput = row.querySelector('textarea');
+        titleInput.value = s.title || '';
+        bodyInput.value = s.body || '';
+        titleInput.addEventListener('input', function(){ s.title = titleInput.value; });
+        bodyInput.addEventListener('input', function(){ s.body = bodyInput.value; });
+      } else {
+        row.innerHTML =
+          '<div class="az-image-preview" style="aspect-ratio:16/7;">' + (s.key ? '<img src="/media/' + s.key + '" alt="">' : 'Nessuna immagine') + '</div>' +
+          '<input type="file" accept="image/jpeg,image/png,image/webp" style="margin-bottom:8px;">' +
+          '<input type="text" placeholder="Didascalia (facoltativa)" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<button type="button" class="az-mini-btn danger">Rimuovi sezione</button>';
+        var fileInput2 = row.querySelector('input[type=file]');
+        var captionInput = row.querySelector('input[type=text]');
+        captionInput.value = s.caption || '';
+        captionInput.addEventListener('input', function(){ s.caption = captionInput.value; });
+        fileInput2.addEventListener('change', async function(){
+          var file = fileInput2.files[0];
+          if (!file) return;
+          try {
+            s.key = await uploadArtistMediaGeneric(file, 'section', 'chi-siamo', 'pages');
+            renderChisiamoExtraSections();
+          } catch (err) { alert(err.message); }
+        });
+      }
+      row.querySelector('.danger').addEventListener('click', function(){ chisiamoExtraSections.splice(i, 1); renderChisiamoExtraSections(); });
+      wrap.appendChild(row);
+    });
+  }
+  document.getElementById('az-cs-add-text-section').addEventListener('click', function(){
+    chisiamoExtraSections.push({ type: 'text', title: '', body: '' });
+    renderChisiamoExtraSections();
+  });
+  document.getElementById('az-cs-add-image-section').addEventListener('click', function(){
+    chisiamoExtraSections.push({ type: 'image', key: null, caption: '' });
+    renderChisiamoExtraSections();
+  });
+
+  async function loadChisiamoContent(){
+    try {
+      var res = await fetch('/api/admin/page-content?page=chi-siamo');
+      var data = await res.json();
+      var content = data.content || { fields: {}, extraSections: [], founders: [] };
+      Object.keys(chisiamoFieldInputs).forEach(function(key){
+        chisiamoFieldInputs[key].value = content.fields[key] || '';
+      });
+      chisiamoFounders = (content.founders || []).slice();
+      renderChisiamoFounders();
+      chisiamoExtraSections = (content.extraSections || []).slice();
+      renderChisiamoExtraSections();
+    } catch (err) { /* i campi restano vuoti, riprovabile ricaricando il pannello */ }
+  }
+  panelLoaders['pagina-chisiamo'] = { loaded: false, load: loadChisiamoContent };
+
+  document.getElementById('az-chisiamo-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var msg = document.getElementById('az-chisiamo-msg');
+    msg.hidden = true;
+
+    var fields = {};
+    Object.keys(chisiamoFieldInputs).forEach(function(key){
+      var v = chisiamoFieldInputs[key].value.trim();
+      if (v) fields[key] = v;
+    });
+
+    var submitBtn = document.querySelector('#az-chisiamo-form .az-submit');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Salvataggio...';
+    try {
+      var res = await fetch('/api/admin/page-content', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page: 'chi-siamo', fields: fields, extraSections: chisiamoExtraSections, founders: chisiamoFounders })
+      });
+      var data = await res.json();
+      if (res.ok) {
+        showMsg(msg, 'Salvato — la pagina chi siamo è già aggiornata.', false);
+      } else {
+        showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+      }
+    } catch (err) {
+      showMsg(msg, 'Errore di connessione.', true);
+    }
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Salva chi siamo';
   });
 
   // ---- Impostazioni: immagine hero di default (chiave R2 fissa "site/default-hero-image") ----

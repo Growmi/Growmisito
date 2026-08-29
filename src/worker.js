@@ -735,6 +735,18 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    // Sia /chi-siamo che /chi-siamo.html: gli asset statici rispondono con un redirect 307
+    // dalla forma con estensione a quella senza, quindi entrambe le richieste arrivano davvero
+    // nella navigazione reale (i link nel sito usano ancora "chi-siamo.html").
+    if ((url.pathname === "/chi-siamo" || url.pathname === "/chi-siamo.html") && request.method === "GET") {
+      try {
+        const handled = await handleChiSiamoPage(request, env);
+        if (handled) return handled;
+      } catch (err) {
+        console.log("Errore chi-siamo page:", err.stack || err.message);
+      }
+    }
+
     return env.ASSETS.fetch(request);
 }
 
@@ -3905,7 +3917,29 @@ function validatePageContentPayload(body) {
     if (extraSections.length >= 20) break;
   }
 
-  return { ok: true, content: { fields, extraSections } };
+  // "founders" (usato oggi solo da chi-siamo, "Fondatori"): array facoltativo — assente/undefined
+  // vuol dire "non ancora personalizzato, mostra i due fondatori statici della pagina", un
+  // array vuoto invece vuol dire esplicitamente "nessun fondatore da mostrare" (staff l'ha
+  // svuotato apposta). Stessa logica di generalità di extraSections: qualunque pagina futura
+  // con una lista di persone (es. carta fedeltà?) può riusarlo senza modifiche qui.
+  let founders;
+  if (Array.isArray(body.founders)) {
+    founders = [];
+    for (const raw of body.founders) {
+      const name = String((raw && raw.name) || "").trim().slice(0, 200);
+      if (!name) continue;
+      founders.push({
+        name,
+        role: String((raw && raw.role) || "").trim().slice(0, 200),
+        photoKey: (raw && String(raw.photoKey || "").trim()) || null
+      });
+      if (founders.length >= 12) break;
+    }
+  }
+
+  const content = { fields, extraSections };
+  if (founders !== undefined) content.founders = founders;
+  return { ok: true, content };
 }
 
 async function handleAdminGetPageContent(request, env) {
@@ -3962,18 +3996,37 @@ class ExtraSectionsHandler {
   constructor(html) { this.html = html; }
   element(el) { if (this.html) el.setInnerContent(this.html, { html: true }); }
 }
+// Sostituisce interamente il contenuto di un nodo (es. la griglia fondatori) SOLO quando il
+// campo è stato esplicitamente personalizzato — undefined lascia intatte le card statiche già
+// nell'HTML, un array (anche vuoto) le rimpiazza con quanto salvato dal pannello.
+class ReplaceContentHandler {
+  constructor(html) { this.html = html; }
+  element(el) { if (this.html !== null) el.setInnerContent(this.html, { html: true }); }
+}
+
+function foundersHTML(founders){
+  return founders.map(function(f){
+    const photo = f.photoKey
+      ? `<img src="${mediaUrl(f.photoKey)}" alt="${f.name}" loading="lazy">`
+      : "";
+    return `<div class="team-card"><div class="team-photo">${photo}</div><h3>${f.name}</h3><p class="role">${f.role || ""}</p></div>`;
+  }).join("");
+}
 
 // Applica gli override SOLO se ce n'è almeno uno salvato — altrimenti la risposta statica passa
 // invariata, zero lavoro in più per il caso comune (nessuna pagina fissa ancora personalizzata).
-async function applyPageOverrides(response, content) {
+// anchors: { extraSections: "#id", replace: [{ selector, data: array|undefined, render }] } —
+// stesso meccanismo per ogni pagina fissa (home, chi-siamo, ...), cambia solo cosa passa qui.
+async function applyPageOverrides(response, content, anchors) {
   const hasFields = content.fields && Object.keys(content.fields).length > 0;
   const hasExtra = content.extraSections && content.extraSections.length > 0;
-  if (!hasFields && !hasExtra) return response;
+  const replaceTargets = (anchors.replace || []).filter(function(r){ return r.data !== undefined; });
+  if (!hasFields && !hasExtra && !replaceTargets.length) return response;
 
   // Le chiavi immagine (quelle marcate data-cms-src nell'HTML, es. "hero.slide1") contengono una
   // chiave R2, mai un URL diretto — vanno sempre risolte con mediaUrl() prima di iniettarle.
-  // Riconosciute per pattern ("...slideN") invece di un elenco fisso, così vale anche per le
-  // future pagine (chi-siamo/contatti/carta-fedeltà) senza dover toccare questa funzione.
+  // Riconosciute per pattern (finiscono per "slideN" o ".image") invece di un elenco fisso, così
+  // vale anche per le future pagine senza dover toccare questa funzione.
   const imageFields = {};
   const textFields = {};
   for (const k of Object.keys(content.fields || {})) {
@@ -3984,19 +4037,41 @@ async function applyPageOverrides(response, content) {
     }
   }
 
-  return new HTMLRewriter()
+  let rewriter = new HTMLRewriter()
     .on("[data-cms]", new CmsTextHandler(textFields))
-    .on("[data-cms-src]", new CmsSrcHandler(imageFields))
-    .on("#home-extra-sections", new ExtraSectionsHandler(extraSectionsHTML(content.extraSections)))
-    .transform(response);
+    .on("[data-cms-src]", new CmsSrcHandler(imageFields));
+  if (anchors.extraSections) {
+    rewriter = rewriter.on(anchors.extraSections, new ExtraSectionsHandler(extraSectionsHTML(content.extraSections)));
+  }
+  for (const r of replaceTargets) {
+    rewriter = rewriter.on(r.selector, new ReplaceContentHandler(r.render(r.data)));
+  }
+  return rewriter.transform(response);
 }
 
-async function handleHomePage(request, env) {
+// buildAnchors(content) riceve il contenuto già letto una sola volta da KV — evita una seconda
+// lettura solo per costruire gli anchor "replace" (es. i fondatori) che dipendono dallo stesso record.
+async function handleFixedPageRoute(request, env, page, buildAnchors) {
   if (!env.TICKETS) return null;
   const res = await env.ASSETS.fetch(request);
   if (!res.ok) return res;
-  const content = await getPageContent(env, "home");
-  return applyPageOverrides(res, content);
+  const content = await getPageContent(env, page);
+  return applyPageOverrides(res, content, buildAnchors(content));
+}
+
+async function handleHomePage(request, env) {
+  return handleFixedPageRoute(request, env, "home", function(){
+    return { extraSections: "#home-extra-sections", replace: [] };
+  });
+}
+
+async function handleChiSiamoPage(request, env) {
+  return handleFixedPageRoute(request, env, "chi-siamo", function(content){
+    return {
+      extraSections: "#cs-extra-sections",
+      replace: [{ selector: "#cs-founders-grid", data: content.founders, render: foundersHTML }]
+    };
+  });
 }
 
 // Salva la scheda "Dati personali e consensi" — stesso account, campi in più (numero cliente
