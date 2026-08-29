@@ -328,6 +328,20 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    // Opzioni di default per la domanda "Cosa ti è piaciuto di più" del form feedback generico
+    // (feedback.html senza ?slug=, o un evento senza opzioni proprie) — pubblica e di sola
+    // lettura, stesso principio di feedbackOptions dentro /api/event-tiers.
+    if (url.pathname === "/api/feedback-liked-options" && request.method === "GET") {
+      try {
+        if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+        const content = await getPageContent(env, "feedback");
+        return jsonResponse({ options: content.likedOptions || [] });
+      } catch (err) {
+        console.log("Errore feedback-liked-options:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     if (url.pathname === "/api/register" && request.method === "POST") {
       const rl = await checkRateLimit(env, "RL_CHECKOUT", request, "ticket-register");
       if (rl) return rl;
@@ -1027,7 +1041,7 @@ function eventPageHTML(event, slug) {
 <section class="ed-hero" style="padding:110px 0 80px;">
   ${heroImg}
   <div class="wrap ed-wrap">
-    <p class="ed-eyebrow">${event.dateDisplay} · ${event.location}</p>
+    <p class="ed-eyebrow">${event.dateDisplay} · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">${event.location}</a></p>
     <h1 style="font-size:clamp(40px,7vw,96px);">${event.name}</h1>
     ${event.teaser ? `<p class="ed-lead">${event.teaser}</p>` : ""}
   </div>
@@ -1642,6 +1656,7 @@ async function handleAttendees(request, env) {
           tierName: key.metadata.tierName || null,
           usedAt: key.metadata.usedAt || null,
           eventName: key.metadata.eventName || null,
+          eventSlug: key.metadata.eventSlug || null,
           source: key.metadata.source === "walkin" ? "walkin" : "stripe"
         });
       }
@@ -2239,19 +2254,29 @@ async function handleEventTiers(request, env) {
   } while (cursor);
 
   let activeAssigned = false;
-  const tiers = event.tiers.map(function(t){
+  // Calcolate in ordine (non con .map indipendente) perché lo stato "cascade" di una fascia deve
+  // poter guardare il soldOut già calcolato della fascia precedente nell'array.
+  const soldOutById = {};
+  const tiers = [];
+  for (let ti = 0; ti < event.tiers.length; ti++) {
+    const t = event.tiers[ti];
+    const prevTier = event.tiers[ti - 1];
     const sold = soldByTier[t.id] || 0;
     const status = t.status || "auto";
     // "soldout"/"comingsoon" sono decisioni manuali dello staff e vincono sempre — sia sul calcolo
-    // automatico da capienza sia sulla finestra di vendita oraria qui sotto. Solo quando lo stato
-    // è "auto" si guarda anche a availableFrom/availableUntil (se impostati): prima dell'apertura
-    // vendite la fascia è visibile ma non acquistabile, dopo la chiusura è "esaurita" — utile per
-    // aprire/chiudere le vendite di una fascia da sola, senza dover tornare nel pannello a un'ora
-    // precisa per spuntarla a mano.
+    // automatico da capienza sia sulla finestra di vendita oraria qui sotto. "cascade" tiene la
+    // fascia visibile-ma-non-acquistabile finché quella precedente non risulta esaurita; una volta
+    // sbloccata si comporta come "auto" (capienza + eventuale finestra oraria). Solo quando lo
+    // stato è "auto" (anche dopo lo sblocco di una "cascade") si guarda anche a
+    // availableFrom/availableUntil (se impostati): prima dell'apertura vendite la fascia è visibile
+    // ma non acquistabile, dopo la chiusura è "esaurita" — utile per aprire/chiudere le vendite di
+    // una fascia da sola, senza dover tornare nel pannello a un'ora precisa per spuntarla a mano.
     let soldOut, forceUpcoming;
     if (status === "soldout") {
       soldOut = true; forceUpcoming = false;
     } else if (status === "comingsoon") {
+      soldOut = false; forceUpcoming = true;
+    } else if (status === "cascade" && prevTier && !soldOutById[prevTier.id]) {
       soldOut = false; forceUpcoming = true;
     } else {
       const now = new Date();
@@ -2261,6 +2286,7 @@ async function handleEventTiers(request, env) {
       else if (alreadyClosed) { soldOut = true; forceUpcoming = false; }
       else { soldOut = sold >= t.capacity; forceUpcoming = false; }
     }
+    soldOutById[t.id] = soldOut;
     const active = !soldOut && !forceUpcoming && !activeAssigned;
     if (active) activeAssigned = true;
     // priceCents resta il prezzo netto configurato nel pannello (quanto vogliamo incassare);
@@ -2270,8 +2296,8 @@ async function handleEventTiers(request, env) {
       const fee = addStripeFee(o.priceCents);
       return { id: o.id, label: o.label, priceCents: o.priceCents, feeCents: fee.feeCents, grossCents: fee.grossCents };
     });
-    return { id: t.id, name: t.name, sub: t.sub, options, soldOut, active };
-  });
+    tiers.push({ id: t.id, name: t.name, sub: t.sub, options, soldOut, active });
+  }
 
   return jsonResponse({ eventName: event.name, tiers, allSoldOut: !activeAssigned, feedbackOptions: event.feedbackOptions || [] });
 }
@@ -3263,9 +3289,19 @@ async function handleDashboardStats(request, env) {
   if (auth.error) return auth.error;
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
 
+  // ?event=<slug> facoltativo: se presente, tutti i numeri sono ristretti a quell'evento invece
+  // che al totale di sempre. "totale" resta il default (nessun parametro) — vedi
+  // az-dashboard-event-filter nel pannello.
+  const url = new URL(request.url);
+  const eventSlug = url.searchParams.get("event") || null;
+  const event = eventSlug ? await getEvent(env, eventSlug) : null;
+
   let ticketsSold = 0, ticketsCheckedIn = 0, revenueCents = 0;
   const revenueBySource = { stripe: 0, walkin: 0 };
   const ticketsBySource = { stripe: 0, walkin: 0 };
+  // Email di chi ha almeno un biglietto per l'evento filtrato — serve sotto per ristrettere anche
+  // account/newsletter a "chi ha comprato per QUESTO evento" invece che al totale di sempre.
+  const emailsInEvent = new Set();
   let cursor = undefined;
   do {
     const page = await env.TICKETS.list({ prefix: "ticket:", cursor });
@@ -3273,12 +3309,14 @@ async function handleDashboardStats(request, env) {
       const raw = await env.TICKETS.get(key.name);
       if (!raw) continue;
       const t = JSON.parse(raw);
+      if (eventSlug && t.eventSlug !== eventSlug) continue;
       const source = t.source === "walkin" ? "walkin" : "stripe";
       ticketsSold++;
       if (t.used) ticketsCheckedIn++;
       revenueCents += Number(t.amountTotal) || 0;
       ticketsBySource[source]++;
       revenueBySource[source] += Number(t.amountTotal) || 0;
+      if (t.email) emailsInEvent.add(String(t.email).toLowerCase());
     }
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
@@ -3291,6 +3329,7 @@ async function handleDashboardStats(request, env) {
       const raw = await env.TICKETS.get(key.name);
       if (!raw) continue;
       const a = JSON.parse(raw);
+      if (eventSlug && !emailsInEvent.has(String(a.email || "").toLowerCase())) continue;
       accountsTotal++;
       if (a.profile?.newsletterOptin) newsletterSubscribers++;
     }
@@ -3305,6 +3344,9 @@ async function handleDashboardStats(request, env) {
       const raw = await env.TICKETS.get(key.name);
       if (!raw) continue;
       const f = JSON.parse(raw);
+      // Il feedback è collegato solo per nome evento (vedi feedback.html), non per slug: se lo
+      // slug filtrato non risolve a un evento vero, il feedback resta fuori dal filtro.
+      if (eventSlug && (!event || f.eventName !== event.name)) continue;
       feedbackCount++;
       ratingSum += Number(f.rating) || 0;
     }
@@ -3312,6 +3354,7 @@ async function handleDashboardStats(request, env) {
   } while (cursor);
 
   return jsonResponse({
+    eventSlug, eventName: event ? event.name : null,
     revenueCents, ticketsSold, ticketsCheckedIn, revenueBySource, ticketsBySource,
     accountsTotal, newsletterSubscribers,
     feedbackCount, avgRating: feedbackCount ? Math.round((ratingSum / feedbackCount) * 10) / 10 : null
@@ -3326,6 +3369,23 @@ async function handleCustomersList(request, env) {
   if (auth.error) return auth.error;
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
 
+  // Email -> eventi per cui ha almeno un biglietto (comprato o no ancora usato) — solo dalla
+  // metadata dei ticket, senza leggerne il corpo, per poter filtrare il pannello Clienti per
+  // evento (una persona può avere biglietti per più eventi diversi).
+  const eventsByEmail = new Map();
+  let tCursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "ticket:", cursor: tCursor });
+    for (const key of page.keys) {
+      const m = key.metadata;
+      if (!m?.email || !m.eventSlug) continue;
+      const email = String(m.email).toLowerCase();
+      if (!eventsByEmail.has(email)) eventsByEmail.set(email, new Map());
+      eventsByEmail.get(email).set(m.eventSlug, m.eventName || m.eventSlug);
+    }
+    tCursor = page.list_complete ? undefined : page.cursor;
+  } while (tCursor);
+
   const customers = [];
   let cursor = undefined;
   do {
@@ -3336,12 +3396,15 @@ async function handleCustomersList(request, env) {
       const a = JSON.parse(raw);
       const loyaltyRaw = await env.TICKETS.get(`loyalty:${a.email}`);
       const loyalty = loyaltyRaw ? JSON.parse(loyaltyRaw) : null;
+      const eventsMap = eventsByEmail.get(String(a.email || "").toLowerCase());
+      const events = eventsMap ? Array.from(eventsMap, function(entry){ return { slug: entry[0], name: entry[1] }; }) : [];
       customers.push({
         name: a.name, email: a.email, createdAt: a.createdAt,
         customerNumber: a.customerNumber || null,
         physicalCardClaimed: !!a.physicalCardClaimed,
         newsletterOptin: !!a.profile?.newsletterOptin,
-        stamps: loyalty?.stamps || 0
+        stamps: loyalty?.stamps || 0,
+        events: events
       });
     }
     cursor = page.list_complete ? undefined : page.cursor;
@@ -3498,8 +3561,10 @@ function validateEventPayload(body, existingTiers, sold) {
     // Stato manuale della fascia (facoltativo, default "auto" = comportamento di sempre: esaurita
     // solo quando la capienza è raggiunta, attiva la prima non esaurita in ordine). "soldout" forza
     // "Esaurita" indipendentemente dalla capienza; "comingsoon" la mostra visibile ma non ancora
-    // acquistabile (utile prima che i biglietti siano davvero in vendita) — vedi handleEventTiers.
-    const status = ["auto", "soldout", "comingsoon"].includes(rawTier.status) ? rawTier.status : "auto";
+    // acquistabile (utile prima che i biglietti siano davvero in vendita); "cascade" la tiene
+    // visibile-ma-non-acquistabile finché la fascia precedente (in ordine) non risulta esaurita, poi
+    // si comporta come "auto" — vedi handleEventTiers.
+    const status = ["auto", "soldout", "comingsoon", "cascade"].includes(rawTier.status) ? rawTier.status : "auto";
     // Finestra di vendita facoltativa (solo quando status è "auto"): datetime ISO da un <input
     // type="datetime-local">, validati ma tenuti così come sono (il confronto con "adesso" si fa
     // al momento di servire /api/event-tiers, non qui — un salvataggio fatto oggi deve restare
@@ -4193,10 +4258,27 @@ function validatePageContentPayload(body) {
     }
   }
 
+  // "likedOptions" (usato oggi solo dal form feedback generico, "Cosa ti è piaciuto di più"):
+  // stessa logica di generalità/undefined di heroSlides — l'elenco di opzioni checkbox mostrato
+  // quando il form non ha uno slug evento con opzioni proprie (vedi /api/feedback-liked-options
+  // e feedback.html). "Altro" con campo libero è sempre aggiunto in coda lato client, non va
+  // salvato qui.
+  let likedOptions;
+  if (Array.isArray(body.likedOptions)) {
+    likedOptions = [];
+    for (const raw of body.likedOptions) {
+      const label = String(raw || "").trim().slice(0, 120);
+      if (!label) continue;
+      likedOptions.push(label);
+      if (likedOptions.length >= 12) break;
+    }
+  }
+
   const content = { fields, extraSections };
   if (founders !== undefined) content.founders = founders;
   if (heroSlides !== undefined) content.heroSlides = heroSlides;
   if (teamAreas !== undefined) content.teamAreas = teamAreas;
+  if (likedOptions !== undefined) content.likedOptions = likedOptions;
   return { ok: true, content };
 }
 
@@ -4443,8 +4525,10 @@ async function handleGrowWithUsPage(request, env) {
 }
 
 // Form di feedback: pagina a sé (niente header/footer/style.css del resto del sito), le domande
-// sono testo fisso salvo le opzioni "cosa ti è piaciuto" che restano legate all'evento (già
-// modificabili da lì). Niente sezioni extra qui: è un form strutturato, non una pagina di contenuto.
+// sono testo fisso salvo le opzioni "cosa ti è piaciuto", caricate lato client da
+// /api/event-tiers (se c'è un evento con opzioni proprie) o da /api/feedback-liked-options
+// (default configurabili dal pannello) — vedi getPageContent/likedOptions più sotto. Niente
+// sezioni extra qui: è un form strutturato, non una pagina di contenuto.
 async function handleFeedbackPage(request, env) {
   return handleFixedPageRoute(request, env, "feedback", function(){
     return { replace: [] };

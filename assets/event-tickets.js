@@ -57,12 +57,12 @@
       data.tiers.forEach(function(tier){
         var row = document.createElement("div");
         // Le tre fasce restano sempre visibili (mai nascoste dalla lista): quella esaurita
-        // mostra "Esaurita", quelle future sono visibili ma non selezionabili e senza prezzo
+        // mostra "Esauriti", quelle future sono visibili ma non selezionabili e senza prezzo
         // (si sblocca prezzo + acquisto solo quando diventano la fascia attiva).
         var optionsHtml;
         if (tier.soldOut) {
           row.className = "et-tier-row et-sold-out";
-          optionsHtml = '<span class="et-sold-out-badge">Esaurita</span>';
+          optionsHtml = '<span class="et-sold-out-badge">Esauriti</span>';
         } else if (!tier.active) {
           row.className = "et-tier-row et-upcoming";
           optionsHtml = tier.options.map(function(o){

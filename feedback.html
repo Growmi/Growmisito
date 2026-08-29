@@ -264,18 +264,36 @@
     });
   }
 
+  function showOptionsList(options){
+    if (!options || !options.length) return false;
+    options.forEach(function(label){ buildOptionRow(label, false); });
+    buildOptionRow("Altro", true);
+    likedTextField.style.display = "none";
+    likedOptionsField.style.display = "block";
+    return true;
+  }
+
+  function loadDefaultLikedOptions(){
+    return fetch("/api/feedback-liked-options")
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(data){ showOptionsList(data && data.options); })
+      .catch(function(){ /* resta il fallback testuale */ });
+  }
+
+  // Priorità: opzioni proprie dell'evento (via ?slug=) se ce ne sono, altrimenti le opzioni di
+  // default configurate nel pannello Feedback — solo se non c'è nemmeno quello resta il textarea
+  // libero di sempre (link vecchi senza slug, o nessuna opzione mai configurata).
   if (eventSlug) {
     fetch("/api/event-tiers?event=" + encodeURIComponent(eventSlug))
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(data){
         var options = (data && Array.isArray(data.feedbackOptions)) ? data.feedbackOptions : [];
-        if (!options.length) return;
-        options.forEach(function(label){ buildOptionRow(label, false); });
-        buildOptionRow("Altro", true);
-        likedTextField.style.display = "none";
-        likedOptionsField.style.display = "block";
+        if (showOptionsList(options)) return;
+        return loadDefaultLikedOptions();
       })
-      .catch(function(){ /* resta il fallback testuale */ });
+      .catch(function(){ loadDefaultLikedOptions(); });
+  } else {
+    loadDefaultLikedOptions();
   }
 
   function collectLikedOptions(){

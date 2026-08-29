@@ -393,6 +393,9 @@
 
     <!-- Dashboard -->
     <div class="az-panel" data-panel-content="dashboard">
+      <div style="margin-bottom:16px;">
+        <select id="az-dashboard-event-filter"><option value="">Tutti gli eventi (totale)</option></select>
+      </div>
       <div class="az-stat-grid">
         <div class="az-stat wide"><span class="n" id="az-stat-revenue">—</span><span class="l">Incasso totale biglietti</span></div>
         <div class="az-stat"><span class="n" id="az-stat-sold">—</span><span class="l">Biglietti venduti</span></div>
@@ -417,6 +420,7 @@
     <div class="az-panel" data-panel-content="clienti" hidden>
       <div class="az-toolbar">
         <input type="text" class="az-search" id="az-customers-search" placeholder="Cerca per nome o email...">
+        <select id="az-customers-event-filter"><option value="">Tutti gli eventi</option></select>
         <div class="actions">
           <span class="az-count" id="az-customers-count"></span>
           <button type="button" class="primary" id="az-customers-export">💾 Esporta CSV</button>
@@ -435,6 +439,7 @@
     <div class="az-panel" data-panel-content="presenti" hidden>
       <div class="az-toolbar">
         <input type="text" class="az-search" id="az-attendees-search" placeholder="Cerca per nome...">
+        <select id="az-attendees-event-filter"><option value="">Tutti gli eventi</option></select>
         <div class="actions">
           <span class="az-count" id="az-attendees-count"></span>
           <button type="button" id="az-send-feedback">📧 Manda feedback a tutti</button>
@@ -458,9 +463,15 @@
           <a href="/feedback.html" target="_blank" rel="noopener" class="az-mini-btn" style="text-decoration:none; display:inline-block;">🔗 Apri il form pubblico</a>
           <button type="button" class="az-preview-btn" id="az-fb-form-preview-btn">👁 Preview</button>
         </div>
-        <p style="font-size:12px; color:var(--grey); margin-bottom:14px; max-width:600px;">Testi del form (le opzioni "cosa ti è piaciuto" restano legate al singolo evento, si modificano da lì). Campo vuoto = resta il testo attuale.</p>
+        <p style="font-size:12px; color:var(--grey); margin-bottom:14px; max-width:600px;">Testi del form. Campo vuoto = resta il testo attuale.</p>
         <form id="az-fb-form" style="max-width:600px; display:flex; flex-direction:column; gap:16px;">
           <div id="az-fb-form-fields" style="display:flex; flex-direction:column; gap:14px;"></div>
+          <div class="az-field">
+            <label style="font-size:12px; font-weight:600;">Cosa ti è piaciuto — opzioni di default</label>
+            <p style="font-size:11px; color:var(--grey); margin:2px 0 10px;">Mostrate come caselle da spuntare (più "Altro" con testo libero) quando il form si apre senza un evento specifico collegato, oppure se l'evento non ha opzioni proprie configurate. Le opzioni di un singolo evento (impostate nel pannello Eventi) hanno sempre la precedenza su queste.</p>
+            <div id="az-fb-liked-options"></div>
+            <button type="button" class="az-mini-btn" id="az-fb-add-liked-option" style="margin-top:4px;">+ Aggiungi opzione</button>
+          </div>
           <div style="display:flex; gap:10px; align-items:center;">
             <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Pubblica form</button>
           </div>
@@ -1055,7 +1066,8 @@
   }
   async function loadDashboardStats(){
     try {
-      var res = await fetch('/api/dashboard-stats');
+      var slug = document.getElementById('az-dashboard-event-filter').value;
+      var res = await fetch('/api/dashboard-stats' + (slug ? ('?event=' + encodeURIComponent(slug)) : ''));
       if (!res.ok) return;
       var d = await res.json();
       document.getElementById('az-stat-revenue').textContent = euro(d.revenueCents);
@@ -1071,7 +1083,20 @@
       document.getElementById('az-stat-avgrating').textContent = d.avgRating !== null ? (d.avgRating + ' / 10') : '—';
     } catch (err) { /* i numeri restano com'erano */ }
   }
-  panelLoaders.dashboard = { loaded: false, load: loadDashboardStats };
+  async function loadDashboardEventFilter(){
+    var select = document.getElementById('az-dashboard-event-filter');
+    if (select.dataset.loaded) return;
+    try {
+      var res = await fetch('/api/admin/events');
+      var data = await res.json();
+      var events = data.events || [];
+      select.innerHTML = '<option value="">Tutti gli eventi (totale)</option>' +
+        events.map(function(e){ return '<option value="' + e.slug + '">' + esc(e.name) + '</option>'; }).join('');
+      select.dataset.loaded = '1';
+    } catch (err) { /* resta solo "Tutti gli eventi" */ }
+  }
+  document.getElementById('az-dashboard-event-filter').addEventListener('change', loadDashboardStats);
+  panelLoaders.dashboard = { loaded: false, load: function(){ loadDashboardEventFilter(); loadDashboardStats(); } };
 
   // ---- Zona pericolosa: azzeramento dati di test ----
   var WIPE_LABELS = {
@@ -1162,17 +1187,32 @@
   }
   function applyCustomersFilter(){
     var q = document.getElementById('az-customers-search').value.trim().toLowerCase();
-    if (!q) { renderCustomers(allCustomers); return; }
-    renderCustomers(allCustomers.filter(function(c){
+    var slug = document.getElementById('az-customers-event-filter').value;
+    var items = allCustomers;
+    if (slug) items = items.filter(function(c){ return (c.events || []).some(function(e){ return e.slug === slug; }); });
+    if (q) items = items.filter(function(c){
       return (c.name || '').toLowerCase().indexOf(q) !== -1 || (c.email || '').toLowerCase().indexOf(q) !== -1;
-    }));
+    });
+    renderCustomers(items);
   }
   document.getElementById('az-customers-search').addEventListener('input', applyCustomersFilter);
+  document.getElementById('az-customers-event-filter').addEventListener('change', applyCustomersFilter);
+  function populateCustomersEventFilter(items){
+    var select = document.getElementById('az-customers-event-filter');
+    var current = select.value;
+    var byslug = {};
+    items.forEach(function(c){ (c.events || []).forEach(function(e){ byslug[e.slug] = e.name; }); });
+    var slugs = Object.keys(byslug).sort(function(a, b){ return byslug[a].localeCompare(byslug[b]); });
+    select.innerHTML = '<option value="">Tutti gli eventi</option>' +
+      slugs.map(function(s){ return '<option value="' + s + '">' + esc(byslug[s]) + '</option>'; }).join('');
+    if (slugs.indexOf(current) !== -1) select.value = current;
+  }
   async function loadCustomers(){
     try {
       var res = await fetch('/api/customers-list');
       var data = await res.json();
       allCustomers = data.customers || [];
+      populateCustomersEventFilter(allCustomers);
       applyCustomersFilter();
     } catch (err) { document.getElementById('az-customers-count').textContent = 'Errore di connessione.'; }
   }
@@ -1206,15 +1246,30 @@
   }
   function applyAttendeesFilter(){
     var q = document.getElementById('az-attendees-search').value.trim().toLowerCase();
-    if (!q) { renderAttendees(allAttendees); return; }
-    renderAttendees(allAttendees.filter(function(a){ return (a.name || '').toLowerCase().indexOf(q) !== -1; }));
+    var slug = document.getElementById('az-attendees-event-filter').value;
+    var items = allAttendees;
+    if (slug) items = items.filter(function(a){ return a.eventSlug === slug; });
+    if (q) items = items.filter(function(a){ return (a.name || '').toLowerCase().indexOf(q) !== -1; });
+    renderAttendees(items);
   }
   document.getElementById('az-attendees-search').addEventListener('input', applyAttendeesFilter);
+  document.getElementById('az-attendees-event-filter').addEventListener('change', applyAttendeesFilter);
+  function populateAttendeesEventFilter(items){
+    var select = document.getElementById('az-attendees-event-filter');
+    var current = select.value;
+    var byslug = {};
+    items.forEach(function(a){ if (a.eventSlug) byslug[a.eventSlug] = a.eventName || a.eventSlug; });
+    var slugs = Object.keys(byslug).sort(function(a, b){ return byslug[a].localeCompare(byslug[b]); });
+    select.innerHTML = '<option value="">Tutti gli eventi</option>' +
+      slugs.map(function(s){ return '<option value="' + s + '">' + esc(byslug[s]) + '</option>'; }).join('');
+    if (slugs.indexOf(current) !== -1) select.value = current;
+  }
   async function loadAttendees(){
     try {
       var res = await fetch('/api/attendees');
       var data = await res.json();
       allAttendees = data.attendees || [];
+      populateAttendeesEventFilter(allAttendees);
       applyAttendeesFilter();
     } catch (err) { document.getElementById('az-attendees-count').textContent = 'Errore di connessione.'; }
   }
@@ -1380,6 +1435,23 @@
     renderHomeFieldGroup(null, FEEDBACK_FIELD_GROUPS[group], fbFormFieldInputs, groupWrap);
   });
 
+  function addLikedOptionRow(label){
+    var row = document.createElement('div');
+    row.className = 'az-opt-row';
+    row.innerHTML =
+      '<input type="text" class="fblo-label" placeholder="Es. DJ set, Location, Drink..." required>' +
+      '<button type="button" class="az-mini-btn danger">✕</button>';
+    row.querySelector('.fblo-label').value = label || '';
+    row.querySelector('.danger').addEventListener('click', function(){ row.remove(); });
+    document.getElementById('az-fb-liked-options').appendChild(row);
+  }
+  document.getElementById('az-fb-add-liked-option').addEventListener('click', function(){ addLikedOptionRow(null); });
+
+  function collectLikedOptions(){
+    var rows = Array.prototype.slice.call(document.querySelectorAll('#az-fb-liked-options .fblo-label'));
+    return rows.map(function(input){ return input.value.trim(); }).filter(Boolean);
+  }
+
   document.getElementById('az-fb-form-preview-btn').addEventListener('click', function(){
     var fields = {};
     Object.keys(fbFormFieldInputs).forEach(function(key){ var v = fbFormFieldInputs[key].value.trim(); if (v) fields[key] = v; });
@@ -1399,7 +1471,7 @@
       var res = await fetch('/api/admin/page-content', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ page: 'feedback', fields: fields, extraSections: [] })
+        body: JSON.stringify({ page: 'feedback', fields: fields, extraSections: [], likedOptions: collectLikedOptions() })
       });
       var data = await res.json();
       if (res.ok) showMsg(msg, 'Salvato — il form è già aggiornato.', false);
@@ -1415,6 +1487,9 @@
       var data = await res.json();
       var content = data.content || { fields: {} };
       Object.keys(fbFormFieldInputs).forEach(function(key){ fbFormFieldInputs[key].value = content.fields[key] || ''; });
+      document.getElementById('az-fb-liked-options').innerHTML = '';
+      var likedOptions = Array.isArray(content.likedOptions) ? content.likedOptions : [];
+      likedOptions.forEach(function(label){ addLikedOptionRow(label); });
     } catch (err) { /* riprovabile ricaricando il pannello */ }
   }
 
@@ -3431,16 +3506,20 @@
       '<div class="az-field" style="margin-bottom:10px;">' +
         '<label>Disponibilità</label>' +
         '<select class="tier-status">' +
-          '<option value="auto">Automatica (esaurita quando finiscono i posti, più sotto la finestra oraria facoltativa)</option>' +
-          '<option value="soldout">Forza "Esaurita" ora</option>' +
-          '<option value="comingsoon">Non ancora in vendita (visibile, non acquistabile)</option>' +
+          '<option value="auto">In vendita normalmente (diventa "Esauriti" da sola quando finiscono i posti)</option>' +
+          '<option value="cascade">In vendita solo dopo che la fascia precedente è "Esauriti"</option>' +
+          '<option value="comingsoon">Non ancora in vendita (si vede sul sito ma non si può comprare)</option>' +
+          '<option value="soldout">Segna subito come "Esauriti"</option>' +
         '</select>' +
       '</div>' +
-      '<div class="row2" style="margin-bottom:10px;">' +
-        '<div class="az-field"><label style="font-size:11px;">In vendita da (facoltativo)</label><input type="datetime-local" class="tier-available-from"></div>' +
-        '<div class="az-field"><label style="font-size:11px;">In vendita fino a (facoltativo)</label><input type="datetime-local" class="tier-available-until"></div>' +
+      '<div class="az-field" style="margin-bottom:10px;">' +
+        '<label style="font-size:11px;">Disponibilità programmata (facoltativa)</label>' +
+        '<div class="row2">' +
+          '<div class="az-field"><label style="font-size:11px;">In vendita da</label><input type="datetime-local" class="tier-available-from"></div>' +
+          '<div class="az-field"><label style="font-size:11px;">In vendita fino a</label><input type="datetime-local" class="tier-available-until"></div>' +
+        '</div>' +
       '</div>' +
-      '<p style="font-size:11px; color:var(--grey); margin:-4px 0 10px;">Valgono solo con disponibilità "Automatica" — prima dell\'orario di apertura la fascia è visibile ma non acquistabile, dopo quello di chiusura risulta esaurita. Lascia vuoto per non avere limiti di orario.</p>' +
+      '<p style="font-size:11px; color:var(--grey); margin:-4px 0 10px;">Valgono con "In vendita normalmente" e, dopo che si sblocca, anche con "In vendita solo dopo che la fascia precedente è esaurita": prima dell\'orario di apertura la fascia si vede sul sito ma non si può comprare, dopo quello di chiusura risulta "Esauriti". Lascia vuoto per non avere limiti di orario.</p>' +
       '<div class="az-opts"></div>' +
       '<button type="button" class="az-mini-btn add-option">+ Aggiungi opzione</button>';
     block.querySelector('.tier-name').value = tier ? tier.name : '';
