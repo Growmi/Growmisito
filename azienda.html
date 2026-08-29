@@ -310,6 +310,10 @@
         <button type="button" class="az-nav-item" data-panel="feedback">💬 Feedback</button>
       </div>
       <div class="az-nav-group">
+        <p class="az-nav-group-label">Pagine</p>
+        <button type="button" class="az-nav-item" data-panel="pagina-home">🏠 Home</button>
+      </div>
+      <div class="az-nav-group">
         <p class="az-nav-group-label">Impostazioni</p>
         <button type="button" class="az-nav-item" data-panel="impostazioni">🎨 Grafica sito</button>
       </div>
@@ -572,6 +576,62 @@
           <p class="az-msg" id="az-artist-msg" hidden></p>
         </form>
       </div>
+    </div>
+
+    <!-- Pagina Home -->
+    <div class="az-panel" data-panel-content="pagina-home" hidden>
+      <p style="font-size:13px; color:var(--grey); margin-bottom:20px; max-width:600px;">Ogni campo qui sotto sovrascrive un punto preciso della home — se lo lasci vuoto resta il testo/immagine attuale del sito, il design non cambia mai.</p>
+      <form id="az-home-form" style="max-width:640px; display:flex; flex-direction:column; gap:28px;">
+        <div>
+          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Hero</h3>
+          <div id="az-home-fields-hero" style="display:flex; flex-direction:column; gap:14px;"></div>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px;">
+            <div>
+              <div class="az-image-preview" id="az-home-slide1-preview" style="aspect-ratio:9/16;">Slide 1</div>
+              <input type="file" accept="image/jpeg,image/png,image/webp" id="az-home-slide1-input" data-slide-key="hero.slide1">
+            </div>
+            <div>
+              <div class="az-image-preview" id="az-home-slide2-preview" style="aspect-ratio:9/16;">Slide 2</div>
+              <input type="file" accept="image/jpeg,image/png,image/webp" id="az-home-slide2-input" data-slide-key="hero.slide2">
+            </div>
+            <div>
+              <div class="az-image-preview" id="az-home-slide3-preview" style="aspect-ratio:9/16;">Slide 3</div>
+              <input type="file" accept="image/jpeg,image/png,image/webp" id="az-home-slide3-input" data-slide-key="hero.slide3">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Striscia scorrevole</h3>
+          <div id="az-home-fields-marquee" style="display:flex; flex-direction:column; gap:14px;"></div>
+        </div>
+
+        <div>
+          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Il triangolo di GrowMi</h3>
+          <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Il diagramma resta sempre a 3 punte (Pubblico/Artisti/Locali) — puoi cambiare solo i testi.</p>
+          <div id="az-home-fields-triangolo" style="display:flex; flex-direction:column; gap:14px;"></div>
+        </div>
+
+        <div>
+          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">CTA "Vuoi collaborare"</h3>
+          <div id="az-home-fields-cta" style="display:flex; flex-direction:column; gap:14px;"></div>
+        </div>
+
+        <div>
+          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Sezioni extra</h3>
+          <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Aggiunte in un unico punto fisso, appena prima della newsletter — non toccano mai l'hero o il triangolo.</p>
+          <div id="az-home-extra" style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;"></div>
+          <div style="display:flex; gap:10px;">
+            <button type="button" class="az-mini-btn" id="az-home-add-text-section">+ Aggiungi sezione di testo</button>
+            <button type="button" class="az-mini-btn" id="az-home-add-image-section">+ Aggiungi sezione immagine</button>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Salva home</button>
+        </div>
+        <p class="az-msg" id="az-home-msg" hidden></p>
+      </form>
     </div>
 
     <!-- Grafica sito -->
@@ -1363,6 +1423,202 @@
     } catch (err) { document.getElementById('az-events-empty').hidden = false; }
   }
   panelLoaders.eventi = { loaded: false, load: loadEvents };
+
+  // ---- Pagina Home: campi liberi chiave->testo (le chiavi combaciano con i data-cms nell'HTML
+  // della pagina) + sezioni extra a blocchi, stesso pattern di aggiunta/rimozione già usato per
+  // bio/media artisti. Nessuna chiave qui è "scoperta" dal server: la pagina home non cambia
+  // struttura da sola, quindi l'elenco è semplicemente scritto a mano una volta. ----
+  var HOME_FIELD_GROUPS = {
+    hero: [
+      { key: 'hero.eyebrow', label: 'Eyebrow (sopra il titolo)' },
+      { key: 'hero.title1', label: 'Titolo — prima parte (es. "Free to be")' },
+      { key: 'hero.title2', label: 'Titolo — parte evidenziata (es. "GrowMi")' },
+      { key: 'hero.lead', label: 'Testo sotto il titolo', multiline: true }
+    ],
+    marquee: [
+      { key: 'marquee', label: 'Testo scorrevole' }
+    ],
+    triangolo: [
+      { key: 'triangolo.eyebrow', label: 'Eyebrow' },
+      { key: 'triangolo.title', label: 'Titolo sezione' },
+      { key: 'triangolo.lead', label: 'Testo sotto il titolo', multiline: true },
+      { key: 'triangolo.pubblico.title', label: 'Pubblico — titolo' },
+      { key: 'triangolo.pubblico.p1', label: 'Pubblico — testo 1', multiline: true },
+      { key: 'triangolo.pubblico.subtitle', label: 'Pubblico — sottotitolo' },
+      { key: 'triangolo.pubblico.p2', label: 'Pubblico — testo 2', multiline: true },
+      { key: 'triangolo.artisti.title', label: 'Artisti — titolo' },
+      { key: 'triangolo.artisti.p1', label: 'Artisti — testo 1', multiline: true },
+      { key: 'triangolo.artisti.subtitle', label: 'Artisti — sottotitolo' },
+      { key: 'triangolo.artisti.p2', label: 'Artisti — testo 2', multiline: true },
+      { key: 'triangolo.locali.title', label: 'Locali — titolo' },
+      { key: 'triangolo.locali.p1', label: 'Locali — testo 1', multiline: true },
+      { key: 'triangolo.locali.subtitle', label: 'Locali — sottotitolo' },
+      { key: 'triangolo.locali.p2', label: 'Locali — testo 2', multiline: true }
+    ],
+    cta: [
+      { key: 'cta.title', label: 'Titolo' },
+      { key: 'cta.text', label: 'Testo', multiline: true },
+      { key: 'cta.buttonText', label: 'Testo del bottone' }
+    ]
+  };
+  var homeFieldInputs = {}; // key -> input/textarea element
+  var homeSlideKeys = { 'hero.slide1': null, 'hero.slide2': null, 'hero.slide3': null };
+  var homeExtraSections = []; // [{type:'text', title, body} | {type:'image', key, caption}]
+
+  function renderHomeFieldGroup(containerId, defs){
+    var wrap = document.getElementById(containerId);
+    wrap.innerHTML = '';
+    defs.forEach(function(def){
+      var field = document.createElement('div');
+      field.className = 'az-field';
+      var label = document.createElement('label');
+      label.textContent = def.label;
+      var input = document.createElement(def.multiline ? 'textarea' : 'input');
+      if (!def.multiline) input.type = 'text';
+      else input.style.minHeight = '70px';
+      input.placeholder = 'Lascia vuoto per non modificare';
+      field.appendChild(label);
+      field.appendChild(input);
+      wrap.appendChild(field);
+      homeFieldInputs[def.key] = input;
+    });
+  }
+  renderHomeFieldGroup('az-home-fields-hero', HOME_FIELD_GROUPS.hero);
+  renderHomeFieldGroup('az-home-fields-marquee', HOME_FIELD_GROUPS.marquee);
+  renderHomeFieldGroup('az-home-fields-triangolo', HOME_FIELD_GROUPS.triangolo);
+  renderHomeFieldGroup('az-home-fields-cta', HOME_FIELD_GROUPS.cta);
+
+  ['1', '2', '3'].forEach(function(n){
+    document.getElementById('az-home-slide' + n + '-input').addEventListener('change', async function(){
+      var file = this.files[0];
+      this.value = '';
+      if (!file) return;
+      var key = 'hero.slide' + n;
+      try {
+        var uploadedKey = await uploadArtistMediaGeneric(file, 'slide' + n, 'home', 'pages');
+        homeSlideKeys[key] = uploadedKey;
+        document.getElementById('az-home-slide' + n + '-preview').innerHTML = '<img src="/media/' + uploadedKey + '" alt="">';
+      } catch (err) { alert(err.message); }
+    });
+  });
+  // Generalizzazione minima di uploadArtistMedia per accettare anche "pages" come kind, senza
+  // duplicare tutta la logica di upload.
+  async function uploadArtistMediaGeneric(file, purpose, slug, kind){
+    var formData = new FormData();
+    formData.append('file', file);
+    formData.append('purpose', purpose);
+    formData.append('slug', slug);
+    formData.append('kind', kind);
+    var res = await fetch('/api/admin/upload-image', { method: 'POST', body: formData });
+    var data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Errore nel caricamento');
+    return data.key;
+  }
+
+  function renderHomeExtraSections(){
+    var wrap = document.getElementById('az-home-extra');
+    wrap.innerHTML = '';
+    homeExtraSections.forEach(function(s, i){
+      var row = document.createElement('div');
+      row.style.cssText = 'border:1.5px solid var(--line); border-radius:10px; padding:12px;';
+      if (s.type === 'text') {
+        row.innerHTML =
+          '<input type="text" placeholder="Titolo sezione" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<textarea placeholder="Testo" style="width:100%; min-height:70px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);"></textarea>' +
+          '<button type="button" class="az-mini-btn danger" style="margin-top:8px;">Rimuovi sezione</button>';
+        var titleInput = row.querySelector('input');
+        var bodyInput = row.querySelector('textarea');
+        titleInput.value = s.title || '';
+        bodyInput.value = s.body || '';
+        titleInput.addEventListener('input', function(){ s.title = titleInput.value; });
+        bodyInput.addEventListener('input', function(){ s.body = bodyInput.value; });
+      } else {
+        row.innerHTML =
+          '<div class="az-image-preview" style="aspect-ratio:16/7;">' + (s.key ? '<img src="/media/' + s.key + '" alt="">' : 'Nessuna immagine') + '</div>' +
+          '<input type="file" accept="image/jpeg,image/png,image/webp" style="margin-bottom:8px;">' +
+          '<input type="text" placeholder="Didascalia (facoltativa)" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<button type="button" class="az-mini-btn danger">Rimuovi sezione</button>';
+        var fileInput = row.querySelector('input[type=file]');
+        var captionInput = row.querySelector('input[type=text]');
+        captionInput.value = s.caption || '';
+        captionInput.addEventListener('input', function(){ s.caption = captionInput.value; });
+        fileInput.addEventListener('change', async function(){
+          var file = fileInput.files[0];
+          if (!file) return;
+          try {
+            s.key = await uploadArtistMediaGeneric(file, 'section', 'home', 'pages');
+            renderHomeExtraSections();
+          } catch (err) { alert(err.message); }
+        });
+      }
+      row.querySelector('.danger').addEventListener('click', function(){ homeExtraSections.splice(i, 1); renderHomeExtraSections(); });
+      wrap.appendChild(row);
+    });
+  }
+  document.getElementById('az-home-add-text-section').addEventListener('click', function(){
+    homeExtraSections.push({ type: 'text', title: '', body: '' });
+    renderHomeExtraSections();
+  });
+  document.getElementById('az-home-add-image-section').addEventListener('click', function(){
+    homeExtraSections.push({ type: 'image', key: null, caption: '' });
+    renderHomeExtraSections();
+  });
+
+  async function loadHomeContent(){
+    try {
+      var res = await fetch('/api/admin/page-content?page=home');
+      var data = await res.json();
+      var content = data.content || { fields: {}, extraSections: [] };
+      Object.keys(homeFieldInputs).forEach(function(key){
+        homeFieldInputs[key].value = content.fields[key] || '';
+      });
+      Object.keys(homeSlideKeys).forEach(function(key){
+        homeSlideKeys[key] = content.fields[key] || null;
+        var n = key.slice(-1);
+        var preview = document.getElementById('az-home-slide' + n + '-preview');
+        preview.innerHTML = homeSlideKeys[key] ? '<img src="/media/' + homeSlideKeys[key] + '" alt="">' : 'Slide ' + n;
+      });
+      homeExtraSections = (content.extraSections || []).slice();
+      renderHomeExtraSections();
+    } catch (err) { /* i campi restano vuoti, riprovabile ricaricando il pannello */ }
+  }
+  panelLoaders['pagina-home'] = { loaded: false, load: loadHomeContent };
+
+  document.getElementById('az-home-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var msg = document.getElementById('az-home-msg');
+    msg.hidden = true;
+
+    var fields = {};
+    Object.keys(homeFieldInputs).forEach(function(key){
+      var v = homeFieldInputs[key].value.trim();
+      if (v) fields[key] = v;
+    });
+    Object.keys(homeSlideKeys).forEach(function(key){
+      if (homeSlideKeys[key]) fields[key] = homeSlideKeys[key];
+    });
+
+    var submitBtn = document.querySelector('#az-home-form .az-submit');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Salvataggio...';
+    try {
+      var res = await fetch('/api/admin/page-content', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page: 'home', fields: fields, extraSections: homeExtraSections })
+      });
+      var data = await res.json();
+      if (res.ok) {
+        showMsg(msg, 'Salvato — la home è già aggiornata.', false);
+      } else {
+        showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+      }
+    } catch (err) {
+      showMsg(msg, 'Errore di connessione.', true);
+    }
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Salva home';
+  });
 
   // ---- Impostazioni: immagine hero di default (chiave R2 fissa "site/default-hero-image") ----
   function loadSiteSettings(){

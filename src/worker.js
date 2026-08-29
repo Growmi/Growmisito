@@ -708,6 +708,33 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    if (url.pathname === "/api/admin/page-content" && request.method === "GET") {
+      try {
+        return await handleAdminGetPageContent(request, env);
+      } catch (err) {
+        console.log("Errore admin/page-content GET:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/admin/page-content" && request.method === "PUT") {
+      try {
+        return await handleAdminSavePageContent(request, env);
+      } catch (err) {
+        console.log("Errore admin/page-content PUT:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if ((url.pathname === "/" || url.pathname === "/index.html") && request.method === "GET") {
+      try {
+        const handled = await handleHomePage(request, env);
+        if (handled) return handled;
+      } catch (err) {
+        console.log("Errore home page:", err.stack || err.message);
+      }
+    }
+
     return env.ASSETS.fetch(request);
 }
 
@@ -3387,7 +3414,7 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_VIDEO_BYTES = 60 * 1024 * 1024;
 // Namespace di chiavi R2 ammessi per upload/cancellazione da pannello — "events/" e "artists/"
 // per contenuti legati a uno slug, "site/" solo per le fixedKey (es. hero di default).
-const MEDIA_KEY_PREFIXES = ["events/", "artists/"];
+const MEDIA_KEY_PREFIXES = ["events/", "artists/", "pages/"];
 
 // Carica un'immagine su R2 per un evento (hero, copertina o una foto di galleria) — o, con
 // fixedKey, sovrascrive sempre la stessa chiave (usato per l'immagine hero di default di tutto
@@ -3424,7 +3451,7 @@ async function handleUploadImage(request, env) {
     key = fixedKey;
   } else {
     if (!slug) return jsonResponse({ error: "slug mancante" }, 400);
-    const namespace = kind === "artists" ? "artists" : "events";
+    const namespace = ["artists", "pages"].includes(kind) ? kind : "events";
     key = `${namespace}/${slug}/${purpose}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
   }
 
@@ -3829,6 +3856,147 @@ async function handleArtistPage(request, env) {
   const artist = await getArtist(env, slug);
   if (!artist || !isArtistPublished(artist)) return null;
   return new Response(artistPageHTML(artist, slug), { headers: { "Content-Type": "text/html; charset=utf-8" } });
+}
+
+// ============================================================================
+// Pagine fisse (home, e in futuro chi-siamo/contatti/carta-fedeltà): a differenza di eventi/
+// artisti (liste di elementi ripetibili con un template generato da zero) queste sono pagine
+// uniche disegnate su misura — riscriverle da zero rischierebbe di rompere elementi come il
+// triangolo SVG della home. Invece si usa HTMLRewriter per sovrascrivere solo i nodi marcati
+// con data-cms="<chiave>" (testo) o data-cms-src="<chiave>" (src immagine) dentro l'HTML
+// statico esistente — se una chiave non ha un valore salvato, il nodo resta quello di sempre.
+// ============================================================================
+
+async function getPageContent(env, page) {
+  const raw = await env.TICKETS.get(`page:${page}`);
+  return raw ? JSON.parse(raw) : { fields: {}, extraSections: [] };
+}
+
+// fields è una mappa libera chiave->stringa (i nomi delle chiavi li definisce il markup della
+// pagina coi suoi data-cms, non serve un elenco fisso lato server) — solo dimensione e conteggio
+// sono limitati, nessuna whitelist di chiavi: è comunque dietro login staff, e chiavi non
+// riconosciute da nessun data-cms nella pagina semplicemente non hanno effetto.
+function validatePageContentPayload(body) {
+  const inputFields = body.fields && typeof body.fields === "object" ? body.fields : {};
+  const fields = {};
+  let count = 0;
+  for (const k of Object.keys(inputFields)) {
+    if (count >= 60) break;
+    const key = String(k).slice(0, 80);
+    const value = String(inputFields[k] || "").slice(0, 4000);
+    if (value) fields[key] = value;
+    count++;
+  }
+
+  const inputSections = Array.isArray(body.extraSections) ? body.extraSections : [];
+  const extraSections = [];
+  for (const raw of inputSections) {
+    const type = raw && raw.type === "image" ? "image" : "text";
+    if (type === "text") {
+      const title = String((raw && raw.title) || "").trim().slice(0, 200);
+      const body_ = String((raw && raw.body) || "").trim().slice(0, 4000);
+      if (!title && !body_) continue;
+      extraSections.push({ type, title, body: body_ });
+    } else {
+      const key = raw && String(raw.key || "").trim();
+      if (!key) continue;
+      extraSections.push({ type, key, caption: String((raw && raw.caption) || "").trim().slice(0, 200) });
+    }
+    if (extraSections.length >= 20) break;
+  }
+
+  return { ok: true, content: { fields, extraSections } };
+}
+
+async function handleAdminGetPageContent(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const page = String(new URL(request.url).searchParams.get("page") || "").trim();
+  if (!page) return jsonResponse({ error: "pagina mancante" }, 400);
+  return jsonResponse({ page, content: await getPageContent(env, page) });
+}
+
+async function handleAdminSavePageContent(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const page = String(body.page || "").trim();
+  if (!page) return jsonResponse({ error: "pagina mancante" }, 400);
+  const validated = validatePageContentPayload(body);
+  if (!validated.ok) return jsonResponse({ error: validated.error }, 400);
+  await env.TICKETS.put(`page:${page}`, JSON.stringify(validated.content));
+  return jsonResponse({ ok: true, page, content: validated.content });
+}
+
+// HTML delle sezioni extra aggiunte dal pannello — SEMPRE inserite in un unico punto fisso
+// (#home-extra-sections, appena prima della newsletter) mai dentro l'hero o il triangolo, così
+// il design curato di quelle sezioni non può mai essere alterato da un blocco aggiunto a mano.
+function extraSectionsHTML(sections) {
+  return (sections || []).map(function(s){
+    if (s.type === "image") {
+      return `<section class="ed-section-tight"><div class="wrap"><img src="${mediaUrl(s.key)}" alt="${s.caption || ""}" style="width:100%; border-radius:16px; display:block;">${s.caption ? `<p class="meta" style="margin-top:12px; text-align:center;">${s.caption}</p>` : ""}</div></section>`;
+    }
+    return `<section class="ed-section-tight"><div class="wrap"><div class="ed-head"><h2>${s.title}</h2></div>${s.body ? `<p>${s.body}</p>` : ""}</div></section>`;
+  }).join("");
+}
+
+class CmsTextHandler {
+  constructor(fields) { this.fields = fields; }
+  element(el) {
+    const key = el.getAttribute("data-cms");
+    const value = key && this.fields[key];
+    if (value) el.setInnerContent(value);
+  }
+}
+class CmsSrcHandler {
+  constructor(fields) { this.fields = fields; }
+  element(el) {
+    const key = el.getAttribute("data-cms-src");
+    const value = key && this.fields[key];
+    if (value) el.setAttribute("src", value);
+  }
+}
+class ExtraSectionsHandler {
+  constructor(html) { this.html = html; }
+  element(el) { if (this.html) el.setInnerContent(this.html, { html: true }); }
+}
+
+// Applica gli override SOLO se ce n'è almeno uno salvato — altrimenti la risposta statica passa
+// invariata, zero lavoro in più per il caso comune (nessuna pagina fissa ancora personalizzata).
+async function applyPageOverrides(response, content) {
+  const hasFields = content.fields && Object.keys(content.fields).length > 0;
+  const hasExtra = content.extraSections && content.extraSections.length > 0;
+  if (!hasFields && !hasExtra) return response;
+
+  // Le chiavi immagine (quelle marcate data-cms-src nell'HTML, es. "hero.slide1") contengono una
+  // chiave R2, mai un URL diretto — vanno sempre risolte con mediaUrl() prima di iniettarle.
+  // Riconosciute per pattern ("...slideN") invece di un elenco fisso, così vale anche per le
+  // future pagine (chi-siamo/contatti/carta-fedeltà) senza dover toccare questa funzione.
+  const imageFields = {};
+  const textFields = {};
+  for (const k of Object.keys(content.fields || {})) {
+    if (/slide\d+$/.test(k) || /\.image$/.test(k)) {
+      imageFields[k] = mediaUrl(content.fields[k]);
+    } else {
+      textFields[k] = content.fields[k];
+    }
+  }
+
+  return new HTMLRewriter()
+    .on("[data-cms]", new CmsTextHandler(textFields))
+    .on("[data-cms-src]", new CmsSrcHandler(imageFields))
+    .on("#home-extra-sections", new ExtraSectionsHandler(extraSectionsHTML(content.extraSections)))
+    .transform(response);
+}
+
+async function handleHomePage(request, env) {
+  if (!env.TICKETS) return null;
+  const res = await env.ASSETS.fetch(request);
+  if (!res.ok) return res;
+  const content = await getPageContent(env, "home");
+  return applyPageOverrides(res, content);
 }
 
 // Salva la scheda "Dati personali e consensi" — stesso account, campi in più (numero cliente
