@@ -585,6 +585,13 @@
           <p class="az-msg" id="az-hero-default-msg" hidden></p>
         </div>
       </div>
+
+      <div class="az-settings-card" style="margin-top:20px;">
+        <h3>Migrazione artisti (temporaneo)</h3>
+        <p class="az-settings-hint">Da cliccare una sola volta: copia i 9 artisti già esistenti nel nuovo sistema a pannello. Dopo averlo fatto con successo, dimmelo così rimuovo questo pulsante.</p>
+        <button type="button" class="az-mini-btn" id="az-migrate-artists-btn">Lancia migrazione artisti</button>
+        <p class="az-msg" id="az-migrate-artists-msg" hidden></p>
+      </div>
     </div>
   </main>
 </div>
@@ -1392,6 +1399,25 @@
     this.value = '';
   });
   panelLoaders.impostazioni = { loaded: false, load: loadSiteSettings };
+
+  document.getElementById('az-migrate-artists-btn').addEventListener('click', async function(){
+    var btn = this;
+    var msg = document.getElementById('az-migrate-artists-msg');
+    if (!confirm('Lanciare la migrazione dei 9 artisti? Va fatto una sola volta.')) return;
+    btn.disabled = true;
+    btn.textContent = 'Migrazione in corso...';
+    try {
+      var res = await fetch('/api/admin/migrate-artists', { method: 'POST' });
+      var data = await res.json();
+      var okCount = (data.results || []).filter(function(r){ return r.ok; }).length;
+      var failed = (data.results || []).filter(function(r){ return !r.ok; });
+      showMsg(msg, okCount + '/9 migrati.' + (failed.length ? ' Errori: ' + failed.map(function(f){ return f.slug + ' (' + f.error + ')'; }).join(', ') : ''), failed.length > 0);
+    } catch (err) {
+      showMsg(msg, 'Errore di connessione: ' + err.message, true);
+    }
+    btn.disabled = false;
+    btn.textContent = 'Lancia migrazione artisti';
+  });
 
   // I valori vengono assegnati con .value dopo aver creato gli elementi, mai interpolati dentro
   // l'HTML come attributo value="..." — esc() serve a testo dentro tag, non ad attributi: un
