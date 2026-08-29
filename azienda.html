@@ -869,6 +869,10 @@
         <div class="az-image-upload" id="az-hero-default-upload">
           <div class="az-image-preview" id="az-hero-default-preview"></div>
           <input type="file" accept="image/jpeg,image/png,image/webp" id="az-hero-default-input">
+          <div id="az-hero-default-framing"></div>
+          <div style="margin-top:10px;">
+            <button type="button" class="az-submit" id="az-hero-default-framing-save" style="padding:12px 22px;">Pubblica posizione/zoom</button>
+          </div>
           <p class="az-msg" id="az-hero-default-msg" hidden></p>
         </div>
       </div>
@@ -3098,10 +3102,41 @@
   });
 
   // ---- Impostazioni: immagine hero di default (chiave R2 fissa "site/default-hero-image") ----
+  // Sul sito vero questa foto è uno sfondo CSS (.ed-hero::before), non un tag <img> — qui
+  // l'anteprima usa comunque un <img> con renderFramingControls (stesso identico controllo di
+  // tutte le altre foto), i valori salvati diventano --hero-bg-position/--hero-bg-zoom nel tema.
+  var heroDefaultFraming = { position: 'center', zoom: 1 };
   function loadSiteSettings(){
     var preview = document.getElementById('az-hero-default-preview');
     preview.innerHTML = '<img src="/media/site/default-hero-image" alt="" onerror="this.parentElement.textContent=\'Nessuna immagine caricata ancora\';">';
+    var img = preview.querySelector('img');
+    fetch('/api/admin/site-theme').then(function(r){ return r.json(); }).then(function(data){
+      var hb = (data.theme && data.theme.heroBackground) || {};
+      heroDefaultFraming = { position: hb.position || 'center', zoom: hb.zoom || 1 };
+      renderFramingControls(document.getElementById('az-hero-default-framing'), img, heroDefaultFraming);
+    }).catch(function(){
+      renderFramingControls(document.getElementById('az-hero-default-framing'), img, heroDefaultFraming);
+    });
   }
+  document.getElementById('az-hero-default-framing-save').addEventListener('click', async function(){
+    var msg = document.getElementById('az-hero-default-msg');
+    msg.hidden = true;
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Salvataggio...';
+    try {
+      var res = await fetch('/api/admin/site-theme', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ heroBackground: { position: heroDefaultFraming.position, zoom: heroDefaultFraming.zoom } })
+      });
+      var data = await res.json();
+      if (res.ok) showMsg(msg, 'Salvato — visibile su tutte le pagine con questo sfondo.', false);
+      else showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+    } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
+    btn.disabled = false;
+    btn.textContent = 'Pubblica posizione/zoom';
+  });
   document.getElementById('az-hero-default-input').addEventListener('change', async function(){
     var file = this.files[0];
     if (!file) return;

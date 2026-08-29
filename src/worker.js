@@ -4529,6 +4529,19 @@ function validateSiteThemePayload(body) {
   }
   if (Object.keys(typography).length) theme.typography = typography;
 
+  // Sfondo hero di default (site/default-hero-image, dietro ogni pagina senza una sua foto/video):
+  // stessa posizione/zoom di artisti/eventi/home, ma applicate a un layer CSS (.ed-hero::before)
+  // invece che a un <img>, perché lì lo sfondo è un CSS background, non un tag immagine.
+  const inputHeroBg = body && body.heroBackground && typeof body.heroBackground === "object" ? body.heroBackground : {};
+  const heroBackground = {};
+  if (typeof inputHeroBg.position === "string" && inputHeroBg.position.trim()) {
+    heroBackground.position = inputHeroBg.position.trim().slice(0, 30);
+  }
+  if (inputHeroBg.zoom !== null && inputHeroBg.zoom !== undefined && inputHeroBg.zoom !== "") {
+    heroBackground.zoom = clampImageZoom(inputHeroBg.zoom);
+  }
+  if (Object.keys(heroBackground).length) theme.heroBackground = heroBackground;
+
   return { ok: true, theme };
 }
 
@@ -4558,8 +4571,16 @@ async function handleAdminSaveSiteTheme(request, env) {
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
   const body = await request.json();
   const validated = validateSiteThemePayload(body);
-  await env.TICKETS.put("site:theme", JSON.stringify(validated.theme));
-  return jsonResponse({ ok: true, theme: validated.theme });
+  // Fuso con quanto già salvato, non sovrascritto per intero: il pannello ha sezioni indipendenti
+  // (font/colori, tipografia, sfondo hero di default) che pubblicano una alla volta — un PUT con
+  // solo "heroBackground" non deve cancellare fontPairKey/colors/typography già salvati altrove,
+  // e viceversa. Ogni chiave di primo livello presente nella richiesta sostituisce comunque per
+  // intero quella salvata (stesso comportamento di "Ripristina colori" che deve poter tornare ai
+  // valori di default), solo le chiavi ASSENTI restano quelle di prima.
+  const existing = await getSiteTheme(env);
+  const merged = Object.assign({}, existing, validated.theme);
+  await env.TICKETS.put("site:theme", JSON.stringify(merged));
+  return jsonResponse({ ok: true, theme: merged });
 }
 
 class ThemeHeadHandler {
@@ -4589,6 +4610,10 @@ function buildThemeStyleBlock(theme, fontPair) {
       if (cssVar) decls.push(`${cssVar}:${theme.typography[key]}`);
     }
   }
+  if (theme.heroBackground) {
+    if (theme.heroBackground.position) decls.push(`--hero-bg-position:${theme.heroBackground.position}`);
+    if (theme.heroBackground.zoom) decls.push(`--hero-bg-zoom:${theme.heroBackground.zoom}`);
+  }
   if (!decls.length) return "";
   return `<style id="site-theme-overrides">:root{${decls.join(";")}}</style>`;
 }
@@ -4597,7 +4622,8 @@ async function applySiteTheme(response, theme) {
   const fontPair = theme.fontPairKey && theme.fontPairKey !== "default" ? FONT_PAIRS[theme.fontPairKey] : null;
   const hasColors = theme.colors && Object.keys(theme.colors).length > 0;
   const hasTypography = theme.typography && Object.keys(theme.typography).length > 0;
-  if (!fontPair && !hasColors && !hasTypography) return response;
+  const hasHeroBg = theme.heroBackground && Object.keys(theme.heroBackground).length > 0;
+  if (!fontPair && !hasColors && !hasTypography && !hasHeroBg) return response;
   const styleBlock = buildThemeStyleBlock(theme, fontPair);
   let rewriter = new HTMLRewriter().on("head", new ThemeHeadHandler(styleBlock));
   if (fontPair) {

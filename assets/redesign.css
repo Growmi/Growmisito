@@ -1,11 +1,6 @@
 /* Direzione editoriale — ispirata a Outpump (magazine street/cultura) + Apple (scala, spazio, sicurezza) */
 
 .ed-hero{
-  /* Immagine hero di default per ogni pagina senza una foto/video propri (vedi .ed-hero-photo/
-     .ed-hero-video/.ed-hero-slideshow più sotto, che dipingono sopra questo sfondo e quindi lo
-     coprono da soli sulle pagine che hanno già un loro media). Velo scuro sopra l'immagine
-     (stessa tinta di .ed-hero-video-overlay) per tenere leggibile il testo cream/bianco. */
-  background:linear-gradient(rgba(30,12,44,.55), rgba(30,12,44,.55)), var(--ink) url("/media/site/default-hero-image") center/cover no-repeat;
   color:var(--cream);
   position:relative;
   z-index:0;
@@ -16,6 +11,25 @@
   display:flex;
   align-items:center;
   box-sizing:border-box;
+}
+/* Immagine hero di default per ogni pagina senza una foto/video propri (vedi .ed-hero-photo/
+   .ed-hero-video/.ed-hero-slideshow più sotto, che dipingono sopra questo sfondo e quindi lo
+   coprono da soli sulle pagine che hanno già un loro media). Foto e velo scuro sono due layer
+   separati — stesso z-index -2/-1 di .ed-hero-video/.ed-hero-video-overlay qui sotto — invece di
+   un unico background su .ed-hero: così il pannello può regolare posizione/zoom della sola foto
+   (--hero-bg-position/--hero-bg-zoom, iniettate dal tema del sito) senza toccare né rischiare di
+   scalare i contenuti veri della hero. */
+.ed-hero::before{
+  content:"";
+  position:absolute; inset:0; z-index:-2;
+  background:var(--ink) url("/media/site/default-hero-image") center/cover no-repeat;
+  background-position:var(--hero-bg-position, center);
+  transform:scale(var(--hero-bg-zoom, 1));
+}
+.ed-hero::after{
+  content:"";
+  position:absolute; inset:0; z-index:-1;
+  background:rgba(30,12,44,.55);
 }
 .ed-hero > .wrap{ width:100%; }
 .ed-wrap{position:relative; z-index:2;}
