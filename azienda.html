@@ -471,7 +471,7 @@
           <button type="button" class="az-preview-btn" id="az-fb-form-preview-btn">👁 Preview</button>
           <button type="button" class="az-mini-btn" id="az-fb-form-copy-link">📋 Copia link da condividere</button>
         </div>
-        <p style="font-size:12px; color:var(--grey); margin-bottom:14px; max-width:600px;">Testi del form. Campo vuoto = resta il testo attuale.</p>
+        <p style="font-size:12px; color:var(--grey); margin-bottom:14px; max-width:600px;">Testi del form — sono già quelli pubblicati: modificali e premi "Pubblica form" per aggiornarli.</p>
         <form id="az-fb-form" style="max-width:600px; display:flex; flex-direction:column; gap:16px;">
           <div id="az-fb-form-fields" style="display:flex; flex-direction:column; gap:14px;"></div>
           <div class="az-field">
@@ -614,7 +614,7 @@
 
       <div style="margin-top:36px; padding-top:28px; border-top:1.5px solid var(--line);">
         <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Contenuto delle pagine eventi passati</h3>
-        <p style="font-size:12px; color:var(--grey); margin-bottom:16px; max-width:600px;">Testi e foto principali dentro ciascuna pagina evento (non solo la card nell'elenco). Campo vuoto = resta il testo attuale.</p>
+        <p style="font-size:12px; color:var(--grey); margin-bottom:16px; max-width:600px;">Testi e foto principali dentro ciascuna pagina evento (non solo la card nell'elenco) — sono già quelli pubblicati: modificali e premi "Pubblica" per aggiornarli.</p>
         <div id="az-legacy-page-art-mall-collab"></div>
         <div id="az-legacy-page-grow-with-us" style="margin-top:28px;"></div>
       </div>
@@ -700,7 +700,7 @@
 
     <!-- Pagina Home -->
     <div class="az-panel" data-panel-content="pagina-home" hidden>
-      <p style="font-size:13px; color:var(--grey); margin-bottom:20px; max-width:600px;">Ogni campo qui sotto sovrascrive un punto preciso della home — se lo lasci vuoto resta il testo/immagine attuale del sito, il design non cambia mai.</p>
+      <p style="font-size:13px; color:var(--grey); margin-bottom:20px; max-width:600px;">I campi qui sotto mostrano già i testi pubblicati sulla home — modificali e premi "Pubblica" per aggiornarli. Il design della pagina non cambia mai, solo i contenuti.</p>
       <form id="az-home-form" style="max-width:640px; display:flex; flex-direction:column; gap:28px;">
         <div>
           <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Hero</h3>
@@ -766,7 +766,7 @@
 
     <!-- Pagina Chi siamo -->
     <div class="az-panel" data-panel-content="pagina-chisiamo" hidden>
-      <p style="font-size:13px; color:var(--grey); margin-bottom:20px; max-width:600px;">Come per la Home: campo vuoto = resta il testo attuale del sito.</p>
+      <p style="font-size:13px; color:var(--grey); margin-bottom:20px; max-width:600px;">Come per la Home: i campi mostrano già i testi pubblicati, modificali e premi "Pubblica" per aggiornarli.</p>
       <form id="az-chisiamo-form" style="max-width:640px; display:flex; flex-direction:column; gap:28px;">
         <div>
           <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Hero</h3>
@@ -823,7 +823,7 @@
 
     <!-- Pagina Contatti -->
     <div class="az-panel" data-panel-content="pagina-contatti" hidden>
-      <p style="font-size:13px; color:var(--grey); margin-bottom:20px; max-width:600px;">Come per le altre pagine: campo vuoto = resta il testo attuale del sito.</p>
+      <p style="font-size:13px; color:var(--grey); margin-bottom:20px; max-width:600px;">Come per le altre pagine: i campi mostrano già i testi pubblicati, modificali e premi "Pubblica" per aggiornarli.</p>
       <form id="az-contatti-form" style="max-width:640px; display:flex; flex-direction:column; gap:28px;">
         <div>
           <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Hero</h3>
@@ -855,7 +855,7 @@
 
     <!-- Pagina Carta fedeltà -->
     <div class="az-panel" data-panel-content="pagina-loyalty" hidden>
-      <p style="font-size:13px; color:var(--grey); margin-bottom:20px; max-width:600px;">Come per le altre pagine: campo vuoto = resta il testo attuale del sito.</p>
+      <p style="font-size:13px; color:var(--grey); margin-bottom:20px; max-width:600px;">Come per le altre pagine: i campi mostrano già i testi pubblicati, modificali e premi "Pubblica" per aggiornarli.</p>
       <form id="az-loyalty-form" style="max-width:640px; display:flex; flex-direction:column; gap:28px;">
         <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Hero</h3><div id="az-loy-fields-hero" style="display:flex; flex-direction:column; gap:14px;"></div></div>
 
@@ -1543,17 +1543,18 @@
     Object.keys(fbFormFieldInputs).forEach(function(key){ fbFormFieldInputs[key].value = ''; });
     document.getElementById('az-fb-liked-options').innerHTML = '';
     try {
+      var live = await fetchLiveFieldDefaults(fbPublicLink(target));
       if (target.type === 'default') {
         var res = await fetch('/api/admin/page-content?page=feedback');
         var data = await res.json();
         var content = data.content || { fields: {} };
-        Object.keys(fbFormFieldInputs).forEach(function(key){ fbFormFieldInputs[key].value = content.fields[key] || ''; });
+        Object.keys(fbFormFieldInputs).forEach(function(key){ fbFormFieldInputs[key].value = live[key] || content.fields[key] || ''; });
         (content.likedOptions || []).forEach(function(label){ addLikedOptionRow(label); });
       } else {
         var res2 = await fetch('/api/admin/feedback-form-content?id=' + encodeURIComponent(target.id));
         var data2 = await res2.json();
         var form = data2.form || { fields: {}, likedOptions: [] };
-        Object.keys(fbFormFieldInputs).forEach(function(key){ fbFormFieldInputs[key].value = form.fields[key] || ''; });
+        Object.keys(fbFormFieldInputs).forEach(function(key){ fbFormFieldInputs[key].value = live[key] || form.fields[key] || ''; });
         (form.likedOptions || []).forEach(function(label){ addLikedOptionRow(label); });
       }
     } catch (err) { /* riprovabile riselezionando il form */ }
@@ -2112,7 +2113,8 @@
         var res = await fetch('/api/admin/page-content?page=' + pageKey);
         var data = await res.json();
         var content = data.content || { fields: {}, extraSections: [] };
-        Object.keys(fieldInputs).forEach(function(key){ fieldInputs[key].value = content.fields[key] || ''; });
+        var live = await fetchLiveFieldDefaults('/' + pageKey + '.html');
+        Object.keys(fieldInputs).forEach(function(key){ fieldInputs[key].value = live[key] || content.fields[key] || ''; });
         heroKey = content.fields['hero.image'] || null;
         posterKey = content.fields['poster.image'] || null;
         renderHeroPreview();
@@ -2336,7 +2338,7 @@
       var input = document.createElement(def.multiline ? 'textarea' : 'input');
       if (!def.multiline) input.type = 'text';
       else input.style.minHeight = '70px';
-      input.placeholder = 'Lascia vuoto per non modificare';
+      input.placeholder = 'Scrivi qui...';
       field.appendChild(label);
       field.appendChild(input);
       wrap.appendChild(field);
@@ -2430,6 +2432,26 @@
     if (!key) return '';
     if (key.indexOf('http://') === 0 || key.indexOf('https://') === 0 || key.indexOf('/') === 0 || key.indexOf('assets/') === 0) return key;
     return '/media/' + key;
+  }
+
+  // Legge la pagina pubblica così com'è ORA (statica o già sovrascritta da un salvataggio
+  // precedente non conta la differenza: è comunque quello che vedono le persone) ed estrae il
+  // testo di ogni elemento data-cms — usato per pre-riempire i campi dei pannelli con il testo
+  // reale invece di lasciarli vuoti con un placeholder. Zero manutenzione: si aggiorna da sola se
+  // cambia l'HTML statico, non richiede di tenere allineate stringhe duplicate qui nel pannello.
+  async function fetchLiveFieldDefaults(pageUrl){
+    try {
+      var res = await fetch(pageUrl);
+      if (!res.ok) return {};
+      var html = await res.text();
+      var doc = new DOMParser().parseFromString(html, 'text/html');
+      var defaults = {};
+      doc.querySelectorAll('[data-cms]').forEach(function(el){
+        var key = el.getAttribute('data-cms');
+        if (key) defaults[key] = el.textContent.trim();
+      });
+      return defaults;
+    } catch (err) { return {}; }
   }
 
   // ---- Anteprima "Preview": mostra la pagina reale dentro un iframe con sopra applicate le
@@ -2632,8 +2654,9 @@
       var res = await fetch('/api/admin/page-content?page=home');
       var data = await res.json();
       var content = data.content || { fields: {}, extraSections: [] };
+      var live = await fetchLiveFieldDefaults('/index.html');
       Object.keys(homeFieldInputs).forEach(function(key){
-        homeFieldInputs[key].value = content.fields[key] || '';
+        homeFieldInputs[key].value = live[key] || content.fields[key] || '';
       });
       Object.keys(homeSlideKeys).forEach(function(key){
         homeSlideKeys[key] = content.fields[key] || null;
@@ -3021,8 +3044,9 @@
       var res = await fetch('/api/admin/page-content?page=chi-siamo');
       var data = await res.json();
       var content = data.content || { fields: {}, extraSections: [], founders: [] };
+      var live = await fetchLiveFieldDefaults('/chi-siamo.html');
       Object.keys(chisiamoFieldInputs).forEach(function(key){
-        chisiamoFieldInputs[key].value = content.fields[key] || '';
+        chisiamoFieldInputs[key].value = live[key] || content.fields[key] || '';
       });
       chisiamoFounders = (content.founders !== undefined ? content.founders : CHISIAMO_DEFAULT_FOUNDERS).slice();
       renderChisiamoFounders();
@@ -3193,8 +3217,9 @@
       var res = await fetch('/api/admin/page-content?page=contatti');
       var data = await res.json();
       var content = data.content || { fields: {}, extraSections: [] };
+      var live = await fetchLiveFieldDefaults('/contatti.html');
       Object.keys(contattiFieldInputs).forEach(function(key){
-        contattiFieldInputs[key].value = content.fields[key] || '';
+        contattiFieldInputs[key].value = live[key] || content.fields[key] || '';
       });
       contattiExtraSections = (content.extraSections || []).slice();
       renderContattiExtraSections();
@@ -3313,8 +3338,9 @@
       var res = await fetch('/api/admin/page-content?page=loyalty-card');
       var data = await res.json();
       var content = data.content || { fields: {}, extraSections: [] };
+      var live = await fetchLiveFieldDefaults('/loyalty-card.html');
       Object.keys(loyaltyFieldInputs).forEach(function(key){
-        loyaltyFieldInputs[key].value = content.fields[key] || '';
+        loyaltyFieldInputs[key].value = live[key] || content.fields[key] || '';
       });
       Object.keys(loyaltyCardKeys).forEach(function(key){
         loyaltyCardKeys[key] = content.fields[key] || null;
