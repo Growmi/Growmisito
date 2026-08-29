@@ -306,6 +306,7 @@
       <div class="az-nav-group">
         <p class="az-nav-group-label">Contenuti</p>
         <button type="button" class="az-nav-item" data-panel="eventi">🎫 Eventi</button>
+        <button type="button" class="az-nav-item" data-panel="artisti">🎤 Artisti</button>
         <button type="button" class="az-nav-item" data-panel="feedback">💬 Feedback</button>
       </div>
       <div class="az-nav-group">
@@ -490,6 +491,85 @@
             <button type="button" class="az-mini-btn" id="az-ev-cancel">Annulla</button>
           </div>
           <p class="az-msg" id="az-event-msg" hidden></p>
+        </form>
+      </div>
+    </div>
+
+    <!-- Artisti -->
+    <div class="az-panel" data-panel-content="artisti" hidden>
+      <div class="az-toolbar">
+        <span></span>
+        <div class="actions">
+          <button type="button" class="primary" id="az-artist-new">+ Nuovo artista</button>
+        </div>
+      </div>
+      <div id="az-artists-list"></div>
+      <p class="az-empty" id="az-artists-empty" hidden>Nessun artista ancora.</p>
+
+      <div id="az-artist-form-wrap" hidden>
+        <h3 id="az-artist-form-title" style="font-family:'Space Grotesk',sans-serif; font-size:18px; margin:24px 0 16px;">Nuovo artista</h3>
+        <form id="az-artist-form" style="max-width:600px; display:flex; flex-direction:column; gap:16px;">
+          <input type="hidden" id="az-ar-slug">
+          <div class="az-field"><label for="az-ar-name">Nome</label><input type="text" id="az-ar-name" required></div>
+          <div class="az-field"><label for="az-ar-role">Ruolo (es. "DJ", "Cantante")</label><input type="text" id="az-ar-role" required></div>
+
+          <div>
+            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Foto card</label>
+            <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Mostrata nell'elenco artisti e come sfondo pagina se non c'è un'immagine hero.</p>
+            <div class="az-image-preview" id="az-ar-card-preview">Nessuna immagine</div>
+            <input type="file" accept="image/jpeg,image/png,image/webp" id="az-ar-card-input">
+            <div class="az-field" style="margin-top:8px;">
+              <label for="az-ar-card-position">Inquadratura</label>
+              <select id="az-ar-card-position">
+                <option value="center">Centro</option>
+                <option value="center 15%">Alto</option>
+                <option value="center 85%">Basso</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Hero</label>
+            <div class="az-field" style="margin-bottom:10px;">
+              <select id="az-ar-hero-type">
+                <option value="none">Nessuna (sfondo di default del sito)</option>
+                <option value="video">Video</option>
+                <option value="image">Immagine</option>
+              </select>
+            </div>
+            <div class="az-image-preview" id="az-ar-hero-preview">Nessuna immagine/video</div>
+            <input type="file" accept="video/mp4,image/jpeg,image/png,image/webp" id="az-ar-hero-input">
+            <button type="button" class="az-mini-btn danger" id="az-ar-hero-remove" hidden>Rimuovi</button>
+          </div>
+
+          <div>
+            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Biografia</label>
+            <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Un paragrafo per riquadro — aggiungi, rimuovi o riordina.</p>
+            <div id="az-ar-bio"></div>
+            <button type="button" class="az-mini-btn" id="az-ar-add-bio">+ Aggiungi paragrafo</button>
+          </div>
+
+          <div>
+            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Contenuti (video/foto)</label>
+            <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Mostrati sotto la biografia — puoi mischiare video e foto.</p>
+            <div id="az-ar-media" style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;"></div>
+            <div style="display:flex; gap:10px;">
+              <button type="button" class="az-mini-btn" id="az-ar-add-video">+ Aggiungi video</button>
+              <button type="button" class="az-mini-btn" id="az-ar-add-image">+ Aggiungi foto</button>
+            </div>
+          </div>
+
+          <label style="display:flex; align-items:center; gap:10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; cursor:pointer;">
+            <input type="checkbox" id="az-ar-published" style="width:18px; height:18px;">
+            Pubblicato
+          </label>
+          <p style="font-size:12px; color:var(--grey); margin-top:-10px;">Finché non è spuntato, l'artista resta bozza: non compare in elenco né su /artista/&lt;slug&gt;.</p>
+
+          <div style="display:flex; gap:10px; align-items:center;">
+            <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Salva artista</button>
+            <button type="button" class="az-mini-btn" id="az-ar-cancel">Annulla</button>
+          </div>
+          <p class="az-msg" id="az-artist-msg" hidden></p>
         </form>
       </div>
     </div>
@@ -1013,6 +1093,234 @@
     }
     renderGalleryGrid();
   });
+  // ---- Artisti: stesso pattern di upload/anteprima degli eventi, generalizzato per accettare
+  // anche video (hero e blocchi contenuto) oltre alle immagini. ----
+  async function uploadArtistMedia(file, purpose, slug){
+    var formData = new FormData();
+    formData.append('file', file);
+    formData.append('purpose', purpose);
+    formData.append('slug', slug);
+    formData.append('kind', 'artists');
+    var res = await fetch('/api/admin/upload-image', { method: 'POST', body: formData });
+    var data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Errore nel caricamento');
+    return data.key;
+  }
+  async function deleteArtistMedia(key){
+    try { await fetch('/api/admin/delete-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: key }) }); } catch (e) {}
+  }
+
+  var arUploadSlug = null;
+  var arCardKey = null;
+  var arHeroType = 'none';
+  var arHeroKey = null;
+  var arBio = [];
+  var arMedia = []; // [{type:'video'|'image', key, position}]
+
+  function arMediaPreviewHTML(key, type){
+    if (!key) return 'Nessuna immagine/video';
+    return type === 'video'
+      ? '<video src="/media/' + key + '" style="width:100%;height:100%;object-fit:cover;" muted></video>'
+      : '<img src="/media/' + key + '" alt="">';
+  }
+  function renderArCardPreview(){
+    document.getElementById('az-ar-card-preview').innerHTML = arCardKey ? '<img src="/media/' + arCardKey + '" alt="">' : 'Nessuna immagine';
+  }
+  function renderArHeroPreview(){
+    document.getElementById('az-ar-hero-preview').innerHTML = arMediaPreviewHTML(arHeroKey, arHeroType);
+    document.getElementById('az-ar-hero-remove').hidden = !arHeroKey;
+    document.getElementById('az-ar-hero-input').hidden = arHeroType === 'none';
+    document.getElementById('az-ar-hero-input').accept = arHeroType === 'video' ? 'video/mp4' : 'image/jpeg,image/png,image/webp';
+  }
+  function renderArBioList(){
+    var wrap = document.getElementById('az-ar-bio');
+    wrap.innerHTML = '';
+    arBio.forEach(function(text, i){
+      var row = document.createElement('div');
+      row.style.cssText = 'margin-bottom:10px;';
+      row.innerHTML =
+        '<textarea style="width:100%; min-height:80px; padding:10px 12px; border-radius:10px; border:1.5px solid var(--line); font-family:Inter,sans-serif; font-size:13.5px;"></textarea>' +
+        '<button type="button" class="az-mini-btn danger" style="margin-top:6px;">Rimuovi paragrafo</button>';
+      var ta = row.querySelector('textarea');
+      ta.value = text;
+      ta.addEventListener('input', function(){ arBio[i] = ta.value; });
+      row.querySelector('button').addEventListener('click', function(){ arBio.splice(i, 1); renderArBioList(); });
+      wrap.appendChild(row);
+    });
+  }
+  function renderArMediaList(){
+    var wrap = document.getElementById('az-ar-media');
+    wrap.innerHTML = '';
+    arMedia.forEach(function(m, i){
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex; gap:10px; align-items:center; border:1.5px solid var(--line); border-radius:10px; padding:8px;';
+      row.innerHTML =
+        '<div class="az-image-preview" style="width:80px; aspect-ratio:1; margin-bottom:0; flex-shrink:0;">' + arMediaPreviewHTML(m.key, m.type) + '</div>' +
+        '<span style="font-size:12.5px; color:var(--grey); flex:1;">' + (m.type === 'video' ? 'Video' : 'Foto') + '</span>' +
+        '<button type="button" class="az-mini-btn danger">Rimuovi</button>';
+      row.querySelector('button').addEventListener('click', function(){
+        deleteArtistMedia(m.key);
+        arMedia.splice(i, 1);
+        renderArMediaList();
+      });
+      wrap.appendChild(row);
+    });
+  }
+
+  document.getElementById('az-ar-card-input').addEventListener('change', async function(){
+    var file = this.files[0];
+    this.value = '';
+    if (!file) return;
+    try { arCardKey = await uploadArtistMedia(file, 'card', arUploadSlug); renderArCardPreview(); }
+    catch (err) { alert(err.message); }
+  });
+  document.getElementById('az-ar-card-position').addEventListener('change', function(){});
+  document.getElementById('az-ar-hero-type').addEventListener('change', function(){
+    arHeroType = this.value;
+    if (arHeroType === 'none') { deleteArtistMedia(arHeroKey); arHeroKey = null; }
+    renderArHeroPreview();
+  });
+  document.getElementById('az-ar-hero-input').addEventListener('change', async function(){
+    var file = this.files[0];
+    this.value = '';
+    if (!file) return;
+    try { arHeroKey = await uploadArtistMedia(file, 'hero', arUploadSlug); renderArHeroPreview(); }
+    catch (err) { alert(err.message); }
+  });
+  document.getElementById('az-ar-hero-remove').addEventListener('click', function(){
+    deleteArtistMedia(arHeroKey);
+    arHeroKey = null;
+    renderArHeroPreview();
+  });
+  document.getElementById('az-ar-add-bio').addEventListener('click', function(){ arBio.push(''); renderArBioList(); });
+
+  function pickAndAddMedia(type){
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = type === 'video' ? 'video/mp4' : 'image/jpeg,image/png,image/webp';
+    input.addEventListener('change', async function(){
+      var file = input.files[0];
+      if (!file) return;
+      try {
+        var key = await uploadArtistMedia(file, 'media', arUploadSlug);
+        arMedia.push({ type: type, key: key, position: 'center' });
+        renderArMediaList();
+      } catch (err) { alert(err.message); }
+    });
+    input.click();
+  }
+  document.getElementById('az-ar-add-video').addEventListener('click', function(){ pickAndAddMedia('video'); });
+  document.getElementById('az-ar-add-image').addEventListener('click', function(){ pickAndAddMedia('image'); });
+
+  var allArtists = [];
+  function renderArtistsList(artists){
+    var wrap = document.getElementById('az-artists-list');
+    var empty = document.getElementById('az-artists-empty');
+    wrap.innerHTML = '';
+    empty.hidden = !!artists.length;
+    artists.forEach(function(ar){
+      var isPublished = ar.published !== false;
+      var card = document.createElement('div');
+      card.className = 'az-ev-card';
+      card.innerHTML =
+        '<h4>' + esc(ar.name) + ' <span class="az-pill ' + (isPublished ? 'yes' : 'no') + '">' + (isPublished ? 'Pubblicato' : 'Bozza') + '</span></h4>' +
+        '<div class="meta">' + esc(ar.role) + '</div>' +
+        '<button type="button" class="edit-btn">✏️ Modifica</button>';
+      card.querySelector('.edit-btn').addEventListener('click', function(){ openArtistForm(ar); });
+      wrap.appendChild(card);
+    });
+  }
+  async function loadArtists(){
+    try {
+      var res = await fetch('/api/admin/artists');
+      var data = await res.json();
+      allArtists = data.artists || [];
+      renderArtistsList(allArtists);
+    } catch (err) { document.getElementById('az-artists-empty').hidden = false; }
+  }
+  panelLoaders.artisti = { loaded: false, load: loadArtists };
+
+  function openArtistForm(artist){
+    document.getElementById('az-artist-form-wrap').hidden = false;
+    document.getElementById('az-artists-list').hidden = true;
+    document.getElementById('az-artists-empty').hidden = true;
+    document.getElementById('az-artist-form-title').textContent = artist ? 'Modifica artista' : 'Nuovo artista';
+    document.getElementById('az-artist-msg').hidden = true;
+    document.getElementById('az-ar-slug').value = artist ? artist.slug : '';
+    document.getElementById('az-ar-name').value = artist ? artist.name : '';
+    document.getElementById('az-ar-role').value = artist ? artist.role : '';
+    document.getElementById('az-ar-card-position').value = artist ? (artist.cardImagePosition || 'center') : 'center';
+    document.getElementById('az-ar-hero-type').value = artist ? artist.heroType : 'none';
+
+    arUploadSlug = artist ? artist.slug : ('draft-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
+    arCardKey = artist ? (artist.cardImageKey || null) : null;
+    arHeroType = artist ? artist.heroType : 'none';
+    arHeroKey = artist ? (artist.heroKey || null) : null;
+    arBio = artist ? artist.bio.slice() : [];
+    arMedia = artist ? artist.media.slice() : [];
+    renderArCardPreview();
+    renderArHeroPreview();
+    renderArBioList();
+    renderArMediaList();
+    document.getElementById('az-ar-published').checked = artist ? (artist.published !== false) : false;
+  }
+  function closeArtistForm(){
+    document.getElementById('az-artist-form-wrap').hidden = true;
+    document.getElementById('az-artists-list').hidden = false;
+    renderArtistsList(allArtists);
+  }
+  document.getElementById('az-artist-new').addEventListener('click', function(){ openArtistForm(null); });
+  document.getElementById('az-ar-cancel').addEventListener('click', closeArtistForm);
+
+  document.getElementById('az-artist-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var msg = document.getElementById('az-artist-msg');
+    msg.hidden = true;
+
+    var payload = {
+      name: document.getElementById('az-ar-name').value.trim(),
+      role: document.getElementById('az-ar-role').value.trim(),
+      cardImageKey: arCardKey,
+      cardImagePosition: document.getElementById('az-ar-card-position').value,
+      heroType: arHeroType,
+      heroKey: arHeroKey,
+      bio: arBio,
+      media: arMedia,
+      published: document.getElementById('az-ar-published').checked
+    };
+    var slug = document.getElementById('az-ar-slug').value;
+    var isEdit = !!slug;
+    if (isEdit) payload.slug = slug;
+
+    var confirmText = payload.published
+      ? (isEdit ? 'Confermi le modifiche a questo artista? Sarà subito live sul sito.' : 'Confermi la creazione? Sarà subito live sul sito.')
+      : 'Confermi il salvataggio? L\'artista resta in bozza finché non spunti "Pubblicato".';
+    if (!confirm(confirmText)) return;
+
+    var submitBtn = document.querySelector('#az-artist-form .az-submit');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Salvataggio...';
+    try {
+      var res = await fetch('/api/admin/artists', {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      var data = await res.json();
+      if (res.ok) {
+        closeArtistForm();
+        panelLoaders.artisti.loaded = true;
+        loadArtists();
+      } else {
+        showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+      }
+    } catch (err) {
+      showMsg(msg, 'Errore di connessione.', true);
+    }
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Salva artista';
+  });
+
   function eurosToCents(str){
     var n = parseFloat(String(str || '0').replace(',', '.'));
     if (isNaN(n) || n < 0) return null;

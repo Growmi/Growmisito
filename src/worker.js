@@ -560,6 +560,61 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    if (url.pathname === "/api/admin/artists" && request.method === "GET") {
+      try {
+        return await handleAdminListArtists(request, env);
+      } catch (err) {
+        console.log("Errore admin/artists GET:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/admin/artists" && request.method === "POST") {
+      try {
+        return await handleAdminCreateArtist(request, env);
+      } catch (err) {
+        console.log("Errore admin/artists POST:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/admin/artists" && request.method === "PUT") {
+      try {
+        return await handleAdminUpdateArtist(request, env);
+      } catch (err) {
+        console.log("Errore admin/artists PUT:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/public-artists" && request.method === "GET") {
+      try {
+        return await handlePublicArtists(request, env);
+      } catch (err) {
+        console.log("Errore public-artists:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname.startsWith("/artista/") && request.method === "GET") {
+      try {
+        const handled = await handleArtistPage(request, env);
+        if (handled) return handled;
+      } catch (err) {
+        console.log("Errore artista page:", err.stack || err.message);
+      }
+    }
+
+    // TEMPORANEO — rimuovere dopo aver lanciato la migrazione una volta (vedi handleMigrateArtists).
+    if (url.pathname === "/api/admin/migrate-artists" && request.method === "POST") {
+      try {
+        return await handleMigrateArtists(request, env);
+      } catch (err) {
+        console.log("Errore migrate-artists:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     if (url.pathname === "/api/account/profile" && request.method === "POST") {
       try {
         return await handleAccountProfile(request, env);
@@ -3336,7 +3391,13 @@ function validateEventPayload(body, existingTiers, sold) {
 }
 
 const IMAGE_CONTENT_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+const VIDEO_CONTENT_TYPES = { "video/mp4": "mp4" };
+const MEDIA_CONTENT_TYPES = Object.assign({}, IMAGE_CONTENT_TYPES, VIDEO_CONTENT_TYPES);
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 60 * 1024 * 1024;
+// Namespace di chiavi R2 ammessi per upload/cancellazione da pannello — "events/" e "artists/"
+// per contenuti legati a uno slug, "site/" solo per le fixedKey (es. hero di default).
+const MEDIA_KEY_PREFIXES = ["events/", "artists/"];
 
 // Carica un'immagine su R2 per un evento (hero, copertina o una foto di galleria) — o, con
 // fixedKey, sovrascrive sempre la stessa chiave (usato per l'immagine hero di default di tutto
@@ -3355,19 +3416,26 @@ async function handleUploadImage(request, env) {
   const purpose = String(form.get("purpose") || "gallery");
   const slug = String(form.get("slug") || "").trim();
   const fixedKey = String(form.get("fixedKey") || "").trim();
+  // "events" (default) o "artists" — nessun altro namespace ammesso da qui, vedi MEDIA_KEY_PREFIXES.
+  const kind = String(form.get("kind") || "events");
 
   if (!(file instanceof File)) return jsonResponse({ error: "nessun file ricevuto" }, 400);
-  const ext = IMAGE_CONTENT_TYPES[file.type];
-  if (!ext) return jsonResponse({ error: "formato non supportato (solo JPEG, PNG, WEBP)" }, 400);
-  if (file.size > MAX_IMAGE_BYTES) return jsonResponse({ error: "immagine troppo grande (max 8MB)" }, 400);
+  const ext = MEDIA_CONTENT_TYPES[file.type];
+  if (!ext) return jsonResponse({ error: "formato non supportato (solo JPEG, PNG, WEBP, MP4)" }, 400);
+  const isVideo = !!VIDEO_CONTENT_TYPES[file.type];
+  const maxBytes = isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
+  if (file.size > maxBytes) {
+    return jsonResponse({ error: `file troppo grande (max ${Math.round(maxBytes / 1024 / 1024)}MB)` }, 400);
+  }
 
   let key;
   if (fixedKey) {
     if (!/^[a-z0-9/_-]+$/.test(fixedKey)) return jsonResponse({ error: "fixedKey non valida" }, 400);
     key = fixedKey;
   } else {
-    if (!slug) return jsonResponse({ error: "slug evento mancante" }, 400);
-    key = `events/${slug}/${purpose}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+    if (!slug) return jsonResponse({ error: "slug mancante" }, 400);
+    const namespace = kind === "artists" ? "artists" : "events";
+    key = `${namespace}/${slug}/${purpose}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
   }
 
   await env.EVENT_IMAGES.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } });
@@ -3383,7 +3451,7 @@ async function handleDeleteImage(request, env) {
   if (!env.EVENT_IMAGES) throw new Error("Binding R2 'EVENT_IMAGES' non configurato");
 
   const { key } = await request.json();
-  if (!key || typeof key !== "string" || !key.startsWith("events/")) {
+  if (!key || typeof key !== "string" || !MEDIA_KEY_PREFIXES.some(function(p){ return key.startsWith(p); })) {
     return jsonResponse({ error: "chiave non valida" }, 400);
   }
   await env.EVENT_IMAGES.delete(key);
@@ -3474,6 +3542,459 @@ async function handleAdminUpdateEvent(request, env) {
 
   await env.TICKETS.put(`event:${slug}`, JSON.stringify(validated.event));
   return jsonResponse({ ok: true, slug, event: validated.event });
+}
+
+// ============================================================================
+// Artisti: stesso pattern degli eventi — record KV (prefisso "artist:"), immagini/video su R2
+// (stesso bucket EVENT_IMAGES, namespace di chiavi "artists/<slug>/..."), pagina pubblica
+// generata al volo su /artista/<slug>, gate "published" identico a isEventPublished().
+// ============================================================================
+
+async function getArtist(env, slug) {
+  const raw = await env.TICKETS.get(`artist:${slug}`);
+  return raw ? JSON.parse(raw) : null;
+}
+
+async function listAllArtistSlugs(env) {
+  const slugs = [];
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "artist:", cursor });
+    for (const key of page.keys) slugs.push(key.name.slice("artist:".length));
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  return slugs;
+}
+
+function isArtistPublished(artist) {
+  return artist.published !== false;
+}
+
+// bio/media sono a blocchi liberi (aggiungi/rimuovi/riordina dal pannello) invece che campi
+// fissi: le 9 pagine artista esistenti hanno tutte una struttura diversa (chi ha 1 clip, chi 3,
+// chi mischia video e foto), un numero fisso di campi non ci sarebbe mai stato bene.
+function validateArtistPayload(body) {
+  const name = String(body.name || "").trim().slice(0, 200);
+  const role = String(body.role || "").trim().slice(0, 100);
+  if (!name) return { ok: false, error: "il nome è obbligatorio" };
+  if (!role) return { ok: false, error: "il ruolo (es. \"DJ\", \"Cantante\") è obbligatorio" };
+
+  const cardImageKey = String(body.cardImageKey || "").trim() || null;
+  const cardImagePosition = String(body.cardImagePosition || "center").trim().slice(0, 30);
+
+  const heroType = ["video", "image", "none"].includes(body.heroType) ? body.heroType : "none";
+  const heroKey = heroType === "none" ? null : (String(body.heroKey || "").trim() || null);
+
+  const bio = Array.isArray(body.bio)
+    ? body.bio.map(function(p){ return String(p || "").trim().slice(0, 4000); }).filter(Boolean).slice(0, 20)
+    : [];
+
+  const inputMedia = Array.isArray(body.media) ? body.media : [];
+  const media = [];
+  for (const raw of inputMedia) {
+    const type = raw && raw.type === "video" ? "video" : "image";
+    const key = raw && String(raw.key || "").trim();
+    if (!key) continue;
+    media.push({ type, key, position: String((raw && raw.position) || "center").trim().slice(0, 30) });
+    if (media.length >= 20) break;
+  }
+
+  const published = body.published === true;
+
+  return { ok: true, artist: { name, role, cardImageKey, cardImagePosition, heroType, heroKey, bio, media, published } };
+}
+
+async function handleAdminListArtists(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const slugs = await listAllArtistSlugs(env);
+  const artists = [];
+  for (const slug of slugs) {
+    const artist = await getArtist(env, slug);
+    if (artist) artists.push({ slug, ...artist });
+  }
+  artists.sort(function(a, b){ return a.name.localeCompare(b.name); });
+  return jsonResponse({ artists });
+}
+
+async function handleAdminCreateArtist(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const body = await request.json();
+  const validated = validateArtistPayload(body);
+  if (!validated.ok) return jsonResponse({ error: validated.error }, 400);
+
+  let baseSlug = slugify(body.slug || validated.artist.name);
+  if (!baseSlug) baseSlug = "artista";
+  let slug = baseSlug;
+  let suffix = 2;
+  while (await getArtist(env, slug)) {
+    slug = `${baseSlug}-${suffix}`;
+    suffix++;
+  }
+
+  await env.TICKETS.put(`artist:${slug}`, JSON.stringify(validated.artist));
+  return jsonResponse({ ok: true, slug, artist: validated.artist });
+}
+
+async function handleAdminUpdateArtist(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const body = await request.json();
+  const slug = String(body.slug || "").trim();
+  const existing = slug ? await getArtist(env, slug) : null;
+  if (!existing) return jsonResponse({ error: "artista non trovato" }, 404);
+
+  const validated = validateArtistPayload(body);
+  if (!validated.ok) return jsonResponse({ error: validated.error }, 400);
+
+  await env.TICKETS.put(`artist:${slug}`, JSON.stringify(validated.artist));
+  return jsonResponse({ ok: true, slug, artist: validated.artist });
+}
+
+// Elenco pubblico per la griglia in artisti.html — solo i campi che servono a una card.
+async function handlePublicArtists(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const slugs = await listAllArtistSlugs(env);
+  const artists = [];
+  for (const slug of slugs) {
+    const artist = await getArtist(env, slug);
+    if (!artist || !isArtistPublished(artist)) continue;
+    artists.push({
+      slug, name: artist.name, role: artist.role,
+      cardImageUrl: mediaUrl(artist.cardImageKey), cardImagePosition: artist.cardImagePosition,
+      pageUrl: `/artista/${slug}`
+    });
+  }
+  return jsonResponse({ artists });
+}
+
+function artistPageHTML(artist, slug) {
+  const heroInner = artist.heroType === "video"
+    ? `<video class="ed-hero-video" autoplay muted loop playsinline><source src="${mediaUrl(artist.heroKey)}" type="video/mp4"></video><div class="ed-hero-video-overlay"></div>`
+    : artist.heroType === "image"
+      ? `<img class="ed-hero-photo" src="${mediaUrl(artist.heroKey)}" alt=""><div class="ed-hero-video-overlay"></div>`
+      : "";
+  const bioHTML = artist.bio.map(function(p){
+    return `<p style="font-size:16.5px; margin-bottom:20px;">${p}</p>`;
+  }).join("");
+  const mediaHTML = artist.media.map(function(m){
+    return m.type === "video"
+      ? `<video controls playsinline style="width:100%; border-radius:14px; display:block; background:#000; margin-bottom:14px;"><source src="${mediaUrl(m.key)}" type="video/mp4"></video>`
+      : `<img src="${mediaUrl(m.key)}" alt="${artist.name}" style="width:100%; border-radius:14px; display:block; margin-bottom:14px; object-position:${m.position};">`;
+  }).join("");
+
+  return `<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${artist.name} — Artisti GrowMi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/style.css">
+<link rel="stylesheet" href="/assets/mailerlite-form.css">
+<link rel="stylesheet" href="/assets/redesign.css">
+<link rel="stylesheet" href="/assets/interactive.css">
+</head>
+<body>
+
+<header>
+  <nav class="wrap">
+    <a class="logo" href="/index.html"><img src="/assets/img/logo-growmi.png" alt="GrowMi"></a>
+    <div class="navlinks">
+      <a href="/index.html" data-i18n="nav_home">Home</a>
+      <a href="/eventi.html" data-i18n="nav_eventi">Eventi</a>
+      <a href="/artisti.html" class="active" data-i18n="nav_artisti">Artisti</a>
+      <a href="/loyalty-card.html" data-i18n="nav_loyalty">Loyalty Card</a>
+      <a href="/chi-siamo.html" data-i18n="nav_chisiamo">Chi siamo</a>
+      <a href="/contatti.html" data-i18n="nav_contatti">Contatti</a>
+      <div class="lang-switch mobile-lang-switch">
+        <button data-lang="it">IT</button>
+        <button data-lang="en">EN</button>
+      </div>
+    </div>
+    <div class="navright">
+      <div class="nav-account-wrap">
+        <a class="nav-account" href="/area-personale.html" data-i18n="nav_account">Accedi</a>
+        <button type="button" class="nav-account-icon" aria-label="Il mio account" aria-haspopup="true">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+        </button>
+        <div class="nav-account-menu"></div>
+      </div>
+      <div class="lang-switch">
+        <button data-lang="it">IT</button>
+        <button data-lang="en">EN</button>
+      </div>
+      <div class="nav-tickets"><a class="btn coral small nav-tickets-toggle" href="/eventi.html" data-i18n="nav_cta" aria-haspopup="true" aria-expanded="false">Biglietti</a><div class="nav-tickets-menu"></div></div>
+    </div>
+    <button type="button" class="nav-toggle" aria-label="Menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+</header>
+
+<section class="ed-hero" style="padding:110px 0 80px; position:relative; overflow:hidden;">
+  ${heroInner}
+  <div class="wrap ed-wrap">
+    <span class="ed-eyebrow">Artista GrowMi</span>
+    <h1 style="font-size:clamp(36px,6vw,76px);">${artist.name}</h1>
+    <p class="ed-lead">${artist.role}</p>
+  </div>
+</section>
+
+<section class="ed-section-tight">
+  <div class="wrap" style="max-width:980px;">
+    ${artist.cardImageKey ? `<div class="ed-card-media" style="aspect-ratio:16/10; margin-bottom:32px;"><img src="${mediaUrl(artist.cardImageKey)}" alt="${artist.name}" style="object-position:${artist.cardImagePosition};"></div>` : ""}
+    <div style="display:flex; gap:44px; flex-wrap:wrap; align-items:flex-start;">
+      <div style="flex:1 1 380px; min-width:280px;">${bioHTML}</div>
+      <div style="flex:1 1 340px; min-width:260px; max-width:480px;">${mediaHTML}</div>
+    </div>
+  </div>
+</section>
+
+<section class="ed-cta compact">
+  <div class="wrap ed-cta-row">
+    <div>
+      <p class="ed-eyebrow" data-i18n="nl_eyebrow">Newsletter</p>
+      <h2 data-i18n="nl_title">Non perderti i prossimi eventi</h2>
+      <p data-i18n="nl_lead">Iscriviti alla newsletter di GrowMi: eventi, artisti e novità via email, senza spam.</p>
+    </div>
+    <button type="button" class="ed-btn-ghost" data-nl-open data-i18n="nl_submit">Iscrivimi</button>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-grid">
+      <div><a class="foot-logo" href="/index.html"><img src="/assets/img/logo-growmi.png" alt="GrowMi"></a></div>
+      <div>
+        <h4 data-i18n="foot_sito">Sito</h4>
+        <ul>
+          <li><a href="/eventi.html" data-i18n="nav_eventi">Eventi</a></li>
+          <li><a href="/artisti.html" data-i18n="nav_artisti">Artisti</a></li>
+          <li><a href="/chi-siamo.html" data-i18n="nav_chisiamo">Chi siamo</a></li>
+          <li><a href="/loyalty-card.html">Loyalty Card</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 data-i18n="foot_contatti">Contatti</h4>
+        <ul>
+          <li><a href="mailto:grow.mi@outlook.it">grow.mi@outlook.it</a></li>
+          <li><a href="/contatti.html" data-i18n="nav_contatti">Contatti</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 data-i18n="foot_social">Social</h4>
+        <ul>
+          <li><a href="https://www.instagram.com/growmiii/" target="_blank" rel="noopener">Instagram</a></li>
+          <li><a href="https://www.tiktok.com/@growmii_" target="_blank" rel="noopener">TikTok</a></li>
+          <li><a href="https://www.youtube.com/@GrowMiii" target="_blank" rel="noopener">YouTube</a></li>
+          <li><a href="https://www.linkedin.com/company/growmiagency/" target="_blank" rel="noopener">LinkedIn</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span data-i18n="foot_rights">© 2026 GrowMi. Milano.</span>
+      <span data-i18n="foot_madewith">Sito in fase di sviluppo</span>
+      <a href="/privacy-policy.html" style="color:#B39DC7;">Privacy Policy</a>
+    </div>
+  </div>
+</footer>
+
+<div class="nl-popup" id="nl-popup" hidden>
+  <div class="nl-popup-backdrop" data-nl-close></div>
+  <div class="nl-popup-card" role="dialog" aria-modal="true">
+    <button type="button" class="nl-popup-close" data-nl-close aria-label="Chiudi">&times;</button>
+    <p class="eyebrow" data-i18n="nl_eyebrow">Newsletter</p>
+    <h4 data-i18n="nl_title">Non perderti i prossimi eventi</h4>
+    <p data-i18n="nl_lead">Iscriviti alla newsletter di GrowMi: eventi, artisti e novità via email, senza spam.</p>
+    <div class="field"><input type="email" class="nl-email" placeholder="La tua email"></div>
+    <button type="button" class="btn coral nl-submit" data-i18n="nl_submit">Iscrivimi</button>
+    <p class="nl-fine" data-i18n="nl_fine">Puoi disiscriverti quando vuoi. Per maggiori dettagli, consulta la nostra Privacy Policy.</p>
+  </div>
+</div>
+
+<script src="/assets/events-data.js"></script>
+<script src="/assets/i18n.js"></script>
+<script src="/assets/cookie-banner.js"></script>
+<script src="/assets/newsletter.js"></script>
+<script src="/assets/interactive.js"></script>
+</body>
+</html>`;
+}
+
+async function handleArtistPage(request, env) {
+  if (!env.TICKETS) return null;
+  const slug = new URL(request.url).pathname.replace(/^\/artista\//, "").replace(/\/$/, "");
+  if (!slug) return null;
+  const artist = await getArtist(env, slug);
+  if (!artist || !isArtistPublished(artist)) return null;
+  return new Response(artistPageHTML(artist, slug), { headers: { "Content-Type": "text/html; charset=utf-8" } });
+}
+
+// ============================================================================
+// MIGRAZIONE UNA TANTUM dei 9 artisti già esistenti (pagine artista-*.html) nel nuovo sistema
+// a pannello: copia gli asset statici già live in produzione dentro R2 (via env.ASSETS.fetch,
+// nessun bisogno di credenziali esterne) e crea i record artist:<slug> corrispondenti, testo
+// bio e riferimenti media identici a quanto già pubblicato oggi. Endpoint temporaneo — va
+// rimosso una volta completata la migrazione (stesso pattern già usato in questa sessione per
+// altri task una tantum, es. /api/admin-init-schema).
+// ============================================================================
+const ARTIST_MIGRATION_DATA = [
+  { slug: "lucevera", name: "Lucevera", role: "Cantante", card: "lucevera.jpg",
+    hero: "lucevera-bg.mp4",
+    bio: [
+      "Batterista per oltre quattro anni e polistrumentista con una solida formazione al pianoforte. Il suo percorso prende una nuova direzione nell'estate del 2023 quando, quasi per gioco, inizia a collaborare con Amez: un'intesa creativa che nel giro di pochi mesi si trasforma in una produzione continuativa, culminata con l'esordio ufficiale a marzo 2026.",
+      "Da quella prima release nasce la spinta per «GONFIE VELE», l'EP che segna il suo ingresso definitivo nella scena. Il progetto fonde influenze differenti e generi diversi, sorretto da un'attitudine 100% indipendente: una produzione interamente autogestita e realizzata con il supporto fondamentale di una rete di amici e colleghi musicisti.",
+      "I prossimi progetti vedono all'orizzonte l'uscita di nuovi singoli e l'avvio di inedite collaborazioni."
+    ],
+    media: [{ type: "video", file: "lucevera-clip2.mp4" }]
+  },
+  { slug: "cianci", name: "Cianci", role: "Cantante", card: "la-cianci.jpg",
+    hero: "la-cianci-bg.mp4",
+    bio: [
+      "CIANCI affonda le sue radici musicali nello studio del pianoforte, con un importante background in conservatorio che ne definisce la sensibilità armonica. Farsi notare sui social con un'attitudine hip hop e una spiccata fluidità di barre è solo il primo passo: nel 2021 esordisce con «8:30», ballad indie da oltre 80.000 ascolti su Spotify che intercetta subito le insicurezze della sua generazione.",
+      "Da lì, la sua cifra stilistica evolve verso un rap cantautorale: il 2026 segna la sua piena maturità artistica attraverso una trilogia di singoli speculari — Fortunata, L'ultima Parola e Musica Mia.",
+      "Il 4 giugno ha confermato tutto il suo talento portando sul palco di GrowMi, insieme alla sua band, un live potente e travolgente che ha conquistato il nostro pubblico."
+    ],
+    media: [{ type: "video", file: "la-cianci-clip1.mp4" }, { type: "video", file: "la-cianci-clip2.mp4" }]
+  },
+  { slug: "mattia-pagliarin", name: "Mattia Pagliarin", role: "DJ", card: "mattia-pagliarin.jpg", cardPosition: "center 15%",
+    hero: "mattia-pagliarin-bg.mp4",
+    bio: [
+      "Mattia Pagliarin è un DJ e produttore italiano che scava nelle sfumature più autentiche della minimal underground: bassline ipnotiche, ritmiche serrate, atmosfere scure e avvolgenti.",
+      "Ha suonato in alcune delle realtà più iconiche della scena elettronica, a partire dallo storico Bolgia, tempio della musica underground, fino a diventare una presenza costante nei party di riferimento tra Milano e la provincia di Pavia.",
+      "Tra le tappe più significative del suo percorso, un esclusivo after party in una villa a Ibiza, dove ha confermato la sua capacità di conquistare un pubblico internazionale.",
+      "In studio come in consolle, continua a esplorare la cultura minimal con la stessa energia e ricerca sonora che lo contraddistinguono."
+    ],
+    media: [{ type: "video", file: "mattia-pagliarin-clip1.mp4" }, { type: "video", file: "mattia-pagliarin-clip2.mp4" }]
+  },
+  { slug: "lorenzo-vergani", name: "Lorenzo Vergani", role: "Live graffiti", card: "lorenzo-vergani.jpg",
+    hero: null,
+    bio: [
+      "Fin da piccolo, il mondo dei graffiti mi ha sempre affascinato. Ricordo con precisione nomi e luoghi dove ho incontrato per la prima volta quelle scritte proibite: le vedevo a bordo strada durante i viaggi verso il mare con i miei nonni, e sapevo di essere arrivato proprio grazie a quei nomi letti in autostrada — non erano cartelli stradali, eppure segnavano il percorso più di qualsiasi indicazione.",
+      "Mi sono sempre chiesto il perché di quel fascino, finché crescendo non ho capito che la vita non dura in eterno e che in questo viaggio siamo solo di passaggio. I graffiti, invece, resteranno finché il tempo lo permetterà.",
+      "Il mio obiettivo è diventare uno di quei grandi nomi capaci di ispirare le generazioni future."
+    ],
+    media: [
+      { type: "video", file: "lorenzo-vergani-clip1.mp4" },
+      { type: "image", file: "lorenzo-vergani-clip1.jpg", isImgFolder: true },
+      { type: "image", file: "lorenzo-vergani-clip2.jpg", isImgFolder: true }
+    ]
+  },
+  { slug: "yeffri", name: "Yeffri", role: "Ritrattista", card: "yeffri.jpg",
+    hero: "yeffri-bg.mp4",
+    bio: [
+      "Sono Yefri Mendoza, artista visivo venezuelano con oltre 15 anni di esperienza nel mondo delle arti visive. Nel mio percorso ho esplorato discipline diverse — dalla pittura al muralismo, dalla decorazione al tatuaggio, fino all'illustrazione e alla caricatura — lavorando tra Colombia, Ecuador e Italia e lasciandomi ispirare dalle culture incontrate lungo il cammino.",
+      "Attraverso il muralismo trasformo spazi urbani e comunitari in opere che dialogano con l'ambiente e con le persone che lo vivono, raccontando identità, storie ed emozioni. Come decoratore collaboro con scenografi e designer d'interni per realizzare ambienti personalizzati, unendo creatività, ricerca estetica e attenzione ai dettagli. L'illustrazione e la caricatura mi permettono di interpretare persone e situazioni con sensibilità, energia e un tocco di umorismo, mentre nel tatuaggio creo disegni unici che riflettono l'identità e le esperienze di ogni cliente, trattando ogni lavoro come un'opera personale e irripetibile.",
+      "Tra mostre personali e collettive, ho recentemente esposto al Milano Latin Festival, un'occasione per condividere il mio linguaggio artistico con un pubblico internazionale e multiculturale. Collaboro inoltre con l'associazione culturale Dante Andino, contribuendo a progetti che costruiscono ponti tra culture diverse attraverso l'arte e la condivisione. La mia missione è trasformare idee e visioni in immagini capaci di ispirare, coinvolgere e lasciare un segno autentico negli spazi e nelle persone.",
+      "La mia collezione di opere esplora tematiche sociali e personali attraverso un linguaggio visivo intenso e autentico: identità, migrazione, emozioni e relazioni umane si trasformano in immagini capaci di creare dialogo ed empatia. Ogni ritratto racconta una storia unica, invitando chi guarda a riflettere sulle connessioni tra il quotidiano e il celebre, in un viaggio visivo che abbatte le barriere tra notorietà e anonimato."
+    ],
+    media: [
+      { type: "video", file: "yeffri-clip1.mp4" }, { type: "video", file: "yeffri-clip2.mp4" },
+      { type: "image", file: "yeffri-sketch.jpg", isImgFolder: true }, { type: "image", file: "yeffri-mask.jpg", isImgFolder: true }
+    ]
+  },
+  { slug: "emily", name: "Emily", role: "Pittrice", card: "emily-clip1.jpg", cardIsImgFolder: true,
+    hero: "emily-bg.mp4",
+    bio: [
+      "Nata in Ecuador e arrivata a Milano nel 2003, sono cresciuta sospesa tra le mie radici e il caos frenetico di una città che corre sempre, dove spesso è difficile fermarsi ad osservare i momenti importanti. Da piccola ho sempre disegnato, coltivando una passione viscerale che non mi ha mai abbandonata.",
+      "Dopo il diploma in grafica pubblicitaria, ho scelto la concretezza: mi sono tuffata per dieci anni nella ristorazione, affrontando ritmi pesanti e orari notturni. È proprio in quegli anni, tra un turno e l'altro, tra varie storie d'amore e disamore, che l'urgenza di creare ha trovato i suoi canali più spontanei. I miei schizzi prendevano vita dove capitava: sui blocchi delle comande, sulla carta da fritti, sui tovaglioli e tra gli aloni degli avanzi di caffè, nati da un narcisismo timido e dal bisogno di rimettere al centro i ricordi.",
+      "Pian piano, con coraggio, ho trasformato quel lavoro in un part-time per potermi formare come tatuatrice, fino a conquistare uno studio tutto mio. È lì, tra la pelle, la pittura e la scultura, che oggi do pieno sfogo a qualsiasi cosa desideri creare. Nel mio immaginario colgo sensazioni, impressioni e ricordi, esprimendoli nella forma che l'istinto mi suggerisce, purché prendano corpo ed esaltino la complessità del corpo femminile attraverso un erotismo tacito e istintivo.",
+      "Il mio nome d'arte EMPAT nasce da un connubio tra il gioco di parole dei miei due nomi e l'empatia, di cui ancora non sono sicura di essere dotata."
+    ],
+    media: [
+      { type: "video", file: "emily-clip1.mp4" }, { type: "video", file: "emily-clip2.mp4" },
+      { type: "image", file: "emily-clip2.jpg", isImgFolder: true }, { type: "image", file: "emily-clip3.jpg", isImgFolder: true }
+    ]
+  },
+  { slug: "federico-zaccuri", name: "Federico Zaccuri", role: "DJ", card: "federico-zaccuri.jpg",
+    hero: "federico-zaccuri-bg.mp4",
+    bio: [
+      "Da otto anni Federico Zaccuri esplora le ritmiche ipnotiche della tech house e della house contemporanea, con incursioni nella minimal underground: groove tesi, costruzioni sonore stratificate, un'energia che oscilla tra la danza pura e l'atmosfera immersiva.",
+      "Il momento che ha aperto la sua strada come DJ è stato il set a Blab to the Park, lo storico evento della Bocconi che ha radunato 10.000 persone a Milano: una performance che ha consolidato la sua visione musicale e acceso l'attenzione della scena.",
+      "Quest'anno è entrato a far parte del Kissene, la storica realtà di eventi di Messina che negli ultimi anni si è imposta come istituzione della musica house e punto di riferimento della città. Come volto della label, ne incarna la ricerca sonora e la dedizione.",
+      "In consolle continua a indagare le sfumature della tech house e della house, portando ogni volta suoni nuovi e una firma sempre riconoscibile in chi lo ascolta."
+    ],
+    media: [{ type: "video", file: "federico-zaccuri-clip1.mp4" }, { type: "video", file: "federico-zaccuri-clip2.mp4" }]
+  },
+  { slug: "francesco-arbues", name: "Francesco Arbues", role: "DJ", card: "francesco-arbues.jpg",
+    hero: "francesco-arbues-bg.mp4",
+    bio: [
+      "Arbues è un Disk Jockey appassionato di club culture. Il suo sound è profondamente influenzato dalle sonorità New Wave anni '80, dalla prima disco, dai ritmi black e funky, oltre che dal suono minimal e deep house dei primi anni 2000. Un tipico DJ set di Arbues può passare da ritmiche groovy e funky a una house ipnotica, grezza ed emotiva da «sunrise».",
+      "Scopre la musica elettronica a 13 anni, grazie a maestri della New Wave come New Order e Depeche Mode, per poi spostarsi verso sonorità più «dancy», scoprendo la house music. Spinto dal bisogno di scavare e condividere brani fuori dal comune, inizia a suonare in varie feste e club nella sua città natale, Bari.",
+      "A 19 anni si trasferisce a Milano, approfondendo la conoscenza della cultura house attraverso la scena cittadina, suonando anche in alcuni dei club più rinomati di Milano, come Apophis, SuperLove e Spazio Diaz."
+    ],
+    media: [{ type: "video", file: "francesco-arbues-clip1.mp4" }, { type: "video", file: "francesco-arbues-clip2.mp4" }, { type: "video", file: "francesco-arbues-clip3.mp4" }]
+  },
+  { slug: "lorenzo-caratozzolo", name: "Lorenzo Caratozzolo", role: "DJ", card: "lorenzo-caratozzolo.jpg",
+    hero: "lorenzo-caratozzolo-bg.mp4",
+    bio: [
+      "Lorenzo Caratozzolo è un Disk Jockey con una forte passione per la musica e per l'energia del dancefloor, capace di trasformare ogni serata in un viaggio unico fatto di energia, ritmo e personalità. Il suo sound, prettamente house, è arricchito da influenze nu disco e revival. Un tipico set di Lorenzo si distingue per la cura della selezione musicale e per la qualità dei mix, in equilibrio tra groove contemporaneo e sonorità che guardano al passato.",
+      "Scopre la passione per la consolle nella sua città natale, Messina, dove muove i primi passi esibendosi nei club e nelle feste locali. Spinto dal desiderio di crescere e confrontarsi con realtà sempre più grandi, porta il proprio sound sui palcoscenici di Roma e Milano.",
+      "A ciò si aggiungono le esperienze come DJ nei villaggi turistici, dove Lorenzo ha potuto approfondire e sperimentare la propria cultura musicale, ampliando il proprio bagaglio artistico a contatto con pubblici e ambienti sempre diversi."
+    ],
+    media: [{ type: "video", file: "lorenzo-caratozzolo-clip1.mp4" }, { type: "video", file: "lorenzo-caratozzolo-clip2.mp4" }]
+  }
+];
+
+async function copyStaticAssetToR2(env, request, staticPath, r2Key) {
+  const assetUrl = new URL(staticPath, request.url).toString();
+  const res = await env.ASSETS.fetch(new Request(assetUrl));
+  if (!res.ok) throw new Error(`asset statico non trovato: ${staticPath}`);
+  const contentType = res.headers.get("Content-Type") || (staticPath.endsWith(".mp4") ? "video/mp4" : "image/jpeg");
+  await env.EVENT_IMAGES.put(r2Key, await res.arrayBuffer(), { httpMetadata: { contentType } });
+  return r2Key;
+}
+
+async function handleMigrateArtists(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  if (!env.EVENT_IMAGES) throw new Error("Binding R2 'EVENT_IMAGES' non configurato");
+
+  const results = [];
+  for (const a of ARTIST_MIGRATION_DATA) {
+    try {
+      const cardFolder = a.cardIsImgFolder ? "img/artisti" : "img/artisti";
+      const cardKey = await copyStaticAssetToR2(env, request, `/assets/${cardFolder}/${a.card}`, `artists/${a.slug}/card-${crypto.randomUUID().slice(0,8)}.jpg`);
+
+      let heroType = "none", heroKey = null;
+      if (a.hero) {
+        heroType = "video";
+        heroKey = await copyStaticAssetToR2(env, request, `/assets/video/${a.hero}`, `artists/${a.slug}/hero-${crypto.randomUUID().slice(0,8)}.mp4`);
+      }
+
+      const media = [];
+      for (const m of a.media) {
+        const staticPath = m.type === "video" ? `/assets/video/${m.file}` : `/assets/img/artisti/${m.file}`;
+        const ext = m.type === "video" ? "mp4" : "jpg";
+        const key = await copyStaticAssetToR2(env, request, staticPath, `artists/${a.slug}/media-${crypto.randomUUID().slice(0,8)}.${ext}`);
+        media.push({ type: m.type, key, position: "center" });
+      }
+
+      const artist = {
+        name: a.name, role: a.role,
+        cardImageKey: cardKey, cardImagePosition: a.cardPosition || "center",
+        heroType, heroKey,
+        bio: a.bio, media, published: true
+      };
+      await env.TICKETS.put(`artist:${a.slug}`, JSON.stringify(artist));
+      results.push({ slug: a.slug, ok: true });
+    } catch (err) {
+      results.push({ slug: a.slug, ok: false, error: err.message });
+    }
+  }
+  return jsonResponse({ results });
 }
 
 // Salva la scheda "Dati personali e consensi" — stesso account, campi in più (numero cliente

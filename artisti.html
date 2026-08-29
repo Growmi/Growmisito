@@ -64,9 +64,9 @@
 
 <section class="ed-section-tight">
   <div class="wrap">
-    <!-- Duplica questo blocco .ed-card per ogni artista, cambia nome/genere. Ogni card linka a una
-         sotto-pagina artista-*.html (foto + descrizione, ancora da scrivere per la maggior parte). -->
-    <div class="ed-grid">
+    <!-- Popolata da assets/artists-render.js da /api/public-artists (pannello aziendale) — questo
+         markup statico resta solo come fallback se la fetch fallisce, vedi quel file. -->
+    <div class="ed-grid" id="artisti-grid">
       <a class="ed-card" href="artista-lucevera.html">
         <div class="ed-card-media"><img src="assets/img/artisti/lucevera.jpg" alt="Lucevera" loading="lazy"></div>
         <span class="tag">Cantante</span>
@@ -278,6 +278,7 @@
 </script>
 
 <script src="assets/events-data.js"></script>
+<script src="assets/artists-render.js"></script>
 <script src="assets/i18n.js"></script>
 <script src="assets/cookie-banner.js"></script>
 <script src="assets/newsletter.js"></script>
