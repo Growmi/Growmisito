@@ -274,30 +274,49 @@
     return true;
   }
 
-  function loadDefaultLikedOptions(){
+  // Usate solo finché nessuno ha ancora salvato opzioni proprie dal pannello Feedback (Form
+  // predefinito) — quel salvataggio ha sempre la precedenza, queste servono solo a non lasciare
+  // il form generico con il campo libero mentre aspetta di essere configurato.
+  var FALLBACK_LIKED_OPTIONS = [
+    "DJ SET (Arbues e Lorenzo)",
+    "Esibizione di Cianci&Band",
+    "Emily e tatuaggi",
+    "Angolo \"ritratti\"",
+    "La community di GrowMi",
+    "La Location (Art Mall)",
+    "Vantaggi: Contest Pogo e sconto Dischivolanti",
+    "Drink e aperitivo"
+  ];
+
+  function loadDefaultLikedOptions(useFallback){
     return fetch("/api/feedback-liked-options" + (formId ? ("?form=" + encodeURIComponent(formId)) : ""))
       .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(data){ showOptionsList(data && data.options); })
-      .catch(function(){ /* resta il fallback testuale */ });
+      .then(function(data){
+        var options = (data && Array.isArray(data.options)) ? data.options : [];
+        if (!options.length && useFallback) options = FALLBACK_LIKED_OPTIONS;
+        showOptionsList(options);
+      })
+      .catch(function(){ if (useFallback) showOptionsList(FALLBACK_LIKED_OPTIONS); });
   }
 
   // Priorità: se il link porta un form distinto (?form=, vedi pannello Feedback) usa solo le sue
-  // opzioni, senza guardare l'evento. Altrimenti, opzioni proprie dell'evento (via ?slug=) se ce
-  // ne sono, poi le opzioni di default del form generico — solo se non c'è nemmeno quello resta
-  // il textarea libero di sempre (link vecchi senza slug, o nessuna opzione mai configurata).
+  // opzioni, senza guardare l'evento né il fallback qui sotto (un form distinto vuoto deve poter
+  // restare a testo libero, non ereditare opzioni pensate per un altro evento). Altrimenti,
+  // opzioni proprie dell'evento (via ?slug=) se ce ne sono, poi le opzioni di default del form
+  // generico — con il fallback qui sopra se nessuno le ha ancora configurate.
   if (formId) {
-    loadDefaultLikedOptions();
+    loadDefaultLikedOptions(false);
   } else if (eventSlug) {
     fetch("/api/event-tiers?event=" + encodeURIComponent(eventSlug))
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(data){
         var options = (data && Array.isArray(data.feedbackOptions)) ? data.feedbackOptions : [];
         if (showOptionsList(options)) return;
-        return loadDefaultLikedOptions();
+        return loadDefaultLikedOptions(true);
       })
-      .catch(function(){ loadDefaultLikedOptions(); });
+      .catch(function(){ loadDefaultLikedOptions(true); });
   } else {
-    loadDefaultLikedOptions();
+    loadDefaultLikedOptions(true);
   }
 
   function collectLikedOptions(){
