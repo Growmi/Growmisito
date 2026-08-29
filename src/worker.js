@@ -4339,6 +4339,19 @@ const THEME_COLOR_KEYS = {
   magenta: "--magenta"
 };
 
+// Dimensione (moltiplicatore, non px) e peso per ognuno dei 5 elementi tipografici che il
+// pannello espone — vedi assets/style.css per come i moltiplicatori si applicano ai clamp()
+// esistenti invece di sovrascriverli con un valore fisso.
+const THEME_TYPE_SCALE_KEYS = {
+  h1Scale: "--h1-scale", h2Scale: "--h2-scale", h3Scale: "--h3-scale",
+  pScale: "--p-scale", eyebrowScale: "--eyebrow-scale"
+};
+const THEME_TYPE_WEIGHT_KEYS = {
+  h1Weight: "--h1-weight", h2Weight: "--h2-weight", h3Weight: "--h3-weight",
+  pWeight: "--p-weight", eyebrowWeight: "--eyebrow-weight"
+};
+const THEME_ALLOWED_WEIGHTS = [300, 400, 500, 600, 700, 800, 900];
+
 async function getSiteTheme(env) {
   const raw = await env.TICKETS.get("site:theme");
   return raw ? JSON.parse(raw) : {};
@@ -4362,6 +4375,18 @@ function validateSiteThemePayload(body) {
   }
   if (Object.keys(colors).length) theme.colors = colors;
 
+  const inputType = body && body.typography && typeof body.typography === "object" ? body.typography : {};
+  const typography = {};
+  for (const key of Object.keys(THEME_TYPE_SCALE_KEYS)) {
+    const value = Number(inputType[key]);
+    if (Number.isFinite(value) && value >= 0.7 && value <= 1.6) typography[key] = value;
+  }
+  for (const key of Object.keys(THEME_TYPE_WEIGHT_KEYS)) {
+    const value = Number(inputType[key]);
+    if (THEME_ALLOWED_WEIGHTS.includes(value)) typography[key] = value;
+  }
+  if (Object.keys(typography).length) theme.typography = typography;
+
   return { ok: true, theme };
 }
 
@@ -4376,7 +4401,13 @@ async function handleAdminGetSiteTheme(request, env) {
     const fp = FONT_PAIRS[key];
     return { key, label: fp.label, headingFamily: fp.headingFamily, bodyFamily: fp.bodyFamily, googleFontsHref: fp.googleFontsHref };
   });
-  return jsonResponse({ theme, fontPairs, colorKeys: Object.keys(THEME_COLOR_KEYS) });
+  return jsonResponse({
+    theme, fontPairs,
+    colorKeys: Object.keys(THEME_COLOR_KEYS),
+    typeScaleKeys: Object.keys(THEME_TYPE_SCALE_KEYS),
+    typeWeightKeys: Object.keys(THEME_TYPE_WEIGHT_KEYS),
+    allowedWeights: THEME_ALLOWED_WEIGHTS
+  });
 }
 
 async function handleAdminSaveSiteTheme(request, env) {
@@ -4410,6 +4441,12 @@ function buildThemeStyleBlock(theme, fontPair) {
       if (cssVar) decls.push(`${cssVar}:${theme.colors[key]}`);
     }
   }
+  if (theme.typography) {
+    for (const key of Object.keys(theme.typography)) {
+      const cssVar = THEME_TYPE_SCALE_KEYS[key] || THEME_TYPE_WEIGHT_KEYS[key];
+      if (cssVar) decls.push(`${cssVar}:${theme.typography[key]}`);
+    }
+  }
   if (!decls.length) return "";
   return `<style id="site-theme-overrides">:root{${decls.join(";")}}</style>`;
 }
@@ -4417,7 +4454,8 @@ function buildThemeStyleBlock(theme, fontPair) {
 async function applySiteTheme(response, theme) {
   const fontPair = theme.fontPairKey && theme.fontPairKey !== "default" ? FONT_PAIRS[theme.fontPairKey] : null;
   const hasColors = theme.colors && Object.keys(theme.colors).length > 0;
-  if (!fontPair && !hasColors) return response;
+  const hasTypography = theme.typography && Object.keys(theme.typography).length > 0;
+  if (!fontPair && !hasColors && !hasTypography) return response;
   const styleBlock = buildThemeStyleBlock(theme, fontPair);
   let rewriter = new HTMLRewriter().on("head", new ThemeHeadHandler(styleBlock));
   if (fontPair) {

@@ -816,11 +816,19 @@
           </div>
 
           <div>
+            <p style="font-size:13px; font-weight:600; margin-bottom:4px;">Tipografia</p>
+            <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Dimensione (proporzionale a quella già impostata pagina per pagina) e peso, per ogni elemento.</p>
+            <div id="az-theme-typography" style="display:flex; flex-direction:column; gap:14px;"></div>
+          </div>
+
+          <div>
             <p style="font-size:13px; font-weight:600; margin-bottom:10px;">Anteprima (si aggiorna mentre modifichi, prima ancora di salvare)</p>
             <div id="az-theme-preview" style="border:1.5px solid var(--line); border-radius:14px; padding:22px; background:var(--cream);">
-              <p id="az-theme-preview-eyebrow" style="text-transform:uppercase; font-size:11px; letter-spacing:.12em; font-weight:700; margin-bottom:8px;">GrowMi</p>
-              <h2 id="az-theme-preview-heading" style="font-size:28px; font-weight:700; margin-bottom:10px; line-height:1.1;">Free to be GrowMi</h2>
-              <p id="az-theme-preview-body" style="font-size:14px; color:var(--grey); margin-bottom:16px;">Così apparirà il testo del sito con questa combinazione di font.</p>
+              <p id="az-theme-preview-eyebrow" style="text-transform:uppercase; letter-spacing:.14em; margin-bottom:10px;">GrowMi · Eventi dal vivo</p>
+              <h1 id="az-theme-preview-h1" style="margin-bottom:10px; line-height:1.05;">Free to be GrowMi</h1>
+              <h2 id="az-theme-preview-h2" style="margin-bottom:10px; line-height:1.1;">Il team GrowMi</h2>
+              <h3 id="az-theme-preview-h3" style="margin-bottom:10px;">Amministrazione e Finanza</h3>
+              <p id="az-theme-preview-body" style="color:var(--grey); margin-bottom:16px;">Così apparirà il testo del sito con questi font, dimensioni e pesi.</p>
               <div id="az-theme-preview-btn" style="display:inline-block; padding:10px 20px; border-radius:999px; font-weight:700; font-size:13px; color:#fff;">Prendi il biglietto</div>
               <div id="az-theme-preview-swatches" style="display:flex; gap:8px; margin-top:18px; flex-wrap:wrap;"></div>
             </div>
@@ -2615,6 +2623,40 @@
     if (link.href !== href) link.href = href;
   }
 
+  var THEME_TYPE_DEFS = [
+    { scaleKey: 'h1Scale', weightKey: 'h1Weight', label: 'Titoli grandi (h1)', defaultWeight: 700, previewId: 'az-theme-preview-h1', previewBasePx: 32 },
+    { scaleKey: 'h2Scale', weightKey: 'h2Weight', label: 'Titoli medi (h2)', defaultWeight: 700, previewId: 'az-theme-preview-h2', previewBasePx: 24 },
+    { scaleKey: 'h3Scale', weightKey: 'h3Weight', label: 'Titoli piccoli (h3)', defaultWeight: 700, previewId: 'az-theme-preview-h3', previewBasePx: 18 },
+    { scaleKey: 'pScale', weightKey: 'pWeight', label: 'Paragrafi', defaultWeight: 400, previewId: 'az-theme-preview-body', previewBasePx: 14 },
+    { scaleKey: 'eyebrowScale', weightKey: 'eyebrowWeight', label: 'Eyebrow (etichette sopra i titoli)', defaultWeight: 700, previewId: 'az-theme-preview-eyebrow', previewBasePx: 11 }
+  ];
+  var THEME_WEIGHT_OPTIONS = [300, 400, 500, 600, 700, 800, 900];
+  var themeTypeInputs = {}; // scaleKey/weightKey -> input/select element
+
+  function renderThemeTypeInputs(){
+    var wrap = document.getElementById('az-theme-typography');
+    wrap.innerHTML = '';
+    THEME_TYPE_DEFS.forEach(function(def){
+      var row = document.createElement('div');
+      row.style.cssText = 'display:grid; grid-template-columns:1fr auto auto; gap:10px; align-items:center;';
+      row.innerHTML =
+        '<label style="font-size:12px; color:var(--grey);">' + def.label + '</label>' +
+        '<input type="range" min="0.7" max="1.6" step="0.05" value="1" style="width:110px;">' +
+        '<select style="padding:6px 8px; border-radius:7px; border:1.5px solid var(--line); font-size:12px;">' +
+          THEME_WEIGHT_OPTIONS.map(function(w){ return '<option value="' + w + '">' + w + '</option>'; }).join('') +
+        '</select>';
+      var scaleInput = row.querySelector('input[type=range]');
+      var weightSelect = row.querySelector('select');
+      weightSelect.value = def.defaultWeight;
+      scaleInput.addEventListener('input', updateThemePreview);
+      weightSelect.addEventListener('change', updateThemePreview);
+      themeTypeInputs[def.scaleKey] = scaleInput;
+      themeTypeInputs[def.weightKey] = weightSelect;
+      wrap.appendChild(row);
+    });
+  }
+  renderThemeTypeInputs();
+
   // Mostra SUBITO testi e colori attualmente scelti (salvati o di default), aggiornandosi a ogni
   // modifica prima ancora di salvare — così si vede l'effetto reale prima di pubblicarlo.
   function updateThemePreview(){
@@ -2622,7 +2664,9 @@
     var fp = themeFontPairsByKey[fontKey];
     if (fp) {
       loadPreviewGoogleFont(fp.googleFontsHref);
-      document.getElementById('az-theme-preview-heading').style.fontFamily = fp.headingFamily;
+      document.getElementById('az-theme-preview-h1').style.fontFamily = fp.headingFamily;
+      document.getElementById('az-theme-preview-h2').style.fontFamily = fp.headingFamily;
+      document.getElementById('az-theme-preview-h3').style.fontFamily = fp.headingFamily;
       document.getElementById('az-theme-preview-eyebrow').style.fontFamily = fp.headingFamily;
       document.getElementById('az-theme-preview-body').style.fontFamily = fp.bodyFamily;
     }
@@ -2630,7 +2674,9 @@
     THEME_COLOR_DEFS.forEach(function(def){ colors[def.key] = themeColorInputs[def.key].value; });
     document.getElementById('az-theme-preview-eyebrow').style.color = colors.coral;
     document.getElementById('az-theme-preview-btn').style.background = colors.coral;
-    document.getElementById('az-theme-preview-heading').style.color = colors.purpleDeep;
+    document.getElementById('az-theme-preview-h1').style.color = colors.purpleDeep;
+    document.getElementById('az-theme-preview-h2').style.color = colors.purpleDeep;
+    document.getElementById('az-theme-preview-h3').style.color = colors.purpleDeep;
     var swatchWrap = document.getElementById('az-theme-preview-swatches');
     swatchWrap.innerHTML = '';
     THEME_COLOR_DEFS.forEach(function(def){
@@ -2639,6 +2685,12 @@
       sw.style.cssText = 'width:32px; height:32px; border-radius:8px; border:1.5px solid var(--line);';
       sw.style.background = colors[def.key];
       swatchWrap.appendChild(sw);
+    });
+    THEME_TYPE_DEFS.forEach(function(def){
+      var el = document.getElementById(def.previewId);
+      var scale = parseFloat(themeTypeInputs[def.scaleKey].value);
+      el.style.fontSize = (def.previewBasePx * scale) + 'px';
+      el.style.fontWeight = themeTypeInputs[def.weightKey].value;
     });
   }
 
@@ -2661,6 +2713,11 @@
       THEME_COLOR_DEFS.forEach(function(def){
         themeColorInputs[def.key].value = (theme.colors && theme.colors[def.key]) || def.default;
       });
+      var typography = theme.typography || {};
+      THEME_TYPE_DEFS.forEach(function(def){
+        themeTypeInputs[def.scaleKey].value = typography[def.scaleKey] || 1;
+        themeTypeInputs[def.weightKey].value = typography[def.weightKey] || def.defaultWeight;
+      });
       updateThemePreview();
     } catch (err) { /* i campi restano ai valori di default, riprovabile ricaricando il pannello */ }
   }
@@ -2673,12 +2730,30 @@
   document.getElementById('az-theme-reset').addEventListener('click', function(){
     document.getElementById('az-theme-font-select').value = 'default';
     THEME_COLOR_DEFS.forEach(function(def){ themeColorInputs[def.key].value = def.default; });
+    THEME_TYPE_DEFS.forEach(function(def){
+      themeTypeInputs[def.scaleKey].value = 1;
+      themeTypeInputs[def.weightKey].value = def.defaultWeight;
+    });
     updateThemePreview();
   });
 
   var THEME_CSS_VAR_MAP = {
     purpleDeep: '--purple-deep', purpleDeeper: '--purple-deeper', lilac: '--lilac',
     coral: '--coral', yellow: '--yellow', magenta: '--magenta'
+  };
+  function collectThemeTypographyDecls(){
+    var decls = [];
+    THEME_TYPE_DEFS.forEach(function(def){
+      decls.push(THEME_TYPE_SCALE_VAR_MAP[def.scaleKey] + ':' + themeTypeInputs[def.scaleKey].value);
+      decls.push(THEME_TYPE_WEIGHT_VAR_MAP[def.weightKey] + ':' + themeTypeInputs[def.weightKey].value);
+    });
+    return decls;
+  }
+  var THEME_TYPE_SCALE_VAR_MAP = {
+    h1Scale: '--h1-scale', h2Scale: '--h2-scale', h3Scale: '--h3-scale', pScale: '--p-scale', eyebrowScale: '--eyebrow-scale'
+  };
+  var THEME_TYPE_WEIGHT_VAR_MAP = {
+    h1Weight: '--h1-weight', h2Weight: '--h2-weight', h3Weight: '--h3-weight', pWeight: '--p-weight', eyebrowWeight: '--eyebrow-weight'
   };
   document.getElementById('az-theme-preview-btn').addEventListener('click', function(){
     var fontKey = document.getElementById('az-theme-font-select').value;
@@ -2691,6 +2766,7 @@
     THEME_COLOR_DEFS.forEach(function(def){
       decls.push(THEME_CSS_VAR_MAP[def.key] + ':' + themeColorInputs[def.key].value);
     });
+    decls = decls.concat(collectThemeTypographyDecls());
     openPreview('/index.html', {
       styleHtml: '<style>:root{' + decls.join(';') + '}</style>',
       googleFontsHref: (fp && fontKey !== 'default') ? fp.googleFontsHref : null
@@ -2703,6 +2779,11 @@
     msg.hidden = true;
     var colors = {};
     THEME_COLOR_DEFS.forEach(function(def){ colors[def.key] = themeColorInputs[def.key].value; });
+    var typography = {};
+    THEME_TYPE_DEFS.forEach(function(def){
+      typography[def.scaleKey] = parseFloat(themeTypeInputs[def.scaleKey].value);
+      typography[def.weightKey] = parseInt(themeTypeInputs[def.weightKey].value, 10);
+    });
     var fontPairKey = document.getElementById('az-theme-font-select').value;
     var submitBtn = document.querySelector('#az-theme-form .az-submit');
     submitBtn.disabled = true;
@@ -2711,7 +2792,7 @@
       var res = await fetch('/api/admin/site-theme', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fontPairKey: fontPairKey, colors: colors })
+        body: JSON.stringify({ fontPairKey: fontPairKey, colors: colors, typography: typography })
       });
       var data = await res.json();
       if (res.ok) {

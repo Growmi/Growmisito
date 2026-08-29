@@ -14,6 +14,12 @@
   --radius:18px;
   --font-heading:'Space Grotesk', sans-serif;
   --font-body:'Inter', system-ui, sans-serif;
+  /* Moltiplicatori (non px assoluti): ogni titolo/paragrafo del sito ha già la sua dimensione
+     responsive su misura (clamp() con min/preferito/max diversi pagina per pagina) — scalarli
+     con un fattore invece di sovrascriverli con un valore fisso mantiene le proporzioni curate di
+     ogni pagina invece di appiattirle tutte alla stessa taglia. */
+  --h1-scale:1; --h2-scale:1; --h3-scale:1; --p-scale:1; --eyebrow-scale:1;
+  --h1-weight:700; --h2-weight:700; --h3-weight:700; --p-weight:400; --eyebrow-weight:700;
 }
 *{box-sizing:border-box; margin:0; padding:0;}
 html{scroll-behavior:smooth;}
@@ -46,18 +52,18 @@ ul{list-style:none;}
 
 h1,h2,h3,h4{
   font-family:var(--font-heading);
-  font-weight:700;
   line-height:1.05;
   letter-spacing:-0.01em;
 }
-h1{font-size:clamp(40px,7vw,84px);}
-h2{font-size:clamp(30px,4.5vw,48px); margin-bottom:16px;}
-h3{font-size:20px;}
-p{color:var(--grey);}
+h1{font-size:clamp(calc(40px*var(--h1-scale)),calc(7vw*var(--h1-scale)),calc(84px*var(--h1-scale))); font-weight:var(--h1-weight);}
+h2{font-size:clamp(calc(30px*var(--h2-scale)),calc(4.5vw*var(--h2-scale)),calc(48px*var(--h2-scale))); font-weight:var(--h2-weight); margin-bottom:16px;}
+h3{font-size:calc(20px*var(--h3-scale)); font-weight:var(--h3-weight);}
+h4{font-weight:700;}
+p{color:var(--grey); font-size:calc(1em*var(--p-scale)); font-weight:var(--p-weight);}
 .eyebrow{
   font-family:var(--font-heading);
-  font-size:12.5px;
-  font-weight:700;
+  font-size:calc(12.5px*var(--eyebrow-scale));
+  font-weight:var(--eyebrow-weight);
   letter-spacing:.14em;
   text-transform:uppercase;
   color:var(--coral);
