@@ -686,14 +686,17 @@
             <div>
               <div class="az-image-preview" id="az-home-slide1-preview" style="aspect-ratio:9/16;">Slide 1</div>
               <input type="file" accept="image/jpeg,image/png,image/webp" id="az-home-slide1-input" data-slide-key="hero.slide1">
+              <div id="az-home-slide1-framing"></div>
             </div>
             <div>
               <div class="az-image-preview" id="az-home-slide2-preview" style="aspect-ratio:9/16;">Slide 2</div>
               <input type="file" accept="image/jpeg,image/png,image/webp" id="az-home-slide2-input" data-slide-key="hero.slide2">
+              <div id="az-home-slide2-framing"></div>
             </div>
             <div>
               <div class="az-image-preview" id="az-home-slide3-preview" style="aspect-ratio:9/16;">Slide 3</div>
               <input type="file" accept="image/jpeg,image/png,image/webp" id="az-home-slide3-input" data-slide-key="hero.slide3">
+              <div id="az-home-slide3-framing"></div>
             </div>
           </div>
           <div style="margin-top:18px;">
@@ -2069,6 +2072,11 @@
   };
   var homeFieldInputs = {}; // key -> input/textarea element
   var homeSlideKeys = { 'hero.slide1': null, 'hero.slide2': null, 'hero.slide3': null };
+  var homeSlideFraming = {
+    'hero.slide1': { position: 'center', zoom: 1 },
+    'hero.slide2': { position: 'center', zoom: 1 },
+    'hero.slide3': { position: 'center', zoom: 1 }
+  };
   var homeExtraSections = []; // [{type:'text', title, body} | {type:'image', key, caption}]
   var homeExtraSlides = []; // [r2Key, ...] — foto in più oltre alle 3 fisse
 
@@ -2133,7 +2141,9 @@
       try {
         var uploadedKey = await uploadArtistMediaGeneric(file, 'slide' + n, 'home', 'pages');
         homeSlideKeys[key] = uploadedKey;
-        document.getElementById('az-home-slide' + n + '-preview').innerHTML = '<img src="/media/' + uploadedKey + '" alt="">';
+        var box = document.getElementById('az-home-slide' + n + '-preview');
+        box.innerHTML = '<img src="/media/' + uploadedKey + '" alt="">';
+        renderFramingControls(document.getElementById('az-home-slide' + n + '-framing'), box.querySelector('img'), homeSlideFraming[key]);
       } catch (err) { alert(err.message); }
     });
   });
@@ -2404,6 +2414,8 @@
         // salvata come override finché non si carica davvero una nuova immagine.
         var liveSrc = homeSlideKeys[key] ? '/media/' + homeSlideKeys[key] : 'assets/img/home/slide-0' + n + '.jpg';
         preview.innerHTML = '<img src="' + liveSrc + '" alt="">';
+        homeSlideFraming[key] = { position: content.fields[key + '.position'] || 'center', zoom: Number(content.fields[key + '.zoom']) || 1 };
+        renderFramingControls(document.getElementById('az-home-slide' + n + '-framing'), preview.querySelector('img'), homeSlideFraming[key]);
       });
       homeExtraSections = (content.extraSections || []).slice();
       renderHomeExtraSections();
@@ -2420,7 +2432,11 @@
       if (v) fields[key] = v;
     });
     Object.keys(homeSlideKeys).forEach(function(key){
-      if (homeSlideKeys[key]) fields[key] = homeSlideKeys[key];
+      if (homeSlideKeys[key]) {
+        fields[key] = homeSlideKeys[key];
+        fields[key + '.position'] = homeSlideFraming[key].position;
+        fields[key + '.zoom'] = String(homeSlideFraming[key].zoom);
+      }
     });
     return fields;
   }

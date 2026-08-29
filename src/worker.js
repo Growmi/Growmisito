@@ -4210,12 +4210,17 @@ class CmsTextHandler {
     if (value) el.setInnerContent(value);
   }
 }
+// framingStyles (facoltativo): stessa chiave dell'immagine -> stringa CSS già pronta
+// (photoFramingStyle), per le foto data-cms-src con una posizione/zoom salvati insieme alla
+// chiave (es. "hero.slide1.position"/"hero.slide1.zoom" nello stesso record di campi).
 class CmsSrcHandler {
-  constructor(fields) { this.fields = fields; }
+  constructor(fields, framingStyles) { this.fields = fields; this.framingStyles = framingStyles || {}; }
   element(el) {
     const key = el.getAttribute("data-cms-src");
     const value = key && this.fields[key];
     if (value) el.setAttribute("src", value);
+    const style = key && this.framingStyles[key];
+    if (style) el.setAttribute("style", style);
   }
 }
 class ExtraSectionsHandler {
@@ -4310,9 +4315,17 @@ async function applyPageOverrides(response, content, anchors) {
   // vale anche per le future pagine senza dover toccare questa funzione.
   const imageFields = {};
   const textFields = {};
+  // Posizione/zoom di una foto data-cms-src (facoltativi): stessi valori del pannello artisti/
+  // eventi, salvati come due campi in più con lo stesso nome della chiave immagine più
+  // ".position"/".zoom" — non finiscono mai in textFields perché non c'è nessun data-cms con
+  // quella chiave esatta nell'HTML, restano solo dati di supporto per costruire lo style qui sotto.
+  const framingStyles = {};
   for (const k of Object.keys(content.fields || {})) {
     if (/slide\d+$/.test(k) || /\.image$/.test(k)) {
       imageFields[k] = mediaUrl(content.fields[k]);
+      const position = content.fields[`${k}.position`];
+      const zoom = content.fields[`${k}.zoom`];
+      if (position || zoom) framingStyles[k] = photoFramingStyle(position, zoom ? Number(zoom) : 1);
     } else {
       textFields[k] = content.fields[k];
     }
@@ -4320,7 +4333,7 @@ async function applyPageOverrides(response, content, anchors) {
 
   let rewriter = new HTMLRewriter()
     .on("[data-cms]", new CmsTextHandler(textFields))
-    .on("[data-cms-src]", new CmsSrcHandler(imageFields));
+    .on("[data-cms-src]", new CmsSrcHandler(imageFields, framingStyles));
   if (anchors.extraSections) {
     rewriter = rewriter.on(anchors.extraSections, new ExtraSectionsHandler(extraSectionsHTML(content.extraSections)));
   }
