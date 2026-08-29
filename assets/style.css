@@ -12,13 +12,15 @@
   --loy-cream:#F0DCC5;
   --max:1180px;
   --radius:18px;
+  --font-heading:'Space Grotesk', sans-serif;
+  --font-body:'Inter', system-ui, sans-serif;
 }
 *{box-sizing:border-box; margin:0; padding:0;}
 html{scroll-behavior:smooth;}
 body{
   background:var(--cream);
   color:var(--ink);
-  font-family:'Inter', system-ui, sans-serif;
+  font-family:var(--font-body);
   line-height:1.6;
   -webkit-font-smoothing:antialiased;
   overflow-x:hidden;
@@ -43,7 +45,7 @@ ul{list-style:none;}
 .wrap{max-width:var(--max); margin:0 auto; padding:0 28px;}
 
 h1,h2,h3,h4{
-  font-family:'Space Grotesk', sans-serif;
+  font-family:var(--font-heading);
   font-weight:700;
   line-height:1.05;
   letter-spacing:-0.01em;
@@ -53,7 +55,7 @@ h2{font-size:clamp(30px,4.5vw,48px); margin-bottom:16px;}
 h3{font-size:20px;}
 p{color:var(--grey);}
 .eyebrow{
-  font-family:'Space Grotesk', sans-serif;
+  font-family:var(--font-heading);
   font-size:12.5px;
   font-weight:700;
   letter-spacing:.14em;
@@ -65,7 +67,7 @@ p{color:var(--grey);}
 
 .btn{
   display:inline-flex; align-items:center; gap:8px;
-  font-family:'Space Grotesk', sans-serif;
+  font-family:var(--font-heading);
   font-weight:700;
   font-size:14px;
   padding:14px 26px;
@@ -134,7 +136,7 @@ nav.wrap{
 .navlinks a:hover, .navlinks a.active{border-color:var(--coral);}
 .navright{display:flex; align-items:center; gap:14px;}
 .nav-account{
-  font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:13px;
+  font-family:var(--font-heading); font-weight:700; font-size:13px;
   padding:6px 0; border-bottom:2px solid transparent; color:var(--ink);
 }
 .nav-account:hover{ border-color:var(--coral); }
@@ -161,10 +163,10 @@ header.at-top .nav-account-icon{ border-color:var(--cream); color:var(--cream); 
 }
 .nav-account-wrap.is-open .nav-account-menu{ opacity:1; transform:translateY(0); pointer-events:auto; }
 .nav-account-menu-title{
-  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; margin:0 0 6px; color:var(--ink);
+  font-family:var(--font-heading); font-weight:700; font-size:14px; margin:0 0 6px; color:var(--ink);
 }
 .nav-account-menu a{
-  display:block; padding:10px 2px; font-family:'Space Grotesk',sans-serif; font-weight:600;
+  display:block; padding:10px 2px; font-family:var(--font-heading); font-weight:600;
   font-size:13.5px; color:var(--coral); text-decoration:none; border-bottom:1px solid var(--line);
 }
 .nav-account-menu a:last-of-type{ border-bottom:none; }
@@ -172,7 +174,7 @@ header.at-top .nav-account-icon{ border-color:var(--cream); color:var(--cream); 
 .nav-account-menu-as strong{ display:block; color:var(--ink); font-size:13px; margin-top:2px; }
 .nav-account-logout{
   width:100%; padding:10px; border-radius:999px; border:1.5px solid var(--ink); background:none;
-  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; cursor:pointer; color:var(--ink);
+  font-family:var(--font-heading); font-weight:700; font-size:13px; cursor:pointer; color:var(--ink);
   transition:background .15s ease, color .15s ease;
 }
 .nav-account-logout:hover{ background:var(--ink); color:var(--cream); }
@@ -186,7 +188,7 @@ header.at-top .nav-account-icon{ border-color:var(--cream); color:var(--cream); 
 
 .lang-switch{
   display:flex; border:2px solid var(--ink); border-radius:999px; overflow:hidden;
-  font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:12px;
+  font-family:var(--font-heading); font-weight:700; font-size:12px;
 }
 .lang-switch button{
   padding:7px 12px; background:transparent; border:none; cursor:pointer; color:var(--ink);
@@ -213,12 +215,12 @@ header.at-top .nav-account-icon{ border-color:var(--cream); color:var(--cream); 
 .nav-tickets.is-open .nav-tickets-menu{ opacity:1; transform:translateY(0); pointer-events:auto; }
 .nav-tickets-menu a{
   display:block; padding:10px 12px; border-radius:8px;
-  font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:13.5px; color:var(--ink);
+  font-family:var(--font-heading); font-weight:600; font-size:13.5px; color:var(--ink);
   text-decoration:none; transition:background .15s ease;
 }
 .nav-tickets-menu a:hover{ background:rgba(30,12,44,.06); }
 .nav-tickets-menu a small{
-  display:block; font-family:'Inter',sans-serif; font-weight:400; color:var(--grey); font-size:11.5px; margin-top:2px;
+  display:block; font-family:var(--font-body); font-weight:400; color:var(--grey); font-size:11.5px; margin-top:2px;
 }
 .nav-toggle{
   display:none; flex-direction:column; justify-content:center; align-items:flex-end; gap:5px;
@@ -284,9 +286,9 @@ section{padding:90px 0;}
   background:linear-gradient(135deg, var(--lilac), var(--purple-deep));
   display:flex; align-items:center; justify-content:center;
 }
-.ticket-img span{font-family:'Space Grotesk',sans-serif; font-weight:700; color:#fff; font-size:26px; text-align:center; padding:0 18px;}
+.ticket-img span{font-family:var(--font-heading); font-weight:700; color:#fff; font-size:26px; text-align:center; padding:0 18px;}
 .ticket-body{padding:22px 22px 10px; flex:1;}
-.ticket-date{font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--coral); margin-bottom:8px;}
+.ticket-date{font-family:var(--font-heading); font-weight:700; font-size:12.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--coral); margin-bottom:8px;}
 .ticket-body h3{margin-bottom:6px;}
 .ticket-loc{font-size:13.5px; margin-bottom:6px;}
 .tier-list{padding:6px 22px 22px; display:flex; flex-direction:column; gap:10px;}
@@ -294,15 +296,15 @@ section{padding:90px 0;}
   display:flex; align-items:center; justify-content:space-between;
   border:1.5px solid var(--line); border-radius:12px; padding:10px 14px;
 }
-.tier-name{font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13.5px;}
+.tier-name{font-family:var(--font-heading); font-weight:700; font-size:13.5px;}
 .tier-name small{display:block; font-weight:400; color:var(--grey); font-size:11.5px; text-transform:none; letter-spacing:0;}
-.tier-price{font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; margin-right:12px;}
+.tier-price{font-family:var(--font-heading); font-weight:700; font-size:14px; margin-right:12px;}
 .tier-row-inner{display:flex; align-items:center; gap:10px;}
 
 /* value cards */
 .value-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:26px;}
 .value-card{background:#fff; border:1px solid var(--line); border-radius:16px; padding:30px 26px;}
-.value-card .num{font-family:'Space Grotesk',sans-serif; color:var(--coral); font-weight:700; font-size:13px; letter-spacing:.1em;}
+.value-card .num{font-family:var(--font-heading); color:var(--coral); font-weight:700; font-size:13px; letter-spacing:.1em;}
 .value-card h3{margin:14px 0 10px;}
 .value-card p{font-size:14.5px;}
 @media (max-width:880px){ .value-grid{grid-template-columns:1fr;} }
@@ -313,7 +315,7 @@ section{padding:90px 0;}
 .artist-photo{height:220px; background:linear-gradient(160deg,var(--yellow),var(--coral));}
 .artist-info{padding:18px 20px;}
 .artist-info h3{margin-bottom:4px;}
-.artist-info .genre{font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:700; color:var(--purple-deep); text-transform:uppercase; letter-spacing:.05em;}
+.artist-info .genre{font-family:var(--font-heading); font-size:12px; font-weight:700; color:var(--purple-deep); text-transform:uppercase; letter-spacing:.05em;}
 
 /* team */
 .team-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:28px;}
@@ -321,7 +323,7 @@ section{padding:90px 0;}
 .team-photo{width:100%; aspect-ratio:1; border-radius:16px; background:linear-gradient(160deg,var(--lilac),var(--purple-deep)); margin-bottom:14px; overflow:hidden;}
 .team-photo img{width:100%; height:100%; object-fit:cover; display:block;}
 .team-card h3{margin-bottom:2px;}
-.team-card .role{font-family:'Space Grotesk',sans-serif; font-size:12.5px; font-weight:700; color:var(--coral); text-transform:uppercase; letter-spacing:.05em;}
+.team-card .role{font-family:var(--font-heading); font-size:12.5px; font-weight:700; color:var(--coral); text-transform:uppercase; letter-spacing:.05em;}
 
 /* CTA band */
 .cta-band{
@@ -337,12 +339,12 @@ section{padding:90px 0;}
 .contact-grid{display:grid; grid-template-columns:1fr 1fr; gap:60px;}
 .field{margin-bottom:18px;}
 .field label{
-  display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12.5px;
+  display:block; font-family:var(--font-heading); font-weight:700; font-size:12.5px;
   text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px;
 }
 .field input, .field textarea, .field select{
   width:100%; padding:13px 15px; border:1.5px solid var(--line); border-radius:10px;
-  font-family:'Inter',sans-serif; font-size:14.5px; background:#fff; color:var(--ink);
+  font-family:var(--font-body); font-size:14.5px; background:#fff; color:var(--ink);
 }
 .field textarea{min-height:120px; resize:vertical;}
 .contact-side .item{margin-bottom:22px;}
@@ -360,7 +362,7 @@ footer{background:var(--purple-deep); color:#D9C9E6; padding:90px 0 32px; margin
    (1180px), cosi' le informazioni si distribuiscono su tutta la finestra invece di restare compresse */
 footer .wrap{ max-width:1600px; }
 .foot-grid{display:flex; justify-content:space-between; flex-wrap:wrap; gap:48px; margin-bottom:48px;}
-.foot-grid h4{font-family:'Space Grotesk',sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--coral); margin-bottom:14px;}
+.foot-grid h4{font-family:var(--font-heading); font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--coral); margin-bottom:14px;}
 .foot-grid ul{display:flex; flex-direction:column; gap:10px; font-size:14px;}
 .foot-grid a{transition:color .2s ease;}
 .foot-grid a:hover{color:var(--yellow);}
@@ -377,7 +379,7 @@ footer .wrap{ max-width:1600px; }
 }
 
 .badge-soon{
-  display:inline-block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:11px;
+  display:inline-block; font-family:var(--font-heading); font-weight:700; font-size:11px;
   text-transform:uppercase; letter-spacing:.06em; background:var(--yellow); color:var(--ink);
   padding:4px 10px; border-radius:999px; margin-bottom:14px;
 }
@@ -402,7 +404,7 @@ footer .wrap{ max-width:1600px; }
 .nl-form-row{display:flex; gap:10px; flex-wrap:wrap;}
 .nl-form-row input{
   flex:1; min-width:180px; padding:13px 15px; border:1.5px solid var(--line);
-  border-radius:10px; font-family:'Inter',sans-serif; font-size:14.5px;
+  border-radius:10px; font-family:var(--font-body); font-size:14.5px;
 }
 .nl-fine{font-size:12px; color:var(--grey); margin-top:14px; margin-bottom:0;}
 .nl-success{font-size:14.5px; font-weight:600; color:var(--purple-deep);}
@@ -411,7 +413,7 @@ footer .wrap{ max-width:1600px; }
   writing-mode:vertical-rl; text-orientation:mixed;
   background:var(--ink); color:var(--cream); border:none;
   padding:14px 10px; border-radius:10px 0 0 10px; cursor:pointer;
-  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12.5px; letter-spacing:.05em;
+  font-family:var(--font-heading); font-weight:700; font-size:12.5px; letter-spacing:.05em;
 }
 .nl-tab[hidden]{display:none;}
 @media (max-width:600px){
@@ -466,10 +468,10 @@ footer .wrap{ max-width:1600px; }
 .loyalty-rewards{display:flex; justify-content:center; gap:40px; flex-wrap:wrap; margin-bottom:50px;}
 .loyalty-reward{text-align:center; max-width:220px;}
 .loyalty-reward .num{
-  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; letter-spacing:.1em;
+  font-family:var(--font-heading); font-weight:700; font-size:13px; letter-spacing:.1em;
   text-transform:uppercase; color:var(--coral); display:block; margin-bottom:6px;
 }
-.loyalty-reward p{font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:17px; color:var(--ink);}
+.loyalty-reward p{font-family:var(--font-heading); font-weight:700; font-size:17px; color:var(--ink);}
 
 .loyalty-card-wrap{display:flex; flex-direction:column; align-items:center;}
 .loyalty-card{width:360px; max-width:90vw; aspect-ratio:1.62; perspective:1400px; cursor:pointer; outline:none;}
@@ -511,7 +513,7 @@ footer .wrap{ max-width:1600px; }
 .cookie-banner-inner a{ color:var(--cream); text-decoration:underline; white-space:nowrap; }
 .cookie-banner-ok{
   flex:0 0 auto;
-  font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:13.5px;
+  font-family:var(--font-heading); font-weight:700; font-size:13.5px;
   padding:10px 22px; border-radius:999px; border:2px solid var(--cream);
   background:var(--cream); color:var(--ink); cursor:pointer;
   transition:transform .15s ease;

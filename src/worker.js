@@ -552,7 +552,7 @@ async function handleFetch(request, env, ctx) {
     if (url.pathname.startsWith("/evento/") && request.method === "GET") {
       try {
         const handled = await handleEventPage(request, env);
-        if (handled) return handled;
+        if (handled) return await finalizePublicHtmlResponse(request, env, handled);
         // Nessun evento pubblicato con questo slug: passa oltre, cade sul 404 statico normale
         // (vedi not_found_handling in wrangler.toml) invece di inventare una risposta qui.
       } catch (err) {
@@ -599,7 +599,7 @@ async function handleFetch(request, env, ctx) {
     if (url.pathname.startsWith("/artista/") && request.method === "GET") {
       try {
         const handled = await handleArtistPage(request, env);
-        if (handled) return handled;
+        if (handled) return await finalizePublicHtmlResponse(request, env, handled);
       } catch (err) {
         console.log("Errore artista page:", err.stack || err.message);
       }
@@ -729,7 +729,7 @@ async function handleFetch(request, env, ctx) {
     if ((url.pathname === "/" || url.pathname === "/index.html") && request.method === "GET") {
       try {
         const handled = await handleHomePage(request, env);
-        if (handled) return handled;
+        if (handled) return await finalizePublicHtmlResponse(request, env, handled);
       } catch (err) {
         console.log("Errore home page:", err.stack || err.message);
       }
@@ -741,7 +741,7 @@ async function handleFetch(request, env, ctx) {
     if ((url.pathname === "/chi-siamo" || url.pathname === "/chi-siamo.html") && request.method === "GET") {
       try {
         const handled = await handleChiSiamoPage(request, env);
-        if (handled) return handled;
+        if (handled) return await finalizePublicHtmlResponse(request, env, handled);
       } catch (err) {
         console.log("Errore chi-siamo page:", err.stack || err.message);
       }
@@ -750,7 +750,7 @@ async function handleFetch(request, env, ctx) {
     if ((url.pathname === "/contatti" || url.pathname === "/contatti.html") && request.method === "GET") {
       try {
         const handled = await handleContattiPage(request, env);
-        if (handled) return handled;
+        if (handled) return await finalizePublicHtmlResponse(request, env, handled);
       } catch (err) {
         console.log("Errore contatti page:", err.stack || err.message);
       }
@@ -759,13 +759,33 @@ async function handleFetch(request, env, ctx) {
     if ((url.pathname === "/loyalty-card" || url.pathname === "/loyalty-card.html") && request.method === "GET") {
       try {
         const handled = await handleLoyaltyCardPage(request, env);
-        if (handled) return handled;
+        if (handled) return await finalizePublicHtmlResponse(request, env, handled);
       } catch (err) {
         console.log("Errore loyalty-card page:", err.stack || err.message);
       }
     }
 
-    return env.ASSETS.fetch(request);
+    if (url.pathname === "/api/admin/site-theme" && request.method === "GET") {
+      try {
+        return await handleAdminGetSiteTheme(request, env);
+      } catch (err) {
+        console.log("Errore admin/site-theme GET:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/admin/site-theme" && request.method === "PUT") {
+      try {
+        return await handleAdminSaveSiteTheme(request, env);
+      } catch (err) {
+        console.log("Errore admin/site-theme PUT:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    const fallthrough = await env.ASSETS.fetch(request);
+    if (request.method === "GET") return await finalizePublicHtmlResponse(request, env, fallthrough);
+    return fallthrough;
 }
 
 // Registro eventi: fonte di verità server-side per nome/data/location e fasce prezzo con
@@ -4110,6 +4130,178 @@ async function handleLoyaltyCardPage(request, env) {
   return handleFixedPageRoute(request, env, "loyalty-card", function(){
     return { extraSections: "#loy-extra-sections", replace: [] };
   });
+}
+
+// ============================================================================
+// Tema del sito (font + colori): a differenza delle pagine fisse sopra, questo non è il
+// contenuto di UNA pagina ma un tema GLOBALE applicato a tutte le pagine pubbliche insieme,
+// tramite un'unica coppia di variabili CSS iniettate in ogni <head>. I colori passano già quasi
+// ovunque per le variabili CSS di assets/style.css, quindi basta sovrascriverle. I font invece
+// sono una selezione curata di coppie titolo/testo pronte all'uso (non testo libero), per
+// evitare che l'admin scelga un font mai caricato e rompa la grafica.
+// ============================================================================
+
+const FONT_PAIRS = {
+  default: {
+    label: "Predefinito — Space Grotesk + Inter",
+    headingFamily: "'Space Grotesk', sans-serif",
+    bodyFamily: "'Inter', system-ui, sans-serif",
+    googleFontsHref: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap"
+  },
+  elegante: {
+    label: "Elegante — Playfair Display + Inter",
+    headingFamily: "'Playfair Display', serif",
+    bodyFamily: "'Inter', system-ui, sans-serif",
+    googleFontsHref: "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&display=swap"
+  },
+  calda: {
+    label: "Calda — Fraunces + Karla",
+    headingFamily: "'Fraunces', serif",
+    bodyFamily: "'Karla', sans-serif",
+    googleFontsHref: "https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Karla:wght@400;500;600;700&display=swap"
+  },
+  bold: {
+    label: "Bold — Archivo Black + Work Sans",
+    headingFamily: "'Archivo Black', sans-serif",
+    bodyFamily: "'Work Sans', sans-serif",
+    googleFontsHref: "https://fonts.googleapis.com/css2?family=Archivo+Black&family=Work+Sans:wght@400;500;600;700&display=swap"
+  },
+  tech: {
+    label: "Tech — Sora + Source Sans 3",
+    headingFamily: "'Sora', sans-serif",
+    bodyFamily: "'Source Sans 3', sans-serif",
+    googleFontsHref: "https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap"
+  },
+  minimal: {
+    label: "Minimal — DM Serif Display + DM Sans",
+    headingFamily: "'DM Serif Display', serif",
+    bodyFamily: "'DM Sans', sans-serif",
+    googleFontsHref: "https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600;700&display=swap"
+  }
+};
+
+// Chiave del pannello -> variabile CSS reale. Solo i 6 colori "brand": i token strutturali
+// (--ink, --grey, --cream, --line, usati per il contrasto testo/sfondo) restano fissi, non sono
+// esposti qui — modificarli rischierebbe di rompere la leggibilità su tutto il sito.
+const THEME_COLOR_KEYS = {
+  purpleDeep: "--purple-deep",
+  purpleDeeper: "--purple-deeper",
+  lilac: "--lilac",
+  coral: "--coral",
+  yellow: "--yellow",
+  magenta: "--magenta"
+};
+
+async function getSiteTheme(env) {
+  const raw = await env.TICKETS.get("site:theme");
+  return raw ? JSON.parse(raw) : {};
+}
+
+// I colori arrivano come stringa libera dal color picker: si accetta solo l'esadecimale valido,
+// qualunque altro valore viene scartato in silenzio (l'admin resta sul colore precedente, niente
+// CSS rotto da un valore inatteso).
+function validateSiteThemePayload(body) {
+  const theme = {};
+  const fontPairKey = body && String(body.fontPairKey || "").trim();
+  if (fontPairKey && FONT_PAIRS[fontPairKey]) theme.fontPairKey = fontPairKey;
+
+  const inputColors = body && body.colors && typeof body.colors === "object" ? body.colors : {};
+  const colors = {};
+  for (const key of Object.keys(THEME_COLOR_KEYS)) {
+    const value = inputColors[key];
+    if (typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value.trim())) {
+      colors[key] = value.trim();
+    }
+  }
+  if (Object.keys(colors).length) theme.colors = colors;
+
+  return { ok: true, theme };
+}
+
+async function handleAdminGetSiteTheme(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const theme = await getSiteTheme(env);
+  const fontPairs = Object.keys(FONT_PAIRS).map(function(key){ return { key, label: FONT_PAIRS[key].label }; });
+  return jsonResponse({ theme, fontPairs });
+}
+
+async function handleAdminSaveSiteTheme(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const validated = validateSiteThemePayload(body);
+  await env.TICKETS.put("site:theme", JSON.stringify(validated.theme));
+  return jsonResponse({ ok: true, theme: validated.theme });
+}
+
+class ThemeHeadHandler {
+  constructor(styleBlock) { this.styleBlock = styleBlock; }
+  element(el) { if (this.styleBlock) el.append(this.styleBlock, { html: true }); }
+}
+class ThemeFontsLinkHandler {
+  constructor(href) { this.href = href; }
+  element(el) { if (this.href) el.setAttribute("href", this.href); }
+}
+
+function buildThemeStyleBlock(theme, fontPair) {
+  const decls = [];
+  if (fontPair) {
+    decls.push(`--font-heading:${fontPair.headingFamily}`);
+    decls.push(`--font-body:${fontPair.bodyFamily}`);
+  }
+  if (theme.colors) {
+    for (const key of Object.keys(theme.colors)) {
+      const cssVar = THEME_COLOR_KEYS[key];
+      if (cssVar) decls.push(`${cssVar}:${theme.colors[key]}`);
+    }
+  }
+  if (!decls.length) return "";
+  return `<style id="site-theme-overrides">:root{${decls.join(";")}}</style>`;
+}
+
+async function applySiteTheme(response, theme) {
+  const fontPair = theme.fontPairKey && theme.fontPairKey !== "default" ? FONT_PAIRS[theme.fontPairKey] : null;
+  const hasColors = theme.colors && Object.keys(theme.colors).length > 0;
+  if (!fontPair && !hasColors) return response;
+  const styleBlock = buildThemeStyleBlock(theme, fontPair);
+  let rewriter = new HTMLRewriter().on("head", new ThemeHeadHandler(styleBlock));
+  if (fontPair) {
+    // Tutte le pagine caricano lo stesso identico <link> Google Fonts di default: lo si
+    // individua dal suo href (contiene sempre "Space", il font di default) invece di dover
+    // aggiungere un id in ogni file HTML del sito.
+    rewriter = rewriter.on('link[href*="fonts.googleapis.com/css2?family=Space"]', new ThemeFontsLinkHandler(fontPair.googleFontsHref));
+  }
+  return rewriter.transform(response);
+}
+
+// Pagine su cui il tema pubblico NON si applica: azienda.html ha un proprio tema fisso da
+// pannello admin (non deve dipendere dal tema del sito pubblico), le pagine staff-* sono
+// strumenti operativi interni.
+function isPublicThemedPath(pathname) {
+  if (pathname === "/azienda.html" || pathname === "/azienda") return false;
+  const last = pathname.split("/").pop() || "";
+  if (last.startsWith("staff-")) return false;
+  return true;
+}
+
+// Punto unico di uscita per ogni risposta HTML pubblica (statica o generata dal Worker): applica
+// il tema salvato, se presente. Senza tema salvato la risposta torna invariata (pass-through).
+async function finalizePublicHtmlResponse(request, env, response) {
+  if (!env.TICKETS || !response) return response;
+  const url = new URL(request.url);
+  if (!isPublicThemedPath(url.pathname)) return response;
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("text/html")) return response;
+  try {
+    const theme = await getSiteTheme(env);
+    return await applySiteTheme(response, theme);
+  } catch (err) {
+    console.log("Errore tema sito:", err.stack || err.message);
+    return response;
+  }
 }
 
 // Salva la scheda "Dati personali e consensi" — stesso account, campi in più (numero cliente

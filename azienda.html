@@ -755,6 +755,26 @@
           <p class="az-msg" id="az-hero-default-msg" hidden></p>
         </div>
       </div>
+
+      <div class="az-settings-card">
+        <h3>Font e colori del sito</h3>
+        <p class="az-settings-hint">Si applica a tutto il sito pubblico (non ad azienda.html né alle pagine staff). Nessuna scelta = resta lo stile attuale.</p>
+        <form id="az-theme-form" style="display:flex; flex-direction:column; gap:20px; max-width:520px;">
+          <div class="az-field">
+            <label>Coppia di font</label>
+            <select id="az-theme-font-select"></select>
+          </div>
+          <div>
+            <p style="font-size:13px; font-weight:600; margin-bottom:10px;">Colori</p>
+            <div id="az-theme-colors" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:14px;"></div>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Salva font e colori</button>
+            <button type="button" class="az-mini-btn" id="az-theme-reset">Ripristina originali</button>
+          </div>
+          <p class="az-msg" id="az-theme-msg" hidden></p>
+        </form>
+      </div>
     </div>
   </main>
 </div>
@@ -2190,7 +2210,86 @@
     }
     this.value = '';
   });
-  panelLoaders.impostazioni = { loaded: false, load: loadSiteSettings };
+  // ---- Impostazioni: font e colori del sito (tema globale, KV "site:theme") ----
+  var THEME_COLOR_DEFS = [
+    { key: 'purpleDeep', label: 'Viola scuro', default: '#3E0D5D' },
+    { key: 'purpleDeeper', label: 'Viola scurissimo', default: '#2C0943' },
+    { key: 'lilac', label: 'Lilla', default: '#B867CD' },
+    { key: 'coral', label: 'Corallo', default: '#F86639' },
+    { key: 'yellow', label: 'Giallo', default: '#FDC631' },
+    { key: 'magenta', label: 'Magenta', default: '#E0217A' }
+  ];
+  var themeColorInputs = {};
+
+  function renderThemeColorInputs(){
+    var wrap = document.getElementById('az-theme-colors');
+    wrap.innerHTML = '';
+    THEME_COLOR_DEFS.forEach(function(def){
+      var field = document.createElement('div');
+      field.innerHTML =
+        '<label style="display:block; font-size:12px; color:var(--grey); margin-bottom:6px;">' + def.label + '</label>' +
+        '<input type="color" value="' + def.default + '" style="width:100%; height:38px; border-radius:8px; border:1.5px solid var(--line); cursor:pointer; padding:2px;">';
+      wrap.appendChild(field);
+      themeColorInputs[def.key] = field.querySelector('input');
+    });
+  }
+  renderThemeColorInputs();
+
+  async function loadThemeSettings(){
+    try {
+      var res = await fetch('/api/admin/site-theme');
+      var data = await res.json();
+      var select = document.getElementById('az-theme-font-select');
+      select.innerHTML = '';
+      (data.fontPairs || []).forEach(function(fp){
+        var opt = document.createElement('option');
+        opt.value = fp.key;
+        opt.textContent = fp.label;
+        select.appendChild(opt);
+      });
+      var theme = data.theme || {};
+      select.value = theme.fontPairKey || 'default';
+      THEME_COLOR_DEFS.forEach(function(def){
+        themeColorInputs[def.key].value = (theme.colors && theme.colors[def.key]) || def.default;
+      });
+    } catch (err) { /* i campi restano ai valori di default, riprovabile ricaricando il pannello */ }
+  }
+
+  document.getElementById('az-theme-reset').addEventListener('click', function(){
+    document.getElementById('az-theme-font-select').value = 'default';
+    THEME_COLOR_DEFS.forEach(function(def){ themeColorInputs[def.key].value = def.default; });
+  });
+
+  document.getElementById('az-theme-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var msg = document.getElementById('az-theme-msg');
+    msg.hidden = true;
+    var colors = {};
+    THEME_COLOR_DEFS.forEach(function(def){ colors[def.key] = themeColorInputs[def.key].value; });
+    var fontPairKey = document.getElementById('az-theme-font-select').value;
+    var submitBtn = document.querySelector('#az-theme-form .az-submit');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Salvataggio...';
+    try {
+      var res = await fetch('/api/admin/site-theme', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fontPairKey: fontPairKey, colors: colors })
+      });
+      var data = await res.json();
+      if (res.ok) {
+        showMsg(msg, 'Salvato — il sito è già aggiornato.', false);
+      } else {
+        showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+      }
+    } catch (err) {
+      showMsg(msg, 'Errore di connessione.', true);
+    }
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Salva font e colori';
+  });
+
+  panelLoaders.impostazioni = { loaded: false, load: function(){ loadSiteSettings(); loadThemeSettings(); } };
 
   // I valori vengono assegnati con .value dopo aver creato gli elementi, mai interpolati dentro
   // l'HTML come attributo value="..." — esc() serve a testo dentro tag, non ad attributi: un

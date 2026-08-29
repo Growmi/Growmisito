@@ -44,7 +44,7 @@ body::after{
 .marquee-band{ background:var(--ink); overflow:hidden; padding:16px 0; }
 .marquee-track{ display:flex; width:max-content; animation:growmiMarquee 28s linear infinite; }
 .marquee-track span{
-  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px;
+  font-family:var(--font-heading); font-weight:700; font-size:14px;
   letter-spacing:.09em; text-transform:uppercase; white-space:nowrap; color:var(--cream);
   padding-right:16px;
 }
@@ -89,7 +89,7 @@ body::after{
    visibile per errore durante una modifica precedente) */
 .tri-desc{ font-size:15.5px; line-height:1.6; max-height:0; opacity:0; overflow:hidden; }
 .tri-subtitle{
-  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13.5px;
+  font-family:var(--font-heading); font-weight:700; font-size:13.5px;
   letter-spacing:.02em; color:var(--coral); margin:14px 0 4px;
 }
 .ed-tri-point.is-open{
@@ -175,7 +175,7 @@ body::after{
 }
 .ed-evo-year{
   flex:0 0 auto; writing-mode:vertical-rl; text-orientation:mixed;
-  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px;
+  font-family:var(--font-heading); font-weight:700; font-size:13px;
   letter-spacing:.08em; color:var(--grey); padding:0 4px;
 }
 
