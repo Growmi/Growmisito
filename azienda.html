@@ -459,16 +459,24 @@
     <div class="az-panel" data-panel-content="feedback" hidden>
       <div style="margin-bottom:28px; padding-bottom:24px; border-bottom:1.5px solid var(--line);">
         <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:10px;">Form di feedback</h3>
+        <p style="font-size:12px; color:var(--grey); margin-bottom:14px; max-width:600px;">Il form predefinito è quello di sempre (link senza parametri). Puoi anche creare form distinti — propri testi e proprie opzioni "cosa ti è piaciuto" — ognuno con il suo link da condividere, utile per un evento con domande diverse dal solito.</p>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
+          <label style="font-size:12px; font-weight:600;">Form:</label>
+          <select id="az-fb-form-select" style="max-width:280px;"></select>
+          <button type="button" class="az-mini-btn" id="az-fb-form-new">+ Crea nuovo form</button>
+          <button type="button" class="az-mini-btn danger" id="az-fb-form-delete" hidden>🗑 Elimina questo form</button>
+        </div>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:18px;">
-          <a href="/feedback.html" target="_blank" rel="noopener" class="az-mini-btn" style="text-decoration:none; display:inline-block;">🔗 Apri il form pubblico</a>
+          <a href="/feedback" target="_blank" rel="noopener" class="az-mini-btn" id="az-fb-form-open-link" style="text-decoration:none; display:inline-block;">🔗 Apri il form pubblico</a>
           <button type="button" class="az-preview-btn" id="az-fb-form-preview-btn">👁 Preview</button>
+          <button type="button" class="az-mini-btn" id="az-fb-form-copy-link">📋 Copia link da condividere</button>
         </div>
         <p style="font-size:12px; color:var(--grey); margin-bottom:14px; max-width:600px;">Testi del form. Campo vuoto = resta il testo attuale.</p>
         <form id="az-fb-form" style="max-width:600px; display:flex; flex-direction:column; gap:16px;">
           <div id="az-fb-form-fields" style="display:flex; flex-direction:column; gap:14px;"></div>
           <div class="az-field">
-            <label style="font-size:12px; font-weight:600;">Cosa ti è piaciuto — opzioni di default</label>
-            <p style="font-size:11px; color:var(--grey); margin:2px 0 10px;">Mostrate come caselle da spuntare (più "Altro" con testo libero) quando il form si apre senza un evento specifico collegato, oppure se l'evento non ha opzioni proprie configurate. Le opzioni di un singolo evento (impostate nel pannello Eventi) hanno sempre la precedenza su queste.</p>
+            <label style="font-size:12px; font-weight:600;">Cosa ti è piaciuto — opzioni</label>
+            <p style="font-size:11px; color:var(--grey); margin:2px 0 10px;">Mostrate come caselle da spuntare (più "Altro" con testo libero). Per il form predefinito valgono solo quando il link non è collegato a un evento con opzioni proprie (impostate nel pannello Eventi, che hanno sempre la precedenza).</p>
             <div id="az-fb-liked-options"></div>
             <button type="button" class="az-mini-btn" id="az-fb-add-liked-option" style="margin-top:4px;">+ Aggiungi opzione</button>
           </div>
@@ -1452,10 +1460,33 @@
     return rows.map(function(input){ return input.value.trim(); }).filter(Boolean);
   }
 
+  // ---- Quale form è aperto in questo momento nell'editor qui sotto: il predefinito (link
+  // /feedback di sempre) o uno dei form distinti creati con "+ Crea nuovo form" (link
+  // /feedback?form=<id>, proprio testo e proprie opzioni). ----
+  var fbCurrentFormTarget = { type: 'default' };
+  function fbPublicLink(target){
+    return target.type === 'default' ? '/feedback' : ('/feedback?form=' + encodeURIComponent(target.id));
+  }
+  function fbApplyLinkButtons(){
+    document.getElementById('az-fb-form-open-link').href = fbPublicLink(fbCurrentFormTarget);
+    document.getElementById('az-fb-form-delete').hidden = fbCurrentFormTarget.type === 'default';
+  }
+
+  document.getElementById('az-fb-form-copy-link').addEventListener('click', async function(){
+    var link = location.origin + fbPublicLink(fbCurrentFormTarget);
+    var btn = this;
+    try {
+      await navigator.clipboard.writeText(link);
+      var old = btn.textContent;
+      btn.textContent = 'Copiato!';
+      setTimeout(function(){ btn.textContent = old; }, 1500);
+    } catch (err) { prompt('Copia questo link:', link); }
+  });
+
   document.getElementById('az-fb-form-preview-btn').addEventListener('click', function(){
     var fields = {};
     Object.keys(fbFormFieldInputs).forEach(function(key){ var v = fbFormFieldInputs[key].value.trim(); if (v) fields[key] = v; });
-    openPreview('/feedback.html', { fields: fields });
+    openPreview(fbPublicLink(fbCurrentFormTarget), { fields: fields });
   });
 
   document.getElementById('az-fb-form').addEventListener('submit', async function(e){
@@ -1468,12 +1499,21 @@
     submitBtn.disabled = true;
     submitBtn.textContent = 'Salvataggio...';
     try {
-      var res = await fetch('/api/admin/page-content', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ page: 'feedback', fields: fields, extraSections: [], likedOptions: collectLikedOptions() })
-      });
-      var data = await res.json();
+      var res, data;
+      if (fbCurrentFormTarget.type === 'default') {
+        res = await fetch('/api/admin/page-content', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ page: 'feedback', fields: fields, extraSections: [], likedOptions: collectLikedOptions() })
+        });
+      } else {
+        res = await fetch('/api/admin/feedback-form-content', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: fbCurrentFormTarget.id, fields: fields, likedOptions: collectLikedOptions() })
+        });
+      }
+      data = await res.json();
       if (res.ok) showMsg(msg, 'Salvato — il form è già aggiornato.', false);
       else showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
     } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
@@ -1481,17 +1521,72 @@
     submitBtn.textContent = 'Pubblica form';
   });
 
-  async function loadFeedbackFormContent(){
+  async function loadFeedbackFormEditor(target){
+    fbCurrentFormTarget = target;
+    fbApplyLinkButtons();
+    Object.keys(fbFormFieldInputs).forEach(function(key){ fbFormFieldInputs[key].value = ''; });
+    document.getElementById('az-fb-liked-options').innerHTML = '';
     try {
-      var res = await fetch('/api/admin/page-content?page=feedback');
-      var data = await res.json();
-      var content = data.content || { fields: {} };
-      Object.keys(fbFormFieldInputs).forEach(function(key){ fbFormFieldInputs[key].value = content.fields[key] || ''; });
-      document.getElementById('az-fb-liked-options').innerHTML = '';
-      var likedOptions = Array.isArray(content.likedOptions) ? content.likedOptions : [];
-      likedOptions.forEach(function(label){ addLikedOptionRow(label); });
-    } catch (err) { /* riprovabile ricaricando il pannello */ }
+      if (target.type === 'default') {
+        var res = await fetch('/api/admin/page-content?page=feedback');
+        var data = await res.json();
+        var content = data.content || { fields: {} };
+        Object.keys(fbFormFieldInputs).forEach(function(key){ fbFormFieldInputs[key].value = content.fields[key] || ''; });
+        (content.likedOptions || []).forEach(function(label){ addLikedOptionRow(label); });
+      } else {
+        var res2 = await fetch('/api/admin/feedback-form-content?id=' + encodeURIComponent(target.id));
+        var data2 = await res2.json();
+        var form = data2.form || { fields: {}, likedOptions: [] };
+        Object.keys(fbFormFieldInputs).forEach(function(key){ fbFormFieldInputs[key].value = form.fields[key] || ''; });
+        (form.likedOptions || []).forEach(function(label){ addLikedOptionRow(label); });
+      }
+    } catch (err) { /* riprovabile riselezionando il form */ }
   }
+
+  var fbFormSelect = document.getElementById('az-fb-form-select');
+  async function populateFbFormSelect(selectId){
+    var options = [{ value: '', label: 'Form predefinito (link senza evento)' }];
+    try {
+      var res = await fetch('/api/admin/feedback-forms');
+      var data = await res.json();
+      (data.forms || []).forEach(function(f){ options.push({ value: f.id, label: f.name }); });
+    } catch (err) { /* resta solo il predefinito */ }
+    fbFormSelect.innerHTML = options.map(function(o){ return '<option value="' + o.value + '">' + esc(o.label) + '</option>'; }).join('');
+    fbFormSelect.value = selectId || '';
+  }
+  fbFormSelect.addEventListener('change', function(){
+    var id = fbFormSelect.value;
+    loadFeedbackFormEditor(id ? { type: 'custom', id: id } : { type: 'default' });
+  });
+
+  document.getElementById('az-fb-form-new').addEventListener('click', async function(){
+    var name = prompt('Nome interno del nuovo form (solo per te nel pannello, non è pubblico):');
+    if (!name || !name.trim()) return;
+    var btn = this;
+    btn.disabled = true;
+    try {
+      var res = await fetch('/api/admin/feedback-forms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() })
+      });
+      var data = await res.json();
+      if (!res.ok) { alert(data.error || 'Qualcosa è andato storto.'); btn.disabled = false; return; }
+      await populateFbFormSelect(data.form.id);
+      await loadFeedbackFormEditor({ type: 'custom', id: data.form.id });
+    } catch (err) { alert('Errore di connessione.'); }
+    btn.disabled = false;
+  });
+
+  document.getElementById('az-fb-form-delete').addEventListener('click', async function(){
+    if (fbCurrentFormTarget.type === 'default') return;
+    if (!confirm('Eliminare questo form? Il link smetterà di funzionare. Non si può annullare.')) return;
+    try {
+      await fetch('/api/admin/feedback-forms?id=' + encodeURIComponent(fbCurrentFormTarget.id), { method: 'DELETE' });
+      await populateFbFormSelect('');
+      await loadFeedbackFormEditor({ type: 'default' });
+    } catch (err) { alert('Errore di connessione.'); }
+  });
 
   async function loadFeedback(){
     try {
@@ -1501,7 +1596,8 @@
       populateFeedbackEventFilter(allFeedback);
       applyFeedbackFilter();
     } catch (err) { document.getElementById('az-feedback-count').textContent = 'Errore di connessione.'; }
-    await loadFeedbackFormContent();
+    await populateFbFormSelect(fbCurrentFormTarget.type === 'custom' ? fbCurrentFormTarget.id : '');
+    await loadFeedbackFormEditor(fbCurrentFormTarget);
   }
   panelLoaders.feedback = { loaded: false, load: loadFeedback };
   document.getElementById('az-feedback-export').addEventListener('click', async function(){
@@ -1883,7 +1979,11 @@
   function createLegacyEventPageEditor(containerId, pageKey, label, defaults){
     var container = document.getElementById(containerId);
     container.innerHTML =
-      '<h4 style="font-family:\'Space Grotesk\',sans-serif; font-size:14px; margin-bottom:12px;">' + label + '</h4>' +
+      '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px;">' +
+        '<h4 style="font-family:\'Space Grotesk\',sans-serif; font-size:14px;">' + label + '</h4>' +
+        '<button type="button" class="az-mini-btn" data-action="toggle-edit">✏️ Modifica</button>' +
+      '</div>' +
+      '<div id="' + containerId + '-body" hidden>' +
       '<form class="az-legacy-page-form" style="display:flex; flex-direction:column; gap:16px; max-width:600px;">' +
         '<div id="' + containerId + '-fields" style="display:flex; flex-direction:column; gap:14px;"></div>' +
         '<div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px;">' +
@@ -1911,7 +2011,14 @@
           '<button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Pubblica</button>' +
         '</div>' +
         '<p class="az-msg" hidden></p>' +
-      '</form>';
+      '</form>' +
+      '</div>';
+
+    var editBody = document.getElementById(containerId + '-body');
+    container.querySelector('[data-action="toggle-edit"]').addEventListener('click', function(){
+      editBody.hidden = !editBody.hidden;
+      this.textContent = editBody.hidden ? '✏️ Modifica' : '✕ Chiudi';
+    });
 
     var FIELD_DEFS = [
       { key: 'hero.eyebrow', label: 'Eyebrow (data/luogo)' },

@@ -330,10 +330,16 @@ async function handleFetch(request, env, ctx) {
 
     // Opzioni di default per la domanda "Cosa ti è piaciuto di più" del form feedback generico
     // (feedback.html senza ?slug=, o un evento senza opzioni proprie) — pubblica e di sola
-    // lettura, stesso principio di feedbackOptions dentro /api/event-tiers.
+    // lettura, stesso principio di feedbackOptions dentro /api/event-tiers. Con ?form=<id> legge
+    // invece le opzioni proprie di quel form distinto (vedi feedbackform:<id> più sotto).
     if (url.pathname === "/api/feedback-liked-options" && request.method === "GET") {
       try {
         if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+        const formId = url.searchParams.get("form");
+        if (formId) {
+          const form = await getFeedbackFormContent(env, formId);
+          return jsonResponse({ options: (form && form.likedOptions) || [] });
+        }
         const content = await getPageContent(env, "feedback");
         return jsonResponse({ options: content.likedOptions || [] });
       } catch (err) {
@@ -739,6 +745,50 @@ async function handleFetch(request, env, ctx) {
         return await handleAdminSavePageContent(request, env);
       } catch (err) {
         console.log("Errore admin/page-content PUT:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    // Form di feedback distinti (oltre al form generico "page:feedback" di sempre): ognuno ha un
+    // id, un nome interno per il pannello, i propri testi e le proprie opzioni "cosa ti è
+    // piaciuto" — link pubblico /feedback?form=<id>, vedi handleFeedbackPage più sotto.
+    if (url.pathname === "/api/admin/feedback-forms" && request.method === "GET") {
+      try {
+        return await handleAdminListFeedbackForms(request, env);
+      } catch (err) {
+        console.log("Errore admin/feedback-forms GET:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+    if (url.pathname === "/api/admin/feedback-forms" && request.method === "POST") {
+      try {
+        return await handleAdminCreateFeedbackForm(request, env);
+      } catch (err) {
+        console.log("Errore admin/feedback-forms POST:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+    if (url.pathname === "/api/admin/feedback-forms" && request.method === "DELETE") {
+      try {
+        return await handleAdminDeleteFeedbackForm(request, env);
+      } catch (err) {
+        console.log("Errore admin/feedback-forms DELETE:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+    if (url.pathname === "/api/admin/feedback-form-content" && request.method === "GET") {
+      try {
+        return await handleAdminGetFeedbackForm(request, env);
+      } catch (err) {
+        console.log("Errore admin/feedback-form-content GET:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+    if (url.pathname === "/api/admin/feedback-form-content" && request.method === "PUT") {
+      try {
+        return await handleAdminSaveFeedbackForm(request, env);
+      } catch (err) {
+        console.log("Errore admin/feedback-form-content PUT:", err.stack || err.message);
         return jsonResponse({ error: err.message }, 500);
       }
     }
@@ -1899,6 +1949,7 @@ async function handleFeedbackSubmit(request, env) {
 
   const id = crypto.randomUUID();
   await env.TICKETS.put(`feedback:${id}`, JSON.stringify({
+    formId: String(body.formId || "").slice(0, 80) || null,
     eventName: String(body.eventName || "").slice(0, 200) || null,
     name: String(body.name || "").slice(0, 200) || null,
     email: String(body.email || "").slice(0, 200) || null,
@@ -4529,10 +4580,135 @@ async function handleGrowWithUsPage(request, env) {
 // /api/event-tiers (se c'è un evento con opzioni proprie) o da /api/feedback-liked-options
 // (default configurabili dal pannello) — vedi getPageContent/likedOptions più sotto. Niente
 // sezioni extra qui: è un form strutturato, non una pagina di contenuto.
+//
+// Con ?form=<id> nell'URL, il form NON è più quello generico ("page:feedback") ma uno dei form
+// distinti creati dal pannello Feedback (feedbackform:<id> — proprio testo e proprie opzioni
+// "cosa ti è piaciuto", pensato per essere condiviso con un link a sé, es. per un singolo
+// evento con domande diverse dal solito). Id sconosciuto o non passato = form generico di
+// sempre, per non rompere link già in giro.
 async function handleFeedbackPage(request, env) {
+  const url = new URL(request.url);
+  const formId = url.searchParams.get("form");
+  if (formId) {
+    if (!env.TICKETS) return null;
+    const res = await env.ASSETS.fetch(request);
+    if (!res.ok) return res;
+    const form = await getFeedbackFormContent(env, formId);
+    if (!form) return res;
+    return applyPageOverrides(res, { fields: form.fields || {}, extraSections: [] }, { replace: [] });
+  }
   return handleFixedPageRoute(request, env, "feedback", function(){
     return { replace: [] };
   });
+}
+
+// Form di feedback distinti (oltre a quello generico "page:feedback"): stesso principio di
+// generalità delle altre entità KV con id (eventi/artisti) — {id, name (etichetta interna per il
+// pannello, mai mostrata al pubblico), fields (stessa forma di page:feedback.fields),
+// likedOptions, createdAt}. Il link pubblico è /feedback?form=<id>.
+async function getFeedbackFormContent(env, id) {
+  const raw = await env.TICKETS.get(`feedbackform:${id}`);
+  return raw ? JSON.parse(raw) : null;
+}
+
+function validateFeedbackFormFields(body) {
+  const inputFields = body.fields && typeof body.fields === "object" ? body.fields : {};
+  const fields = {};
+  let count = 0;
+  for (const k of Object.keys(inputFields)) {
+    if (count >= 60) break;
+    const key = String(k).slice(0, 80);
+    const value = String(inputFields[k] || "").slice(0, 4000);
+    if (value) fields[key] = value;
+    count++;
+  }
+  const likedOptions = [];
+  if (Array.isArray(body.likedOptions)) {
+    for (const raw of body.likedOptions) {
+      const label = String(raw || "").trim().slice(0, 120);
+      if (!label) continue;
+      likedOptions.push(label);
+      if (likedOptions.length >= 12) break;
+    }
+  }
+  return { fields, likedOptions };
+}
+
+async function handleAdminListFeedbackForms(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const forms = [];
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "feedbackform:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      if (!raw) continue;
+      const f = JSON.parse(raw);
+      forms.push({ id: f.id, name: f.name, createdAt: f.createdAt });
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  forms.sort(function(a, b){ return (b.createdAt || "").localeCompare(a.createdAt || ""); });
+  return jsonResponse({ forms });
+}
+
+async function handleAdminCreateFeedbackForm(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const name = String(body.name || "").trim().slice(0, 200);
+  if (!name) return jsonResponse({ error: "nome obbligatorio" }, 400);
+  let base = slugify(name).slice(0, 40) || "form";
+  let id = base;
+  let n = 2;
+  while (await env.TICKETS.get(`feedbackform:${id}`)) {
+    id = `${base}-${n}`;
+    n++;
+  }
+  const record = { id, name, fields: {}, likedOptions: [], createdAt: new Date().toISOString() };
+  await env.TICKETS.put(`feedbackform:${id}`, JSON.stringify(record));
+  return jsonResponse({ ok: true, form: record });
+}
+
+async function handleAdminGetFeedbackForm(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const id = String(new URL(request.url).searchParams.get("id") || "").trim();
+  if (!id) return jsonResponse({ error: "id mancante" }, 400);
+  const form = await getFeedbackFormContent(env, id);
+  if (!form) return jsonResponse({ error: "form non trovato" }, 404);
+  return jsonResponse({ form });
+}
+
+async function handleAdminSaveFeedbackForm(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const id = String(body.id || "").trim();
+  if (!id) return jsonResponse({ error: "id mancante" }, 400);
+  const existingRaw = await env.TICKETS.get(`feedbackform:${id}`);
+  if (!existingRaw) return jsonResponse({ error: "form non trovato" }, 404);
+  const existing = JSON.parse(existingRaw);
+  const { fields, likedOptions } = validateFeedbackFormFields(body);
+  const name = String(body.name || "").trim().slice(0, 200) || existing.name;
+  const record = { id, name, fields, likedOptions, createdAt: existing.createdAt };
+  await env.TICKETS.put(`feedbackform:${id}`, JSON.stringify(record));
+  return jsonResponse({ ok: true, form: record });
+}
+
+async function handleAdminDeleteFeedbackForm(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const id = String(new URL(request.url).searchParams.get("id") || "").trim();
+  if (!id) return jsonResponse({ error: "id mancante" }, 400);
+  await env.TICKETS.delete(`feedbackform:${id}`);
+  return jsonResponse({ ok: true });
 }
 
 // ============================================================================

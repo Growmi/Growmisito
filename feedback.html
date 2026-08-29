@@ -184,6 +184,7 @@
   var params = new URLSearchParams(window.location.search);
   var eventName = params.get("event") || null;
   var eventSlug = params.get("slug") || null;
+  var formId = params.get("form") || null;
 
   // Scala di valutazione 1-10 (10 pulsanti numerati, più leggibile di 10 stelle su mobile).
   var ratingScale = document.getElementById("ratingScale");
@@ -274,16 +275,19 @@
   }
 
   function loadDefaultLikedOptions(){
-    return fetch("/api/feedback-liked-options")
+    return fetch("/api/feedback-liked-options" + (formId ? ("?form=" + encodeURIComponent(formId)) : ""))
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(data){ showOptionsList(data && data.options); })
       .catch(function(){ /* resta il fallback testuale */ });
   }
 
-  // Priorità: opzioni proprie dell'evento (via ?slug=) se ce ne sono, altrimenti le opzioni di
-  // default configurate nel pannello Feedback — solo se non c'è nemmeno quello resta il textarea
-  // libero di sempre (link vecchi senza slug, o nessuna opzione mai configurata).
-  if (eventSlug) {
+  // Priorità: se il link porta un form distinto (?form=, vedi pannello Feedback) usa solo le sue
+  // opzioni, senza guardare l'evento. Altrimenti, opzioni proprie dell'evento (via ?slug=) se ce
+  // ne sono, poi le opzioni di default del form generico — solo se non c'è nemmeno quello resta
+  // il textarea libero di sempre (link vecchi senza slug, o nessuna opzione mai configurata).
+  if (formId) {
+    loadDefaultLikedOptions();
+  } else if (eventSlug) {
     fetch("/api/event-tiers?event=" + encodeURIComponent(eventSlug))
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(data){
@@ -323,6 +327,7 @@
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          formId: formId,
           eventName: eventName,
           name: name,
           email: document.getElementById("fbEmail").value.trim(),
