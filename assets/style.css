@@ -21,6 +21,9 @@
   --h1-scale:1; --h2-scale:1; --h3-scale:1; --p-scale:1; --eyebrow-scale:1;
   --h1-weight:700; --h2-weight:700; --h3-weight:700; --p-weight:400; --eyebrow-weight:700;
   --hero-bg-position:center; --hero-bg-zoom:1;
+  /* Moltiplicatore del velo scuro sopra foto/video/slideshow di ogni hero del sito — 1 = opacità
+     originale di ciascun layer, 0 = nessun velo, valori più alti scuriscono di più. */
+  --hero-overlay-opacity:1;
 }
 *{box-sizing:border-box; margin:0; padding:0;}
 html{scroll-behavior:smooth;}

@@ -29,7 +29,7 @@
 .ed-hero::after{
   content:"";
   position:absolute; inset:0; z-index:-1;
-  background:rgba(30,12,44,.55);
+  background:rgba(30,12,44,calc(.55 * var(--hero-overlay-opacity, 1)));
 }
 .ed-hero > .wrap{ width:100%; }
 .ed-wrap{position:relative; z-index:2;}
@@ -43,7 +43,7 @@
   position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:-2;
 }
 .ed-hero-video-overlay{
-  position:absolute; inset:0; background:rgba(30,12,44,.68); z-index:-1;
+  position:absolute; inset:0; background:rgba(30,12,44,calc(.68 * var(--hero-overlay-opacity, 1))); z-index:-1;
 }
 
 /* foto di sfondo fissa per un hero (es. art-mall-collab.html): stesso trattamento del video
@@ -69,7 +69,7 @@
   font-family:var(--font-heading); font-weight:700; color:#fff; font-size:13px;
   letter-spacing:.06em; text-transform:uppercase; opacity:.6;
 }
-.ed-hero-slideshow-overlay{ position:absolute; inset:0; z-index:-2; background:rgba(30,12,44,.6); }
+.ed-hero-slideshow-overlay{ position:absolute; inset:0; z-index:-2; background:rgba(30,12,44,calc(.6 * var(--hero-overlay-opacity, 1))); }
 
 /* pallini di navigazione sul bordo destro dell'hero, sopra le foto (ispirato a tridentmusic.it) */
 .ed-hero-dots{

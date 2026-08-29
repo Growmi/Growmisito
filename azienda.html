@@ -929,6 +929,17 @@
       </div>
 
       <div class="az-settings-card">
+        <h3>Velo scuro sulle hero</h3>
+        <p class="az-settings-hint">Il velo viola scuro sopra foto/video/slideshow di ogni pagina (serve a mantenere leggibili titolo e testo) — regola quanto è marcato. 100% = come oggi.</p>
+        <div class="az-field" style="max-width:420px;">
+          <label>Trasparenza (<span id="az-hero-overlay-value">100%</span>)</label>
+          <input type="range" id="az-hero-overlay-slider" min="0" max="200" step="5" value="100" style="width:100%;">
+          <button type="button" class="az-submit" id="az-hero-overlay-save" style="padding:12px 22px; margin-top:12px;">Pubblica velo</button>
+          <p class="az-msg" id="az-hero-overlay-msg" hidden></p>
+        </div>
+      </div>
+
+      <div class="az-settings-card">
         <h3>Font e colori del sito</h3>
         <p class="az-settings-hint">Si applica a tutto il sito pubblico (non ad azienda.html né alle pagine staff). Nessuna scelta = resta lo stile attuale.</p>
         <form id="az-theme-form" style="display:flex; flex-direction:column; gap:20px; max-width:520px;">
@@ -3441,10 +3452,37 @@
       var hb = (data.theme && data.theme.heroBackground) || {};
       heroDefaultFraming = { position: hb.position || 'center', zoom: hb.zoom || 1 };
       renderFramingControls(document.getElementById('az-hero-default-framing'), img, heroDefaultFraming);
+      var overlayOpacity = data.theme && data.theme.heroOverlayOpacity;
+      var pct = Number.isFinite(overlayOpacity) ? Math.round(overlayOpacity * 100) : 100;
+      document.getElementById('az-hero-overlay-slider').value = pct;
+      document.getElementById('az-hero-overlay-value').textContent = pct + '%';
     }).catch(function(){
       renderFramingControls(document.getElementById('az-hero-default-framing'), img, heroDefaultFraming);
     });
   }
+  var heroOverlaySlider = document.getElementById('az-hero-overlay-slider');
+  heroOverlaySlider.addEventListener('input', function(){
+    document.getElementById('az-hero-overlay-value').textContent = heroOverlaySlider.value + '%';
+  });
+  document.getElementById('az-hero-overlay-save').addEventListener('click', async function(){
+    var msg = document.getElementById('az-hero-overlay-msg');
+    msg.hidden = true;
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Salvataggio...';
+    try {
+      var res = await fetch('/api/admin/site-theme', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ heroOverlayOpacity: Number(heroOverlaySlider.value) / 100 })
+      });
+      var data = await res.json();
+      if (res.ok) showMsg(msg, 'Salvato — visibile su tutte le hero del sito.', false);
+      else showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+    } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
+    btn.disabled = false;
+    btn.textContent = 'Pubblica velo';
+  });
   document.getElementById('az-hero-default-framing-save').addEventListener('click', async function(){
     var msg = document.getElementById('az-hero-default-msg');
     msg.hidden = true;

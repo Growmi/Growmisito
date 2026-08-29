@@ -4838,6 +4838,17 @@ function validateSiteThemePayload(body) {
   }
   if (Object.keys(heroBackground).length) theme.heroBackground = heroBackground;
 
+  // Trasparenza del velo scuro sopra foto/video/slideshow di OGNI hero del sito (non solo lo
+  // sfondo di default) — 1 = come oggi, 0 = nessun velo, fino a 2 = molto più scuro. Un solo
+  // moltiplicatore condiviso da .ed-hero::after/.ed-hero-video-overlay/.ed-hero-slideshow-overlay,
+  // che partono da opacità diverse tra loro ma restano proporzionate quando si scala il valore.
+  if (body.heroOverlayOpacity !== null && body.heroOverlayOpacity !== undefined && body.heroOverlayOpacity !== "") {
+    const overlayOpacity = Number(body.heroOverlayOpacity);
+    if (Number.isFinite(overlayOpacity)) {
+      theme.heroOverlayOpacity = Math.max(0, Math.min(2, overlayOpacity));
+    }
+  }
+
   return { ok: true, theme };
 }
 
@@ -4910,6 +4921,7 @@ function buildThemeStyleBlock(theme, fontPair) {
     if (theme.heroBackground.position) decls.push(`--hero-bg-position:${theme.heroBackground.position}`);
     if (theme.heroBackground.zoom) decls.push(`--hero-bg-zoom:${theme.heroBackground.zoom}`);
   }
+  if (theme.heroOverlayOpacity !== undefined) decls.push(`--hero-overlay-opacity:${theme.heroOverlayOpacity}`);
   if (!decls.length) return "";
   return `<style id="site-theme-overrides">:root{${decls.join(";")}}</style>`;
 }
@@ -4919,7 +4931,8 @@ async function applySiteTheme(response, theme) {
   const hasColors = theme.colors && Object.keys(theme.colors).length > 0;
   const hasTypography = theme.typography && Object.keys(theme.typography).length > 0;
   const hasHeroBg = theme.heroBackground && Object.keys(theme.heroBackground).length > 0;
-  if (!fontPair && !hasColors && !hasTypography && !hasHeroBg) return response;
+  const hasOverlayOpacity = theme.heroOverlayOpacity !== undefined;
+  if (!fontPair && !hasColors && !hasTypography && !hasHeroBg && !hasOverlayOpacity) return response;
   const styleBlock = buildThemeStyleBlock(theme, fontPair);
   let rewriter = new HTMLRewriter().on("head", new ThemeHeadHandler(styleBlock));
   if (fontPair) {
