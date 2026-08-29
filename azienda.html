@@ -832,10 +832,12 @@
             <div>
               <div class="az-image-preview" id="az-loy-front-preview" style="aspect-ratio:9/14;">Fronte</div>
               <input type="file" accept="image/jpeg,image/png,image/webp" id="az-loy-front-input">
+              <div id="az-loy-front-framing"></div>
             </div>
             <div>
               <div class="az-image-preview" id="az-loy-back-preview" style="aspect-ratio:9/14;">Retro</div>
               <input type="file" accept="image/jpeg,image/png,image/webp" id="az-loy-back-input">
+              <div id="az-loy-back-framing"></div>
             </div>
           </div>
           <div id="az-loy-fields-hint"></div>
@@ -2195,6 +2197,17 @@
     [xInput, yInput, zInput].forEach(function(inp){ inp.addEventListener('input', apply); });
     apply();
   }
+  // Adatta un oggetto con altri nomi di campo (es. {photoPosition, photoZoom} dei fondatori) alla
+  // forma {position, zoom} che renderFramingControls si aspetta — legge/scrive direttamente
+  // sull'oggetto originale, niente da risincronizzare a mano dopo.
+  function framingStateAdapter(obj, posKey, zoomKey){
+    return {
+      get position(){ return obj[posKey]; },
+      set position(v){ obj[posKey] = v; },
+      get zoom(){ return obj[zoomKey]; },
+      set zoom(v){ obj[zoomKey] = v; }
+    };
+  }
 
   // Rispecchia mediaUrl() lato server: la maggior parte delle chiavi sono chiavi R2 da far
   // passare per /media/, ma alcune (es. i fondatori pre-popolati con le foto statiche già live)
@@ -2557,6 +2570,7 @@
         '<div>' +
           '<div class="az-image-preview" style="aspect-ratio:1/1;">' + (f.photoKey ? '<img src="' + mediaSrc(f.photoKey) + '" alt="">' : 'Foto') + '</div>' +
           '<input type="file" accept="image/jpeg,image/png,image/webp" style="margin-top:6px; font-size:11px;">' +
+          '<div class="cs-founder-framing"></div>' +
         '</div>' +
         '<div>' +
           '<input type="text" placeholder="Nome" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
@@ -2566,10 +2580,12 @@
       var fileInput = row.querySelector('input[type=file]');
       var nameInput = row.querySelectorAll('input[type=text]')[0];
       var roleInput = row.querySelectorAll('input[type=text]')[1];
+      var framingWrap = row.querySelector('.cs-founder-framing');
       nameInput.value = f.name || '';
       roleInput.value = f.role || '';
       nameInput.addEventListener('input', function(){ f.name = nameInput.value; });
       roleInput.addEventListener('input', function(){ f.role = roleInput.value; });
+      if (f.photoKey) renderFramingControls(framingWrap, row.querySelector('.az-image-preview img'), framingStateAdapter(f, 'photoPosition', 'photoZoom'));
       fileInput.addEventListener('change', async function(){
         var file = fileInput.files[0];
         if (!file) return;
@@ -2970,6 +2986,10 @@
   };
   var loyaltyFieldInputs = {};
   var loyaltyCardKeys = { 'card.front.image': null, 'card.back.image': null };
+  var loyaltyCardFraming = {
+    'card.front.image': { position: 'center', zoom: 1 },
+    'card.back.image': { position: 'center', zoom: 1 }
+  };
   var loyaltyExtraSections = [];
 
   renderHomeFieldGroup('az-loy-fields-hero', LOYALTY_FIELD_GROUPS.hero, loyaltyFieldInputs);
@@ -2984,7 +3004,9 @@
       try {
         var uploadedKey = await uploadArtistMediaGeneric(file, cfg.side, 'loyalty-card', 'pages');
         loyaltyCardKeys[cfg.key] = uploadedKey;
-        document.getElementById('az-loy-' + cfg.side + '-preview').innerHTML = '<img src="/media/' + uploadedKey + '" alt="">';
+        var box = document.getElementById('az-loy-' + cfg.side + '-preview');
+        box.innerHTML = '<img src="/media/' + uploadedKey + '" alt="">';
+        renderFramingControls(document.getElementById('az-loy-' + cfg.side + '-framing'), box.querySelector('img'), loyaltyCardFraming[cfg.key]);
       } catch (err) { alert(err.message); }
     });
   });
@@ -3015,6 +3037,8 @@
         // (statica), non un placeholder vuoto.
         var liveSrc = loyaltyCardKeys[key] ? '/media/' + loyaltyCardKeys[key] : 'assets/img/loyalty/' + side + '.jpg';
         preview.innerHTML = '<img src="' + liveSrc + '" alt="">';
+        loyaltyCardFraming[key] = { position: content.fields[key + '.position'] || 'center', zoom: Number(content.fields[key + '.zoom']) || 1 };
+        renderFramingControls(document.getElementById('az-loy-' + side + '-framing'), preview.querySelector('img'), loyaltyCardFraming[key]);
       });
       loyaltyExtraSections = (content.extraSections || []).slice();
       renderLoyaltyExtraSections();
@@ -3029,7 +3053,11 @@
       if (v) fields[key] = v;
     });
     Object.keys(loyaltyCardKeys).forEach(function(key){
-      if (loyaltyCardKeys[key]) fields[key] = loyaltyCardKeys[key];
+      if (loyaltyCardKeys[key]) {
+        fields[key] = loyaltyCardKeys[key];
+        fields[key + '.position'] = loyaltyCardFraming[key].position;
+        fields[key + '.zoom'] = String(loyaltyCardFraming[key].zoom);
+      }
     });
     return fields;
   }

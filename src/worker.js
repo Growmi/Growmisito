@@ -4107,7 +4107,9 @@ function validatePageContentPayload(body) {
       founders.push({
         name,
         role: String((raw && raw.role) || "").trim().slice(0, 200),
-        photoKey: (raw && String(raw.photoKey || "").trim()) || null
+        photoKey: (raw && String(raw.photoKey || "").trim()) || null,
+        photoPosition: String((raw && raw.photoPosition) || "center").trim().slice(0, 30),
+        photoZoom: clampImageZoom(raw && raw.photoZoom)
       });
       if (founders.length >= 12) break;
     }
@@ -4244,7 +4246,7 @@ class AppendContentHandler {
 function foundersHTML(founders){
   return founders.map(function(f){
     const photo = f.photoKey
-      ? `<img src="${mediaUrl(f.photoKey)}" alt="${f.name}" loading="lazy">`
+      ? `<img src="${mediaUrl(f.photoKey)}" alt="${f.name}" loading="lazy" style="${photoFramingStyle(f.photoPosition, f.photoZoom)}">`
       : "";
     return `<div class="team-card"><div class="team-photo">${photo}</div><h3>${f.name}</h3><p class="role">${f.role || ""}</p></div>`;
   }).join("");
