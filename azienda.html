@@ -504,6 +504,11 @@
           <div class="az-field"><label for="az-ev-dateiso">Data evento</label><input type="date" id="az-ev-dateiso" required></div>
           <div class="az-field"><label for="az-ev-location">Luogo</label><input type="text" id="az-ev-location" required></div>
           <div class="az-field"><label for="az-ev-teaser">Descrizione breve</label><input type="text" id="az-ev-teaser"></div>
+          <div class="az-field">
+            <label for="az-ev-sortorder">Posizione nell'elenco (facoltativa)</label>
+            <input type="number" id="az-ev-sortorder" placeholder="Vuoto = ordine per data">
+            <p style="font-size:12px; color:var(--grey); margin-top:4px;">Numero più basso = più in alto/prima, tra prossimi e passati separatamente. Solo chi ha un numero salta l'ordine per data.</p>
+          </div>
 
           <div>
             <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Fasce biglietti</label>
@@ -584,6 +589,11 @@
           <input type="hidden" id="az-ar-slug">
           <div class="az-field"><label for="az-ar-name">Nome</label><input type="text" id="az-ar-name" required></div>
           <div class="az-field"><label for="az-ar-role">Ruolo (es. "DJ", "Cantante")</label><input type="text" id="az-ar-role" required></div>
+          <div class="az-field">
+            <label for="az-ar-sortorder">Posizione nell'elenco (facoltativa)</label>
+            <input type="number" id="az-ar-sortorder" placeholder="Vuoto = ordine alfabetico">
+            <p style="font-size:12px; color:var(--grey); margin-top:4px;">Numero più basso = più in alto/prima. Solo chi ha un numero salta l'ordine alfabetico, gli altri restano dove sono sempre stati.</p>
+          </div>
 
           <div>
             <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Foto card</label>
@@ -1555,6 +1565,7 @@
     document.getElementById('az-ar-slug').value = artist ? artist.slug : '';
     document.getElementById('az-ar-name').value = artist ? artist.name : '';
     document.getElementById('az-ar-role').value = artist ? artist.role : '';
+    document.getElementById('az-ar-sortorder').value = (artist && typeof artist.sortOrder === 'number') ? artist.sortOrder : '';
     document.getElementById('az-ar-card-position').value = artist ? (artist.cardImagePosition || 'center') : 'center';
     document.getElementById('az-ar-hero-type').value = artist ? artist.heroType : 'none';
 
@@ -1586,6 +1597,7 @@
     var payload = {
       name: document.getElementById('az-ar-name').value.trim(),
       role: document.getElementById('az-ar-role').value.trim(),
+      sortOrder: document.getElementById('az-ar-sortorder').value.trim() === '' ? null : Number(document.getElementById('az-ar-sortorder').value),
       cardImageKey: arCardKey,
       cardImagePosition: document.getElementById('az-ar-card-position').value,
       heroType: arHeroType,
@@ -1699,18 +1711,23 @@
           '<input type="text" placeholder="Titolo" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
           '<input type="text" placeholder="Data mostrata (es. &quot;4 giugno 2026&quot;)" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
           '<input type="text" placeholder="Luogo" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
-          '<input type="date" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<div style="display:flex; gap:8px; align-items:center;">' +
+            '<input type="date" style="flex:1; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+            '<input type="number" placeholder="Posizione" style="width:100px; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '</div>' +
         '</div>';
       var fileInput = card.querySelector('input[type=file]');
       var texts = card.querySelectorAll('input[type=text]');
       var dateInput = card.querySelector('input[type=date]');
+      var sortOrderInput = card.querySelector('input[type=number]');
       // Pre-compilati con i valori attualmente live (non un placeholder vuoto): si vede subito
       // cosa c'è ora, e pubblicare senza toccare nulla riproduce esattamente la pagina di oggi.
       texts[0].value = o.title || def.title;
       texts[1].value = o.tag || def.tag;
       texts[2].value = o.location || def.location;
       dateInput.value = o.dateIso || def.dateIso;
-      var state = { titleEl: texts[0], tagEl: texts[1], locationEl: texts[2], dateEl: dateInput, coverKey: o.coverKey || null };
+      sortOrderInput.value = typeof o.sortOrder === 'number' ? o.sortOrder : '';
+      var state = { titleEl: texts[0], tagEl: texts[1], locationEl: texts[2], dateEl: dateInput, sortOrderEl: sortOrderInput, coverKey: o.coverKey || null };
       fileInput.addEventListener('change', async function(){
         var file = fileInput.files[0];
         if (!file) return;
@@ -1733,6 +1750,7 @@
       if (s.tagEl.value.trim()) entry.tag = s.tagEl.value.trim();
       if (s.locationEl.value.trim()) entry.location = s.locationEl.value.trim();
       if (s.dateEl.value) entry.dateIso = s.dateEl.value;
+      if (s.sortOrderEl.value.trim() !== '') entry.sortOrder = Number(s.sortOrderEl.value);
       if (s.coverKey) entry.coverKey = s.coverKey;
       if (Object.keys(entry).length) overrides[slug] = entry;
     });
@@ -3062,6 +3080,7 @@
     document.getElementById('az-ev-dateiso').value = event ? event.dateIso : '';
     document.getElementById('az-ev-location').value = event ? event.location : '';
     document.getElementById('az-ev-teaser').value = event ? (event.teaser || '') : '';
+    document.getElementById('az-ev-sortorder').value = (event && typeof event.sortOrder === 'number') ? event.sortOrder : '';
     document.getElementById('az-ev-tiers').innerHTML = '';
     if (event) {
       event.tiers.forEach(function(t){ addTierBlock(t); });
@@ -3137,6 +3156,7 @@
       dateIso: document.getElementById('az-ev-dateiso').value,
       location: document.getElementById('az-ev-location').value.trim(),
       teaser: document.getElementById('az-ev-teaser').value.trim(),
+      sortOrder: document.getElementById('az-ev-sortorder').value.trim() === '' ? null : Number(document.getElementById('az-ev-sortorder').value),
       tiers: tiers,
       feedbackOptions: feedbackOptions,
       heroImageKey: evHeroKey,

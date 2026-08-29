@@ -919,6 +919,7 @@ async function handlePublicEvents(request, env) {
       slug, name: event.name, dateDisplay: event.dateDisplay, dateIso: event.dateIso,
       location: event.location, teaser: event.teaser || "",
       heroImageUrl: mediaUrl(event.heroImageKey), coverImageUrl: mediaUrl(event.coverImageKey),
+      sortOrder: typeof event.sortOrder === "number" ? event.sortOrder : null,
       pageUrl: `/evento/${slug}`
     });
   }
@@ -3483,7 +3484,17 @@ function validateEventPayload(body, existingTiers, sold) {
     : [];
   const published = body.published === true;
 
-  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, coverImageKey, gallery, published } };
+  // Posizione manuale nella griglia pubblica: numero facoltativo, più basso = più in alto/prima
+  // (vince sull'ordine per data, ma solo tra chi ce l'ha impostato — gli altri seguono nell'ordine
+  // di sempre). Stesso campo/stessa logica degli artisti.
+  // Number(null) è 0 (un valore reale, "prima di tutti"), quindi null/undefined/stringa vuota
+  // vanno esclusi PRIMA della conversione, non dopo, altrimenti "nessuna posizione" diventerebbe
+  // per sbaglio "posizione zero".
+  const sortOrder = (body.sortOrder === null || body.sortOrder === undefined || body.sortOrder === "")
+    ? null
+    : (Number.isFinite(Number(body.sortOrder)) ? Number(body.sortOrder) : null);
+
+  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, coverImageKey, gallery, published, sortOrder } };
 }
 
 const IMAGE_CONTENT_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
@@ -3720,7 +3731,17 @@ function validateArtistPayload(body) {
 
   const published = body.published === true;
 
-  return { ok: true, artist: { name, role, cardImageKey, cardImagePosition, heroType, heroKey, bio, media, published } };
+  // Posizione manuale nella griglia pubblica: numero facoltativo, più basso = più in alto/prima.
+  // Chi non ne ha uno segue semplicemente dopo quelli ordinati, nell'ordine di sempre — non serve
+  // assegnarlo a tutti gli artisti per usarlo su un paio.
+  // Number(null) è 0 (un valore reale, "prima di tutti"), quindi null/undefined/stringa vuota
+  // vanno esclusi PRIMA della conversione, non dopo, altrimenti "nessuna posizione" diventerebbe
+  // per sbaglio "posizione zero".
+  const sortOrder = (body.sortOrder === null || body.sortOrder === undefined || body.sortOrder === "")
+    ? null
+    : (Number.isFinite(Number(body.sortOrder)) ? Number(body.sortOrder) : null);
+
+  return { ok: true, artist: { name, role, cardImageKey, cardImagePosition, heroType, heroKey, bio, media, published, sortOrder } };
 }
 
 async function handleAdminListArtists(request, env) {
@@ -3788,9 +3809,18 @@ async function handlePublicArtists(request, env) {
     artists.push({
       slug, name: artist.name, role: artist.role,
       cardImageUrl: mediaUrl(artist.cardImageKey), cardImagePosition: artist.cardImagePosition,
+      sortOrder: typeof artist.sortOrder === "number" ? artist.sortOrder : null,
       pageUrl: `/artista/${slug}`
     });
   }
+  // Chi ha una posizione manuale va prima, in quell'ordine; il resto segue in ordine alfabetico
+  // (comportamento di sempre, prima che esistesse questo campo).
+  artists.sort(function(a, b){
+    const oa = a.sortOrder === null ? Infinity : a.sortOrder;
+    const ob = b.sortOrder === null ? Infinity : b.sortOrder;
+    if (oa !== ob) return oa - ob;
+    return a.name.localeCompare(b.name);
+  });
   return jsonResponse({ artists });
 }
 
@@ -4521,6 +4551,10 @@ function validateLegacyEventsPayload(body) {
     if (raw && raw.location) entry.location = String(raw.location).trim().slice(0, 150);
     if (raw && raw.dateIso) entry.dateIso = String(raw.dateIso).trim().slice(0, 10);
     if (raw && raw.coverKey) entry.coverKey = String(raw.coverKey).trim();
+    if (raw && raw.sortOrder !== null && raw.sortOrder !== undefined && raw.sortOrder !== "") {
+      const sortOrderRaw = Number(raw.sortOrder);
+      if (Number.isFinite(sortOrderRaw)) entry.sortOrder = sortOrderRaw;
+    }
     if (Object.keys(entry).length) overrides[String(slug).trim().slice(0, 60)] = entry;
   }
   return { ok: true, overrides };
@@ -4553,6 +4587,7 @@ function legacyEventsOverrideScriptHTML(overrides) {
     if (o.location) entry.location = o.location;
     if (o.dateIso) entry.date = o.dateIso;
     if (o.coverKey) entry.cover = mediaUrl(o.coverKey);
+    if (typeof o.sortOrder === "number") entry.sortOrder = o.sortOrder;
     resolved[slug] = entry;
   }
   const json = JSON.stringify(resolved).replace(/</g, "\\u003c");

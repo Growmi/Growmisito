@@ -65,17 +65,30 @@
   function fromPublicEvent(ev){
     return {
       title: ev.name, date: ev.dateIso, tag: ev.dateDisplay, location: ev.location,
-      url: ev.pageUrl, cover: ev.coverImageUrl || ev.heroImageUrl || null, comingSoon: false
+      url: ev.pageUrl, cover: ev.coverImageUrl || ev.heroImageUrl || null, comingSoon: false,
+      sortOrder: ev.sortOrder
     };
   }
+
+  // Posizione manuale (pannello aziendale, artisti/eventi): chi ce l'ha va prima, in
+  // quell'ordine — chi non ce l'ha segue nell'ordine di sempre (per data).
+  function orderVal(e){ return (typeof e.sortOrder === 'number') ? e.sortOrder : Infinity; }
 
   function renderAll(dynamicEvents){
     var all = GROWMI_EVENTS.filter(function(e){ return !e.draft; }).concat(dynamicEvents);
     var today = todayISO();
     var upcoming = all.filter(function(e){ return e.date >= today; })
-      .sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+      .sort(function(a, b){
+        var oa = orderVal(a), ob = orderVal(b);
+        if (oa !== ob) return oa - ob;
+        return a.date < b.date ? -1 : 1;
+      });
     var past = all.filter(function(e){ return e.date < today; })
-      .sort(function(a, b){ return a.date > b.date ? -1 : 1; });
+      .sort(function(a, b){
+        var oa = orderVal(a), ob = orderVal(b);
+        if (oa !== ob) return oa - ob;
+        return a.date > b.date ? -1 : 1;
+      });
 
     render('upcoming-events-grid', upcoming, 'ev_empty', 'Nessun evento in programma al momento.');
     render('past-events-grid', past, 'ev_past_empty', 'Il primo evento deve ancora succedere — a breve la prima retrospettiva.');
