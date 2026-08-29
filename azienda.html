@@ -260,9 +260,14 @@
   }
   .az-preview-drawer.open .az-preview-drawer-panel{ transform:translateX(0); }
   .az-preview-drawer-header{
-    display:flex; align-items:center; justify-content:space-between;
+    display:flex; align-items:center; gap:12px;
     padding:16px 20px; border-bottom:1.5px solid var(--line);
     font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; flex:0 0 auto;
+  }
+  .az-preview-drawer-header span{ flex:1 1 auto; }
+  .az-preview-drawer-header select{
+    padding:7px 10px; border-radius:8px; border:1.5px solid var(--line); background:#fff;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12px; flex:0 0 auto;
   }
   .az-preview-drawer-header button{
     width:30px; height:30px; border-radius:50%; border:1.5px solid var(--line); background:#fff;
@@ -851,6 +856,7 @@
   <div class="az-preview-drawer-panel">
     <div class="az-preview-drawer-header">
       <span>Anteprima — modifiche non ancora pubblicate</span>
+      <select id="az-preview-page-select"></select>
       <button type="button" id="az-preview-close" aria-label="Chiudi anteprima">&times;</button>
     </div>
     <iframe id="az-preview-iframe" title="Anteprima pagina"></iframe>
@@ -1809,17 +1815,62 @@
     }
   }
 
+  // Pagine che si possono sfogliare dentro l'anteprima senza chiuderla — utile soprattutto per
+  // font/colori/tipografia, che valgono su tutto il sito e non solo sulla pagina di partenza.
+  var PREVIEW_PAGES = [
+    { url: '/index.html', label: 'Home' },
+    { url: '/eventi.html', label: 'Eventi' },
+    { url: '/artisti.html', label: 'Artisti' },
+    { url: '/chi-siamo.html', label: 'Chi siamo' },
+    { url: '/contatti.html', label: 'Contatti' },
+    { url: '/loyalty-card.html', label: 'Carta fedeltà' }
+  ];
   var previewDrawer = document.getElementById('az-preview-drawer');
   var previewIframe = document.getElementById('az-preview-iframe');
-  function openPreview(pageUrl, applyOpts){
-    previewDrawer.hidden = false;
-    requestAnimationFrame(function(){ previewDrawer.classList.add('open'); });
+  var previewPageSelect = document.getElementById('az-preview-page-select');
+  PREVIEW_PAGES.forEach(function(p){
+    var opt = document.createElement('option');
+    opt.value = p.url;
+    opt.textContent = p.label;
+    previewPageSelect.appendChild(opt);
+  });
+  var currentPreviewOpts = null;
+  var currentPreviewTargetPage = null;
+
+  // opts con solo styleHtml/googleFontsHref (niente fields/extraSections/replace/append) sono
+  // "globali" — un tema di font/colori/tipografia vale su ogni pagina — e restano applicati
+  // sfogliando l'anteprima. Gli altri (contenuti di UNA pagina specifica, es. i campi della home)
+  // si vedono solo mentre l'anteprima mostra proprio quella pagina.
+  function isPageSpecificPreview(opts){
+    return !!((opts.fields && Object.keys(opts.fields).length) || opts.extraSectionsHtml ||
+      (opts.replaceTargets && opts.replaceTargets.length) || (opts.appendTargets && opts.appendTargets.length));
+  }
+  function loadPreviewPage(pageUrl){
+    previewPageSelect.value = pageUrl;
     previewIframe.onload = function(){
-      try { applyPreviewOverrides(previewIframe.contentDocument, applyOpts); }
-      catch (err) { /* pagina non ancora caricata o cross-origin, si ignora */ }
+      try {
+        var applyForThisPage = (!isPageSpecificPreview(currentPreviewOpts) || pageUrl === currentPreviewTargetPage);
+        if (applyForThisPage) applyPreviewOverrides(previewIframe.contentDocument, currentPreviewOpts);
+      } catch (err) { /* pagina non ancora caricata o cross-origin, si ignora */ }
     };
     previewIframe.src = pageUrl + (pageUrl.indexOf('?') === -1 ? '?' : '&') + '_preview=' + Date.now();
   }
+  function openPreview(pageUrl, applyOpts){
+    previewDrawer.hidden = false;
+    requestAnimationFrame(function(){ previewDrawer.classList.add('open'); });
+    currentPreviewOpts = applyOpts;
+    currentPreviewTargetPage = pageUrl;
+    if (!previewPageSelect.querySelector('option[value="' + pageUrl + '"]')) {
+      var opt = document.createElement('option');
+      opt.value = pageUrl;
+      opt.textContent = 'Pagina corrente';
+      previewPageSelect.insertBefore(opt, previewPageSelect.firstChild);
+    }
+    loadPreviewPage(pageUrl);
+  }
+  previewPageSelect.addEventListener('change', function(){
+    loadPreviewPage(previewPageSelect.value);
+  });
   function closePreview(){
     previewDrawer.classList.remove('open');
     setTimeout(function(){ previewDrawer.hidden = true; previewIframe.src = 'about:blank'; }, 320);
