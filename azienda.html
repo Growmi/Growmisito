@@ -194,12 +194,16 @@
     padding:9px 12px; border-radius:10px; border:1.5px solid var(--line); font-family:'Inter',sans-serif;
     font-size:13.5px; margin-bottom:14px;
   }
-  .az-fb-summary-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+  .az-fb-summary-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   @media (max-width:900px){ .az-fb-summary-grid{ grid-template-columns:1fr; } }
   .az-fb-summary-block{ background:#fff; border:1.5px solid var(--line); border-radius:16px; padding:16px 18px; }
   .az-fb-summary-block h4{ font-family:'Space Grotesk',sans-serif; font-size:12.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--grey); margin-bottom:12px; }
+  /* "Cosa è piaciuto di più" cresce in una lista a più colonne invece di stare compressa in una
+     delle 3 card uguali di prima — con eventi diversi che hanno opzioni diverse, l'elenco di voci
+     possibili è lungo e variabile, non ci sta in un riquadro a misura fissa. */
+  .az-fb-options-list{ display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:6px 24px; }
   .az-fb-bar-row{ display:flex; align-items:center; gap:8px; font-size:12.5px; margin-bottom:7px; }
-  .az-fb-bar-row .fb-label{ flex:0 0 auto; min-width:60px; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .az-fb-bar-row .fb-label{ flex:0 0 auto; min-width:60px; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .az-fb-bar-row .fb-track{ flex:1; height:8px; border-radius:6px; background:#F3ECE3; overflow:hidden; }
   .az-fb-bar-row .fb-fill{ height:100%; background:var(--coral); border-radius:6px; }
   .az-fb-bar-row .fb-count{ flex:0 0 auto; color:var(--grey); font-size:11.5px; min-width:18px; text-align:right; }
@@ -471,13 +475,13 @@
             <div id="az-fb-rating-bars"></div>
           </div>
           <div class="az-fb-summary-block">
-            <h4>Cosa è piaciuto di più</h4>
-            <div id="az-fb-options-bars"></div>
-          </div>
-          <div class="az-fb-summary-block">
             <h4>Consiglierebbero GrowMi</h4>
             <div class="az-fb-big-stat" id="az-fb-recommend-stat">—<span class="sub" id="az-fb-recommend-sub"></span></div>
           </div>
+        </div>
+        <div class="az-fb-summary-block" style="margin-top:16px;">
+          <h4>Cosa è piaciuto di più</h4>
+          <div id="az-fb-options-bars" class="az-fb-options-list"></div>
         </div>
       </div>
       <div class="az-toolbar">
@@ -1296,7 +1300,14 @@
     items.forEach(function(r){
       if (r.rating >= 1 && r.rating <= 10) ratingCounts[r.rating]++;
       var opts = (r.likedOptions && r.likedOptions.length) ? r.likedOptions : [];
-      opts.forEach(function(o){ optionCounts[o] = (optionCounts[o] || 0) + 1; });
+      opts.forEach(function(o){
+        // "Altro: <testo libero>" è diverso a ogni risposta — se ognuna diventasse una riga a sé
+        // l'elenco si riempirebbe di voci uniche invece di un vero conteggio. Si raggruppano tutte
+        // sotto un'unica voce "Altro"; il testo scritto da chi risponde resta comunque leggibile
+        // nell'export CSV, colonna "Piaciuto".
+        var key = (o === 'Altro' || o.indexOf('Altro: ') === 0) ? 'Altro' : o;
+        optionCounts[key] = (optionCounts[key] || 0) + 1;
+      });
       if (typeof r.wouldRecommend === 'boolean') {
         recommendTotal++;
         if (r.wouldRecommend) recommendYes++;
@@ -1311,7 +1322,7 @@
     var optionEntries = Object.keys(optionCounts).map(function(k){ return { label: k, count: optionCounts[k] }; });
     optionEntries.sort(function(a, b){ return b.count - a.count; });
     var maxOption = Math.max.apply(null, optionEntries.map(function(e){ return e.count; }).concat([0]));
-    renderFeedbackBars(document.getElementById('az-fb-options-bars'), optionEntries.slice(0, 8), maxOption);
+    renderFeedbackBars(document.getElementById('az-fb-options-bars'), optionEntries, maxOption);
 
     var pct = recommendTotal ? Math.round((recommendYes / recommendTotal) * 100) : null;
     document.getElementById('az-fb-recommend-stat').innerHTML = (pct === null ? '—' : pct + '%') +
