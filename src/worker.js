@@ -747,6 +747,24 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    if ((url.pathname === "/contatti" || url.pathname === "/contatti.html") && request.method === "GET") {
+      try {
+        const handled = await handleContattiPage(request, env);
+        if (handled) return handled;
+      } catch (err) {
+        console.log("Errore contatti page:", err.stack || err.message);
+      }
+    }
+
+    if ((url.pathname === "/loyalty-card" || url.pathname === "/loyalty-card.html") && request.method === "GET") {
+      try {
+        const handled = await handleLoyaltyCardPage(request, env);
+        if (handled) return handled;
+      } catch (err) {
+        console.log("Errore loyalty-card page:", err.stack || err.message);
+      }
+    }
+
     return env.ASSETS.fetch(request);
 }
 
@@ -827,8 +845,16 @@ async function findTierOption(env, eventSlug, tierId, optionId) {
   return { event, tier, option };
 }
 
+// Di norma le chiavi sono chiavi R2 ("events/...", "pages/...", ecc.) da far passare per /media/.
+// Il pannello Chi siamo però pre-popola i fondatori con le foto statiche già live sul sito (per
+// mostrare lo stato reale prima di qualunque modifica): se non vengono ricaricate restano un
+// percorso relativo agli asset statici ("assets/img/...") e vanno usate così come sono.
 function mediaUrl(key) {
-  return key ? `/media/${key}` : null;
+  if (!key) return null;
+  if (key.startsWith("http://") || key.startsWith("https://") || key.startsWith("/") || key.startsWith("assets/")) {
+    return key;
+  }
+  return `/media/${key}`;
 }
 
 // Un evento senza "published" salvato è nato prima di questo campo (o non è mai stato
@@ -4071,6 +4097,18 @@ async function handleChiSiamoPage(request, env) {
       extraSections: "#cs-extra-sections",
       replace: [{ selector: "#cs-founders-grid", data: content.founders, render: foundersHTML }]
     };
+  });
+}
+
+async function handleContattiPage(request, env) {
+  return handleFixedPageRoute(request, env, "contatti", function(){
+    return { extraSections: "#ct-extra-sections", replace: [] };
+  });
+}
+
+async function handleLoyaltyCardPage(request, env) {
+  return handleFixedPageRoute(request, env, "loyalty-card", function(){
+    return { extraSections: "#loy-extra-sections", replace: [] };
   });
 }
 

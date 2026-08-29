@@ -56,9 +56,9 @@
 
 <section class="ed-hero" style="padding:110px 0 80px;">
   <div class="wrap ed-wrap">
-    <p class="ed-eyebrow">Loyalty Card</p>
-    <h1 style="font-size:clamp(36px,6vw,76px); max-width:760px;" data-i18n="loy_title">La card esclusiva di GrowMi</h1>
-    <p class="ed-lead" data-i18n="loy_lead">Un piccolo grazie per chi ci segue evento dopo evento: ad ogni partecipazione un timbro sulla tua card, con premi lungo il percorso.</p>
+    <p class="ed-eyebrow" data-cms="hero.eyebrow">Loyalty Card</p>
+    <h1 style="font-size:clamp(36px,6vw,76px); max-width:760px;" data-i18n="loy_title" data-cms="hero.title">La card esclusiva di GrowMi</h1>
+    <p class="ed-lead" data-i18n="loy_lead" data-cms="hero.lead">Un piccolo grazie per chi ci segue evento dopo evento: ad ogni partecipazione un timbro sulla tua card, con premi lungo il percorso.</p>
     <div class="ed-hero-actions">
       <a class="btn coral" href="area-personale.html">Accedi alla tua area personale</a>
     </div>
@@ -69,12 +69,12 @@
   <div class="wrap">
     <div class="loyalty-rewards">
       <div class="loyalty-reward">
-        <span class="num" data-i18n="loy_r3_label">3° evento</span>
-        <p data-i18n="loy_r3_text">Un drink offerto dalla casa</p>
+        <span class="num" data-i18n="loy_r3_label" data-cms="rewards.r3Label">3° evento</span>
+        <p data-i18n="loy_r3_text" data-cms="rewards.r3Text">Un drink offerto dalla casa</p>
       </div>
       <div class="loyalty-reward">
-        <span class="num" data-i18n="loy_r5_label">5° evento</span>
-        <p data-i18n="loy_r5_text">Ingresso gratuito</p>
+        <span class="num" data-i18n="loy_r5_label" data-cms="rewards.r5Label">5° evento</span>
+        <p data-i18n="loy_r5_text" data-cms="rewards.r5Text">Ingresso gratuito</p>
       </div>
     </div>
 
@@ -82,17 +82,19 @@
       <div class="loyalty-card" tabindex="0" role="button" aria-label="Gira la card">
         <div class="loyalty-card-inner">
           <div class="loyalty-card-face loyalty-card-front">
-            <img src="assets/img/loyalty/front.jpg" alt="GrowMi Loyalty Card" class="loyalty-card-img">
+            <img src="assets/img/loyalty/front.jpg" alt="GrowMi Loyalty Card" class="loyalty-card-img" data-cms-src="card.front.image">
           </div>
           <div class="loyalty-card-face loyalty-card-back">
-            <img src="assets/img/loyalty/back.jpg" alt="Al quinto timbro sblocchi un'esperienza gratuita" class="loyalty-card-img">
+            <img src="assets/img/loyalty/back.jpg" alt="Al quinto timbro sblocchi un'esperienza gratuita" class="loyalty-card-img" data-cms-src="card.back.image">
           </div>
         </div>
       </div>
-      <p class="loyalty-hint" data-i18n="loy_hint">Tocca la card per girarla</p>
+      <p class="loyalty-hint" data-i18n="loy_hint" data-cms="card.hint">Tocca la card per girarla</p>
     </div>
   </div>
 </section>
+
+<div id="loy-extra-sections"></div>
 
 <script>
   document.querySelectorAll('.loyalty-card').forEach(function(card){

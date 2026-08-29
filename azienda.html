@@ -313,6 +313,8 @@
         <p class="az-nav-group-label">Pagine</p>
         <button type="button" class="az-nav-item" data-panel="pagina-home">🏠 Home</button>
         <button type="button" class="az-nav-item" data-panel="pagina-chisiamo">👥 Chi siamo</button>
+        <button type="button" class="az-nav-item" data-panel="pagina-contatti">✉️ Contatti</button>
+        <button type="button" class="az-nav-item" data-panel="pagina-loyalty">💳 Carta fedeltà</button>
       </div>
       <div class="az-nav-group">
         <p class="az-nav-group-label">Impostazioni</p>
@@ -672,6 +674,73 @@
           <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Salva chi siamo</button>
         </div>
         <p class="az-msg" id="az-chisiamo-msg" hidden></p>
+      </form>
+    </div>
+
+    <!-- Pagina Contatti -->
+    <div class="az-panel" data-panel-content="pagina-contatti" hidden>
+      <p style="font-size:13px; color:var(--grey); margin-bottom:20px; max-width:600px;">Come per le altre pagine: campo vuoto = resta il testo attuale del sito.</p>
+      <form id="az-contatti-form" style="max-width:640px; display:flex; flex-direction:column; gap:28px;">
+        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Hero</h3><div id="az-ct-fields-hero" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+
+        <div>
+          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Sezioni extra</h3>
+          <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Aggiunte in un unico punto fisso, appena prima della newsletter.</p>
+          <div id="az-ct-extra" style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;"></div>
+          <div style="display:flex; gap:10px;">
+            <button type="button" class="az-mini-btn" id="az-ct-add-text-section">+ Aggiungi sezione di testo</button>
+            <button type="button" class="az-mini-btn" id="az-ct-add-image-section">+ Aggiungi sezione immagine</button>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Salva contatti</button>
+        </div>
+        <p class="az-msg" id="az-contatti-msg" hidden></p>
+      </form>
+    </div>
+
+    <!-- Pagina Carta fedeltà -->
+    <div class="az-panel" data-panel-content="pagina-loyalty" hidden>
+      <p style="font-size:13px; color:var(--grey); margin-bottom:20px; max-width:600px;">Come per le altre pagine: campo vuoto = resta il testo attuale del sito.</p>
+      <form id="az-loyalty-form" style="max-width:640px; display:flex; flex-direction:column; gap:28px;">
+        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Hero</h3><div id="az-loy-fields-hero" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+
+        <div>
+          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Premi fedeltà</h3>
+          <div id="az-loy-fields-rewards" style="display:flex; flex-direction:column; gap:14px;"></div>
+        </div>
+
+        <div>
+          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Card fisica</h3>
+          <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Le due facce della card (si gira al tocco) e il testo del suggerimento.</p>
+          <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:14px;">
+            <div>
+              <div class="az-image-preview" id="az-loy-front-preview" style="aspect-ratio:9/14;">Fronte</div>
+              <input type="file" accept="image/jpeg,image/png,image/webp" id="az-loy-front-input">
+            </div>
+            <div>
+              <div class="az-image-preview" id="az-loy-back-preview" style="aspect-ratio:9/14;">Retro</div>
+              <input type="file" accept="image/jpeg,image/png,image/webp" id="az-loy-back-input">
+            </div>
+          </div>
+          <div id="az-loy-fields-hint"></div>
+        </div>
+
+        <div>
+          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Sezioni extra</h3>
+          <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Aggiunte in un unico punto fisso, appena prima della newsletter.</p>
+          <div id="az-loy-extra" style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;"></div>
+          <div style="display:flex; gap:10px;">
+            <button type="button" class="az-mini-btn" id="az-loy-add-text-section">+ Aggiungi sezione di testo</button>
+            <button type="button" class="az-mini-btn" id="az-loy-add-image-section">+ Aggiungi sezione immagine</button>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Salva carta fedeltà</button>
+        </div>
+        <p class="az-msg" id="az-loyalty-msg" hidden></p>
       </form>
     </div>
 
@@ -1543,6 +1612,14 @@
       } catch (err) { alert(err.message); }
     });
   });
+  // Rispecchia mediaUrl() lato server: la maggior parte delle chiavi sono chiavi R2 da far
+  // passare per /media/, ma alcune (es. i fondatori pre-popolati con le foto statiche già live)
+  // sono percorsi relativi agli asset statici e vanno usati così come sono.
+  function mediaSrc(key){
+    if (!key) return '';
+    if (key.indexOf('http://') === 0 || key.indexOf('https://') === 0 || key.indexOf('/') === 0 || key.indexOf('assets/') === 0) return key;
+    return '/media/' + key;
+  }
   // Generalizzazione minima di uploadArtistMedia per accettare anche "pages" come kind, senza
   // duplicare tutta la logica di upload.
   async function uploadArtistMediaGeneric(file, purpose, slug, kind){
@@ -1618,7 +1695,11 @@
         homeSlideKeys[key] = content.fields[key] || null;
         var n = key.slice(-1);
         var preview = document.getElementById('az-home-slide' + n + '-preview');
-        preview.innerHTML = homeSlideKeys[key] ? '<img src="/media/' + homeSlideKeys[key] + '" alt="">' : 'Slide ' + n;
+        // Se non è mai stato caricato un override, mostra comunque la foto attualmente live sul
+        // sito (statica) — così si vede subito cosa c'è ora, non un placeholder vuoto. Non viene
+        // salvata come override finché non si carica davvero una nuova immagine.
+        var liveSrc = homeSlideKeys[key] ? '/media/' + homeSlideKeys[key] : 'assets/img/home/slide-0' + n + '.jpg';
+        preview.innerHTML = '<img src="' + liveSrc + '" alt="">';
       });
       homeExtraSections = (content.extraSections || []).slice();
       renderHomeExtraSections();
@@ -1710,6 +1791,13 @@
   };
   var chisiamoFieldInputs = {}; // key -> input/textarea element
   var chisiamoFounders = []; // [{name, role, photoKey}]
+  // Fondatori attualmente live sul sito (foto statiche) — usati per pre-popolare la lista finché
+  // non è mai stato salvato un override, così il pannello mostra subito lo stato reale invece di
+  // partire vuoto.
+  var CHISIAMO_DEFAULT_FOUNDERS = [
+    { name: 'Carlo Capizzoto', role: 'Co-founder · CEO', photoKey: 'assets/img/team/carlo-capizzoto.jpg' },
+    { name: 'Alessandro Decollanz', role: 'Co-founder · Direttore operativo', photoKey: 'assets/img/team/alessandro-decollanz.jpg' }
+  ];
   var chisiamoExtraSections = []; // [{type:'text', title, body} | {type:'image', key, caption}]
 
   renderHomeFieldGroup('az-cs-fields-hero', CHISIAMO_FIELD_GROUPS.hero, chisiamoFieldInputs);
@@ -1731,7 +1819,7 @@
       row.style.cssText = 'border:1.5px solid var(--line); border-radius:10px; padding:12px; display:grid; grid-template-columns:80px 1fr; gap:12px;';
       row.innerHTML =
         '<div>' +
-          '<div class="az-image-preview" style="aspect-ratio:1/1;">' + (f.photoKey ? '<img src="/media/' + f.photoKey + '" alt="">' : 'Foto') + '</div>' +
+          '<div class="az-image-preview" style="aspect-ratio:1/1;">' + (f.photoKey ? '<img src="' + mediaSrc(f.photoKey) + '" alt="">' : 'Foto') + '</div>' +
           '<input type="file" accept="image/jpeg,image/png,image/webp" style="margin-top:6px; font-size:11px;">' +
         '</div>' +
         '<div>' +
@@ -1820,7 +1908,7 @@
       Object.keys(chisiamoFieldInputs).forEach(function(key){
         chisiamoFieldInputs[key].value = content.fields[key] || '';
       });
-      chisiamoFounders = (content.founders || []).slice();
+      chisiamoFounders = (content.founders !== undefined ? content.founders : CHISIAMO_DEFAULT_FOUNDERS).slice();
       renderChisiamoFounders();
       chisiamoExtraSections = (content.extraSections || []).slice();
       renderChisiamoExtraSections();
@@ -1859,6 +1947,220 @@
     }
     submitBtn.disabled = false;
     submitBtn.textContent = 'Salva chi siamo';
+  });
+
+  // ---- Pagina Contatti ----
+  var CONTATTI_FIELD_GROUPS = {
+    hero: [
+      { key: 'hero.eyebrow', label: 'Eyebrow (sopra il titolo)' },
+      { key: 'hero.title', label: 'Titolo' },
+      { key: 'hero.lead', label: 'Testo sotto il titolo', multiline: true }
+    ]
+  };
+  var contattiFieldInputs = {};
+  var contattiExtraSections = [];
+
+  renderHomeFieldGroup('az-ct-fields-hero', CONTATTI_FIELD_GROUPS.hero, contattiFieldInputs);
+
+  function renderExtraSectionsGeneric(wrapId, list, slug, rerender){
+    var wrap = document.getElementById(wrapId);
+    wrap.innerHTML = '';
+    list.forEach(function(s, i){
+      var row = document.createElement('div');
+      row.style.cssText = 'border:1.5px solid var(--line); border-radius:10px; padding:12px;';
+      if (s.type === 'text') {
+        row.innerHTML =
+          '<input type="text" placeholder="Titolo sezione" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<textarea placeholder="Testo" style="width:100%; min-height:70px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);"></textarea>' +
+          '<button type="button" class="az-mini-btn danger" style="margin-top:8px;">Rimuovi sezione</button>';
+        var titleInput = row.querySelector('input');
+        var bodyInput = row.querySelector('textarea');
+        titleInput.value = s.title || '';
+        bodyInput.value = s.body || '';
+        titleInput.addEventListener('input', function(){ s.title = titleInput.value; });
+        bodyInput.addEventListener('input', function(){ s.body = bodyInput.value; });
+      } else {
+        row.innerHTML =
+          '<div class="az-image-preview" style="aspect-ratio:16/7;">' + (s.key ? '<img src="/media/' + s.key + '" alt="">' : 'Nessuna immagine') + '</div>' +
+          '<input type="file" accept="image/jpeg,image/png,image/webp" style="margin-bottom:8px;">' +
+          '<input type="text" placeholder="Didascalia (facoltativa)" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<button type="button" class="az-mini-btn danger">Rimuovi sezione</button>';
+        var fileInput = row.querySelector('input[type=file]');
+        var captionInput = row.querySelector('input[type=text]');
+        captionInput.value = s.caption || '';
+        captionInput.addEventListener('input', function(){ s.caption = captionInput.value; });
+        fileInput.addEventListener('change', async function(){
+          var file = fileInput.files[0];
+          if (!file) return;
+          try {
+            s.key = await uploadArtistMediaGeneric(file, 'section', slug, 'pages');
+            rerender();
+          } catch (err) { alert(err.message); }
+        });
+      }
+      row.querySelector('.danger').addEventListener('click', function(){ list.splice(i, 1); rerender(); });
+      wrap.appendChild(row);
+    });
+  }
+
+  function renderContattiExtraSections(){ renderExtraSectionsGeneric('az-ct-extra', contattiExtraSections, 'contatti', renderContattiExtraSections); }
+  document.getElementById('az-ct-add-text-section').addEventListener('click', function(){
+    contattiExtraSections.push({ type: 'text', title: '', body: '' });
+    renderContattiExtraSections();
+  });
+  document.getElementById('az-ct-add-image-section').addEventListener('click', function(){
+    contattiExtraSections.push({ type: 'image', key: null, caption: '' });
+    renderContattiExtraSections();
+  });
+
+  async function loadContattiContent(){
+    try {
+      var res = await fetch('/api/admin/page-content?page=contatti');
+      var data = await res.json();
+      var content = data.content || { fields: {}, extraSections: [] };
+      Object.keys(contattiFieldInputs).forEach(function(key){
+        contattiFieldInputs[key].value = content.fields[key] || '';
+      });
+      contattiExtraSections = (content.extraSections || []).slice();
+      renderContattiExtraSections();
+    } catch (err) { /* i campi restano vuoti, riprovabile ricaricando il pannello */ }
+  }
+  panelLoaders['pagina-contatti'] = { loaded: false, load: loadContattiContent };
+
+  document.getElementById('az-contatti-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var msg = document.getElementById('az-contatti-msg');
+    msg.hidden = true;
+    var fields = {};
+    Object.keys(contattiFieldInputs).forEach(function(key){
+      var v = contattiFieldInputs[key].value.trim();
+      if (v) fields[key] = v;
+    });
+    var submitBtn = document.querySelector('#az-contatti-form .az-submit');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Salvataggio...';
+    try {
+      var res = await fetch('/api/admin/page-content', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page: 'contatti', fields: fields, extraSections: contattiExtraSections })
+      });
+      var data = await res.json();
+      if (res.ok) {
+        showMsg(msg, 'Salvato — la pagina contatti è già aggiornata.', false);
+      } else {
+        showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+      }
+    } catch (err) {
+      showMsg(msg, 'Errore di connessione.', true);
+    }
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Salva contatti';
+  });
+
+  // ---- Pagina Carta fedeltà ----
+  var LOYALTY_FIELD_GROUPS = {
+    hero: [
+      { key: 'hero.eyebrow', label: 'Eyebrow (sopra il titolo)' },
+      { key: 'hero.title', label: 'Titolo' },
+      { key: 'hero.lead', label: 'Testo sotto il titolo', multiline: true }
+    ],
+    rewards: [
+      { key: 'rewards.r3Label', label: 'Premio 1 — etichetta (es. "3° evento")' },
+      { key: 'rewards.r3Text', label: 'Premio 1 — testo' },
+      { key: 'rewards.r5Label', label: 'Premio 2 — etichetta (es. "5° evento")' },
+      { key: 'rewards.r5Text', label: 'Premio 2 — testo' }
+    ],
+    hint: [
+      { key: 'card.hint', label: 'Testo suggerimento (es. "Tocca la card per girarla")' }
+    ]
+  };
+  var loyaltyFieldInputs = {};
+  var loyaltyCardKeys = { 'card.front.image': null, 'card.back.image': null };
+  var loyaltyExtraSections = [];
+
+  renderHomeFieldGroup('az-loy-fields-hero', LOYALTY_FIELD_GROUPS.hero, loyaltyFieldInputs);
+  renderHomeFieldGroup('az-loy-fields-rewards', LOYALTY_FIELD_GROUPS.rewards, loyaltyFieldInputs);
+  renderHomeFieldGroup('az-loy-fields-hint', LOYALTY_FIELD_GROUPS.hint, loyaltyFieldInputs);
+
+  [{ side: 'front', key: 'card.front.image' }, { side: 'back', key: 'card.back.image' }].forEach(function(cfg){
+    document.getElementById('az-loy-' + cfg.side + '-input').addEventListener('change', async function(){
+      var file = this.files[0];
+      this.value = '';
+      if (!file) return;
+      try {
+        var uploadedKey = await uploadArtistMediaGeneric(file, cfg.side, 'loyalty-card', 'pages');
+        loyaltyCardKeys[cfg.key] = uploadedKey;
+        document.getElementById('az-loy-' + cfg.side + '-preview').innerHTML = '<img src="/media/' + uploadedKey + '" alt="">';
+      } catch (err) { alert(err.message); }
+    });
+  });
+
+  function renderLoyaltyExtraSections(){ renderExtraSectionsGeneric('az-loy-extra', loyaltyExtraSections, 'loyalty-card', renderLoyaltyExtraSections); }
+  document.getElementById('az-loy-add-text-section').addEventListener('click', function(){
+    loyaltyExtraSections.push({ type: 'text', title: '', body: '' });
+    renderLoyaltyExtraSections();
+  });
+  document.getElementById('az-loy-add-image-section').addEventListener('click', function(){
+    loyaltyExtraSections.push({ type: 'image', key: null, caption: '' });
+    renderLoyaltyExtraSections();
+  });
+
+  async function loadLoyaltyContent(){
+    try {
+      var res = await fetch('/api/admin/page-content?page=loyalty-card');
+      var data = await res.json();
+      var content = data.content || { fields: {}, extraSections: [] };
+      Object.keys(loyaltyFieldInputs).forEach(function(key){
+        loyaltyFieldInputs[key].value = content.fields[key] || '';
+      });
+      Object.keys(loyaltyCardKeys).forEach(function(key){
+        loyaltyCardKeys[key] = content.fields[key] || null;
+        var side = key.indexOf('front') !== -1 ? 'front' : 'back';
+        var preview = document.getElementById('az-loy-' + side + '-preview');
+        // Come per le slide della home: senza override mostra comunque la foto attualmente live
+        // (statica), non un placeholder vuoto.
+        var liveSrc = loyaltyCardKeys[key] ? '/media/' + loyaltyCardKeys[key] : 'assets/img/loyalty/' + side + '.jpg';
+        preview.innerHTML = '<img src="' + liveSrc + '" alt="">';
+      });
+      loyaltyExtraSections = (content.extraSections || []).slice();
+      renderLoyaltyExtraSections();
+    } catch (err) { /* i campi restano vuoti, riprovabile ricaricando il pannello */ }
+  }
+  panelLoaders['pagina-loyalty'] = { loaded: false, load: loadLoyaltyContent };
+
+  document.getElementById('az-loyalty-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var msg = document.getElementById('az-loyalty-msg');
+    msg.hidden = true;
+    var fields = {};
+    Object.keys(loyaltyFieldInputs).forEach(function(key){
+      var v = loyaltyFieldInputs[key].value.trim();
+      if (v) fields[key] = v;
+    });
+    Object.keys(loyaltyCardKeys).forEach(function(key){
+      if (loyaltyCardKeys[key]) fields[key] = loyaltyCardKeys[key];
+    });
+    var submitBtn = document.querySelector('#az-loyalty-form .az-submit');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Salvataggio...';
+    try {
+      var res = await fetch('/api/admin/page-content', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page: 'loyalty-card', fields: fields, extraSections: loyaltyExtraSections })
+      });
+      var data = await res.json();
+      if (res.ok) {
+        showMsg(msg, 'Salvato — la pagina carta fedeltà è già aggiornata.', false);
+      } else {
+        showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+      }
+    } catch (err) {
+      showMsg(msg, 'Errore di connessione.', true);
+    }
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Salva carta fedeltà';
   });
 
   // ---- Impostazioni: immagine hero di default (chiave R2 fissa "site/default-hero-image") ----
