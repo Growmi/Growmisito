@@ -607,6 +607,7 @@
           <input type="text" id="az-nl-group-type" placeholder="Tipo di email (facoltativo, es. Promozioni)" style="max-width:240px; padding:10px 13px; border-radius:10px; border:1.5px solid var(--line); font-family:'Inter',sans-serif; font-size:14px;">
           <button type="button" class="az-mini-btn" id="az-nl-group-add">+ Crea gruppo</button>
         </div>
+        <p class="az-msg" id="az-nl-group-msg" hidden></p>
       </div>
 
       <div style="margin-top:36px; padding-top:28px; border-top:1.5px solid var(--line);">
@@ -619,6 +620,7 @@
             <option value="">Consenso: tutti</option>
             <option value="yes">Consenso: sì</option>
             <option value="no">Consenso: no</option>
+            <option value="unsubscribed">Disiscritti</option>
           </select>
           <select id="az-nl-sort">
             <option value="date-desc">Iscritto il: più recenti</option>
@@ -1624,8 +1626,10 @@
   document.getElementById('az-nl-group-add').addEventListener('click', async function(){
     var nameInput = document.getElementById('az-nl-group-name');
     var typeInput = document.getElementById('az-nl-group-type');
+    var msg = document.getElementById('az-nl-group-msg');
+    msg.hidden = true;
     var name = nameInput.value.trim();
-    if (!name) return;
+    if (!name) { showMsg(msg, 'Scrivi un nome per il gruppo prima di crearlo.', true); return; }
     var btn = this;
     btn.disabled = true;
     try {
@@ -1634,9 +1638,9 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name, emailType: typeInput.value.trim() })
       });
-      if (res.ok) { nameInput.value = ''; typeInput.value = ''; await loadNlGroups(); }
-      else { var data = await res.json(); alert(data.error || 'Qualcosa è andato storto.'); }
-    } catch (err) { alert('Errore di connessione.'); }
+      if (res.ok) { nameInput.value = ''; typeInput.value = ''; showMsg(msg, 'Gruppo creato.', false); await loadNlGroups(); }
+      else { var data = await res.json(); showMsg(msg, data.error || 'Qualcosa è andato storto.', true); }
+    } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
     btn.disabled = false;
   });
 
@@ -1662,6 +1666,11 @@
       if (groupFilter.indexOf('event:') === 0 && !(s.eventGroups || []).includes(groupFilter.slice(6))) return false;
       if (groupFilter.indexOf('group:') === 0 && !(s.manualGroups || []).includes(groupFilter.slice(6))) return false;
       var hasConsent = s.newsletterOptin && !s.unsubscribed;
+      if (consentFilter === 'unsubscribed') return !!s.unsubscribed;
+      // Chi si è disiscritto non riceve comunque più nulla (già escluso da ogni invio) — fuori
+      // dalla vista di default per non intasare la tabella, ma resta consultabile scegliendo
+      // "Disiscritti" qui sopra: nessun dato viene mai cancellato.
+      if (s.unsubscribed) return false;
       if (consentFilter === 'yes' && !hasConsent) return false;
       if (consentFilter === 'no' && hasConsent) return false;
       return true;
