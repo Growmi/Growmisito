@@ -1330,30 +1330,49 @@
   logoutBtnSidebar.addEventListener('click', doLogout);
 
   // ---- switching pannelli dashboard ----
+  // Ogni pannello ha un URL vero e condivisibile (?panel=newsletter) invece di essere raggiungibile
+  // solo cliccando in sidebar — utile per mandare un link diretto, per il tasto indietro del
+  // browser, e perché un refresh non riporta più sempre alla Dashboard. Un'unica funzione
+  // (switchPanel) sia per i click in sidebar sia per il tasto indietro/avanti, così la logica di
+  // mostra/nascondi resta in un solo posto.
   var panelLoaders = {};
+  function switchPanel(target, opts){
+    opts = opts || {};
+    var btn = document.querySelector('.az-sidebar-nav button[data-panel="' + target + '"]');
+    if (!btn) return false;
+    if (!opts.skipCloseSidebar) closeSidebar();
+    document.querySelectorAll('.az-sidebar-nav button[data-panel]').forEach(function(b){ b.classList.remove('is-active'); });
+    btn.classList.add('is-active');
+    document.querySelectorAll('[data-panel-content]').forEach(function(p){
+      p.hidden = p.getAttribute('data-panel-content') !== target;
+    });
+    // Il saluto "Ciao, [Nome]!" ha senso solo in Dashboard — sugli altri pannelli si vedeva
+    // identico su ogni schermata, ridondante col nome del pannello già selezionato in sidebar.
+    if (target === 'dashboard') {
+      heroTitle.textContent = 'Ciao, ' + dashFirstName + '!';
+      heroLead.textContent = 'Ecco cosa succede su GrowMi.';
+    } else {
+      heroTitle.textContent = btn.textContent.replace(/^\S+\s*/, '');
+      heroLead.textContent = '';
+    }
+    if (panelLoaders[target] && !panelLoaders[target].loaded) {
+      panelLoaders[target].loaded = true;
+      panelLoaders[target].load();
+    }
+    if (!opts.skipHistory) {
+      var url = target === 'dashboard' ? window.location.pathname : ('?panel=' + target);
+      history.pushState({ panel: target }, '', url);
+    }
+    return true;
+  }
   document.querySelectorAll('.az-sidebar-nav button[data-panel]').forEach(function(btn){
     btn.addEventListener('click', function(){
-      closeSidebar();
-      document.querySelectorAll('.az-sidebar-nav button[data-panel]').forEach(function(b){ b.classList.remove('is-active'); });
-      btn.classList.add('is-active');
-      var target = btn.getAttribute('data-panel');
-      document.querySelectorAll('[data-panel-content]').forEach(function(p){
-        p.hidden = p.getAttribute('data-panel-content') !== target;
-      });
-      // Il saluto "Ciao, [Nome]!" ha senso solo in Dashboard — sugli altri pannelli si vedeva
-      // identico su ogni schermata, ridondante col nome del pannello già selezionato in sidebar.
-      if (target === 'dashboard') {
-        heroTitle.textContent = 'Ciao, ' + dashFirstName + '!';
-        heroLead.textContent = 'Ecco cosa succede su GrowMi.';
-      } else {
-        heroTitle.textContent = btn.textContent.replace(/^\S+\s*/, '');
-        heroLead.textContent = '';
-      }
-      if (panelLoaders[target] && !panelLoaders[target].loaded) {
-        panelLoaders[target].loaded = true;
-        panelLoaders[target].load();
-      }
+      switchPanel(btn.getAttribute('data-panel'));
     });
+  });
+  window.addEventListener('popstate', function(){
+    var panelFromUrl = new URLSearchParams(window.location.search).get('panel') || 'dashboard';
+    switchPanel(panelFromUrl, { skipHistory: true, skipCloseSidebar: true });
   });
 
   // ---- Dashboard ----
@@ -5427,11 +5446,11 @@
       loadSiteAnalytics();
       panelLoaders.dashboard.loaded = true;
 
+      // skipHistory qui: si sta solo sincronizzando la UI con l'URL con cui la pagina è già stata
+      // aperta, non un nuovo passo di navigazione — altrimenti si aggiungerebbe una voce di
+      // cronologia duplicata (stesso URL due volte) al primo caricamento.
       var wantedPanel = new URLSearchParams(window.location.search).get('panel');
-      if (wantedPanel) {
-        var panelBtn = document.querySelector('.az-sidebar-nav button[data-panel="' + wantedPanel + '"]');
-        if (panelBtn) panelBtn.click();
-      }
+      if (wantedPanel) switchPanel(wantedPanel, { skipHistory: true });
     } catch (err) { /* resta la schermata di login, riprovabile ricaricando */ }
   }
 
