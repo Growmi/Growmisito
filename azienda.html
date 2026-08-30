@@ -489,11 +489,12 @@
     <!-- Newsletter -->
     <div class="az-panel" data-panel-content="newsletter" hidden>
       <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Campagne</h3>
-      <p style="font-size:12px; color:var(--grey); margin-bottom:16px; max-width:600px;">Lega una newsletter a un evento per una bozza già pronta (testo ed evento precompilati, tu aggiungi le foto), oppure parti da zero.</p>
+      <p style="font-size:12px; color:var(--grey); margin-bottom:16px; max-width:600px;">Lega una newsletter a un evento per una bozza già pronta (testo ed evento precompilati, tu aggiungi le foto), parti dal modello standard, oppure da zero.</p>
       <div class="az-toolbar">
         <span></span>
         <div class="actions">
-          <button type="button" class="primary" id="az-nl-camp-new">+ Nuova newsletter</button>
+          <button type="button" class="primary" id="az-nl-camp-from-template">📄 Nuovo da modello standard</button>
+          <button type="button" class="az-mini-btn" id="az-nl-camp-new">+ Nuova newsletter vuota</button>
           <button type="button" class="az-mini-btn" id="az-nl-import-mailerlite-campaigns">⬇️ Importa storico da MailerLite</button>
         </div>
       </div>
@@ -1822,6 +1823,25 @@
   });
 
   document.getElementById('az-nl-camp-new').addEventListener('click', function(){ openCampaignComposer(null); });
+  document.getElementById('az-nl-camp-from-template').addEventListener('click', function(){
+    // Bozza pronta con la struttura del modello standard (titolo, testo, bottone d'esempio) —
+    // non ancora salvata, si apre subito nel composer così si modifica testo/foto/dati e si
+    // manda quando si vuole, esattamente come le altre bozze.
+    openCampaignComposer({
+      id: null,
+      name: 'Newsletter da modello standard',
+      eventSlug: null,
+      subject: 'Il tuo oggetto qui',
+      title: 'Il tuo titolo qui',
+      bodyHtml: '<p>Ciao a tutti,</p><p>Scrivi qui il messaggio della tua newsletter...</p>' +
+        '<p style="text-align:center; margin:20px 0;"><a href="https://growmi.it" style="display:inline-block; background:#F86639; color:#fff; font-weight:700; text-decoration:none; padding:14px 28px; border-radius:10px;">Scopri di più</a></p>',
+      heroImageKey: null,
+      heroImagePosition: 'center',
+      targetGroups: [],
+      scheduledAt: null
+    });
+    currentCampaignId = null; // resta una bozza nuova, non modifica nessuna campagna esistente
+  });
   document.getElementById('az-nl-camp-close').addEventListener('click', function(){
     document.getElementById('az-nl-composer-wrap').hidden = true;
     currentCampaignId = null;
