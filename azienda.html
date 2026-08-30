@@ -141,6 +141,19 @@
   }
   .az-group-label:first-child{ padding-top:0; margin-top:0; border-top:none; }
 
+  .az-nl-editor-toolbar{ display:flex; gap:6px; margin-bottom:8px; }
+  .az-nl-editor-toolbar button{
+    width:32px; height:32px; border-radius:8px; border:1.5px solid var(--line); background:#fff; cursor:pointer; font-size:14px;
+  }
+  .az-nl-editor-toolbar button:hover{ border-color:var(--coral); }
+  .az-nl-editor-body{
+    min-height:220px; border:1.5px solid var(--line); border-radius:10px; padding:14px 16px;
+    font-family:'Inter',sans-serif; font-size:14.5px; line-height:1.5; background:#fff;
+  }
+  .az-nl-editor-body:focus{ outline:none; border-color:var(--coral); }
+  .az-nl-editor-body img{ max-width:100%; border-radius:8px; }
+  .az-nl-target-row{ display:flex; align-items:center; gap:8px; font-size:13.5px; padding:6px 0; }
+
   .az-settings-card{ background:#fff; border:1.5px solid var(--line); border-radius:16px; padding:22px 24px; max-width:480px; }
   .az-settings-card h3{ font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:8px; }
   .az-settings-hint{ font-size:13px; color:var(--grey); margin-bottom:18px; }
@@ -501,6 +514,52 @@
         </table>
       </div>
       <p class="az-empty" id="az-nl-empty" hidden>Nessun iscritto ancora.</p>
+
+      <div style="margin-top:36px; padding-top:28px; border-top:1.5px solid var(--line);">
+        <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Campagne</h3>
+        <p style="font-size:12px; color:var(--grey); margin-bottom:16px; max-width:600px;">Lega una newsletter a un evento per una bozza già pronta (testo ed evento precompilati, tu aggiungi le foto), oppure parti da zero.</p>
+        <div class="az-toolbar">
+          <span></span>
+          <div class="actions">
+            <button type="button" class="primary" id="az-nl-camp-new">+ Nuova newsletter</button>
+          </div>
+        </div>
+        <div id="az-nl-campaigns-list"></div>
+        <p class="az-empty" id="az-nl-campaigns-empty" hidden>Nessuna newsletter ancora.</p>
+
+        <div id="az-nl-composer-wrap" hidden style="margin-top:20px; max-width:640px;">
+          <h3 id="az-nl-composer-title" style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:16px;">Nuova newsletter</h3>
+          <div class="az-field" style="margin-bottom:14px;"><label>Nome interno (solo per te, non è pubblico)</label><input type="text" id="az-nl-camp-name"></div>
+          <div class="az-field" style="margin-bottom:14px;">
+            <label>Lega a un evento (facoltativo)</label>
+            <select id="az-nl-camp-event"><option value="">Nessuno — parti da zero</option></select>
+          </div>
+          <div class="az-field" style="margin-bottom:14px;"><label>Oggetto email</label><input type="text" id="az-nl-camp-subject"></div>
+          <div class="az-field" style="margin-bottom:14px;">
+            <label>Testo</label>
+            <div class="az-nl-editor-toolbar">
+              <button type="button" data-cmd="bold" title="Grassetto"><strong>B</strong></button>
+              <button type="button" data-cmd="italic" title="Corsivo"><em>I</em></button>
+              <button type="button" data-cmd="underline" title="Sottolineato"><u>U</u></button>
+              <button type="button" id="az-nl-camp-link-btn" title="Link">🔗</button>
+              <button type="button" id="az-nl-camp-image-btn" title="Inserisci immagine">🖼</button>
+              <input type="file" id="az-nl-camp-image-input" accept="image/jpeg,image/png,image/webp" hidden>
+            </div>
+            <div id="az-nl-camp-body" contenteditable="true" class="az-nl-editor-body"></div>
+          </div>
+          <div class="az-field" style="margin-bottom:6px;">
+            <label>Destinatari</label>
+            <div id="az-nl-camp-targets"></div>
+          </div>
+          <p style="font-size:12px; color:var(--grey); margin-bottom:16px;" id="az-nl-camp-recipient-count"></p>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <button type="button" class="az-mini-btn" id="az-nl-camp-save">Salva bozza</button>
+            <button type="button" class="az-submit" id="az-nl-camp-send" style="padding:12px 22px;">📤 Invia adesso</button>
+            <button type="button" class="az-mini-btn" id="az-nl-camp-close">Chiudi</button>
+          </div>
+          <p class="az-msg" id="az-nl-camp-msg" hidden></p>
+        </div>
+      </div>
     </div>
 
     <!-- Feedback -->
@@ -1525,7 +1584,231 @@
     btn.textContent = '⬇️ Importa da MailerLite';
   });
 
-  panelLoaders.newsletter = { loaded: false, load: function(){ loadNlGroups().then(loadNlSubscribers); } };
+  // ---- Newsletter: campagne (composer) ----
+  var allNlEvents = [];
+  var allNlCampaigns = [];
+  var currentCampaignId = null;
+
+  function renderNlCampaigns(){
+    var wrap = document.getElementById('az-nl-campaigns-list');
+    var empty = document.getElementById('az-nl-campaigns-empty');
+    wrap.innerHTML = '';
+    empty.hidden = !!allNlCampaigns.length;
+    allNlCampaigns.forEach(function(c){
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:12px; border:1.5px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px; background:#fff;';
+      var statusBadge = c.status === 'sent'
+        ? '<span class="az-pill newsletter">Inviata · ' + c.recipientCount + ' destinatari · ' + c.openCount + ' aperture · ' + c.clickCount + ' click</span>'
+        : '<span class="az-pill">Bozza</span>';
+      row.innerHTML =
+        '<div><strong>' + esc(c.name) + '</strong><br><span style="font-size:12px; color:var(--grey);">' + esc(c.subject || 'Nessun oggetto') + '</span></div>' +
+        '<div style="display:flex; align-items:center; gap:10px;">' + statusBadge +
+          (c.status !== 'sent' ? '<button type="button" class="az-mini-btn" data-open="' + c.id + '">Modifica</button><button type="button" class="az-mini-btn danger" data-del="' + c.id + '">Elimina</button>' : '') +
+        '</div>';
+      var openBtn = row.querySelector('[data-open]');
+      if (openBtn) openBtn.addEventListener('click', function(){ openCampaignComposer(c); });
+      var delBtn = row.querySelector('[data-del]');
+      if (delBtn) delBtn.addEventListener('click', async function(){
+        if (!confirm('Eliminare la bozza "' + c.name + '"?')) return;
+        await fetch('/api/admin/newsletter-campaigns?id=' + encodeURIComponent(c.id), { method: 'DELETE' });
+        await loadNlCampaigns();
+      });
+      wrap.appendChild(row);
+    });
+  }
+
+  async function loadNlCampaigns(){
+    try {
+      var res = await fetch('/api/admin/newsletter-campaigns');
+      var data = await res.json();
+      allNlCampaigns = data.campaigns || [];
+      renderNlCampaigns();
+    } catch (err) { /* riprovabile ricaricando il pannello */ }
+  }
+
+  async function loadNlEventsForComposer(){
+    try {
+      var res = await fetch('/api/admin/events');
+      var data = await res.json();
+      allNlEvents = data.events || [];
+      var select = document.getElementById('az-nl-camp-event');
+      select.innerHTML = '<option value="">Nessuno — parti da zero</option>' +
+        allNlEvents.map(function(e){ return '<option value="' + e.slug + '">' + esc(e.name) + '</option>'; }).join('');
+    } catch (err) { /* resta solo "parti da zero" */ }
+  }
+
+  function renderNlTargets(selected){
+    selected = selected || [];
+    var wrap = document.getElementById('az-nl-camp-targets');
+    var rows = [
+      { value: 'all', label: 'Tutti gli iscritti con consenso' },
+      { value: 'site-signup', label: 'Iscritti dal popup del sito' }
+    ].concat(allNlEvents.map(function(e){ return { value: 'event:' + e.slug, label: 'Evento: ' + e.name }; }))
+     .concat(allNlGroups.map(function(g){ return { value: 'group:' + g.id, label: 'Gruppo: ' + g.name + (g.emailType ? ' (' + g.emailType + ')' : '') }; }));
+    wrap.innerHTML = rows.map(function(r){
+      var checked = selected.indexOf(r.value) !== -1 ? ' checked' : '';
+      return '<label class="az-nl-target-row"><input type="checkbox" class="nl-target-cb" value="' + r.value + '"' + checked + '> ' + esc(r.label) + '</label>';
+    }).join('');
+    wrap.querySelectorAll('.nl-target-cb').forEach(function(cb){ cb.addEventListener('change', updateRecipientCount); });
+  }
+
+  function collectNlTargets(){
+    return Array.from(document.querySelectorAll('#az-nl-camp-targets .nl-target-cb:checked')).map(function(cb){ return cb.value; });
+  }
+
+  async function updateRecipientCount(){
+    var targets = collectNlTargets();
+    var el = document.getElementById('az-nl-camp-recipient-count');
+    if (!targets.length) { el.textContent = 'Nessun destinatario selezionato.'; return; }
+    try {
+      var res = await fetch('/api/admin/newsletter-preview-recipients', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetGroups: targets })
+      });
+      var data = await res.json();
+      el.textContent = data.count + (data.count === 1 ? ' destinatario' : ' destinatari') + ' con questi filtri.';
+    } catch (err) { el.textContent = ''; }
+  }
+
+  function openCampaignComposer(campaign){
+    currentCampaignId = campaign ? campaign.id : null;
+    document.getElementById('az-nl-composer-title').textContent = campaign ? 'Modifica newsletter' : 'Nuova newsletter';
+    document.getElementById('az-nl-camp-name').value = campaign ? campaign.name : '';
+    document.getElementById('az-nl-camp-event').value = campaign ? (campaign.eventSlug || '') : '';
+    document.getElementById('az-nl-camp-subject').value = campaign ? campaign.subject : '';
+    document.getElementById('az-nl-camp-body').innerHTML = campaign ? campaign.bodyHtml : '';
+    renderNlTargets(campaign ? campaign.targetGroups : []);
+    updateRecipientCount();
+    document.getElementById('az-nl-composer-wrap').hidden = false;
+    document.getElementById('az-nl-composer-wrap').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  document.getElementById('az-nl-camp-new').addEventListener('click', function(){ openCampaignComposer(null); });
+  document.getElementById('az-nl-camp-close').addEventListener('click', function(){
+    document.getElementById('az-nl-composer-wrap').hidden = true;
+    currentCampaignId = null;
+  });
+
+  document.getElementById('az-nl-camp-event').addEventListener('change', function(){
+    if (currentCampaignId) return; // non risovrascrive una bozza già esistente cambiando evento
+    var slug = this.value;
+    var event = allNlEvents.filter(function(e){ return e.slug === slug; })[0];
+    if (!event) return;
+    if (!document.getElementById('az-nl-camp-subject').value) document.getElementById('az-nl-camp-subject').value = event.name;
+    if (!document.getElementById('az-nl-camp-body').innerHTML.trim()) {
+      document.getElementById('az-nl-camp-body').innerHTML =
+        '<p>Ciao,</p><p>' + (event.teaser || 'Ti aspettiamo al prossimo evento GrowMi!') + '</p>' +
+        '<p><strong>' + event.name + '</strong><br>' + (event.dateDisplay || '') + (event.location ? ' · ' + event.location : '') + '</p>' +
+        '<p><a href="' + location.origin + '/evento/' + slug + '">Scopri di più e prendi il biglietto</a></p>';
+    }
+    renderNlTargets(['event:' + slug]);
+    updateRecipientCount();
+  });
+
+  document.querySelectorAll('.az-nl-editor-toolbar [data-cmd]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.getElementById('az-nl-camp-body').focus();
+      document.execCommand(btn.getAttribute('data-cmd'), false, null);
+    });
+  });
+  document.getElementById('az-nl-camp-link-btn').addEventListener('click', function(){
+    var url = prompt('Indirizzo del link (es. https://growmi.it/eventi):');
+    if (!url) return;
+    document.getElementById('az-nl-camp-body').focus();
+    document.execCommand('createLink', false, url);
+  });
+  document.getElementById('az-nl-camp-image-btn').addEventListener('click', function(){
+    document.getElementById('az-nl-camp-image-input').click();
+  });
+  document.getElementById('az-nl-camp-image-input').addEventListener('change', async function(){
+    var file = this.files[0];
+    this.value = '';
+    if (!file) return;
+    try {
+      var key = await uploadArtistMediaGeneric(file, 'image', 'newsletter', 'pages');
+      document.getElementById('az-nl-camp-body').focus();
+      document.execCommand('insertHTML', false, '<img src="' + mediaSrc(key) + '" alt="">');
+    } catch (err) { alert(err.message); }
+  });
+
+  function collectCampaignPayload(){
+    return {
+      name: document.getElementById('az-nl-camp-name').value.trim() || 'Nuova newsletter',
+      eventSlug: document.getElementById('az-nl-camp-event').value || null,
+      subject: document.getElementById('az-nl-camp-subject').value.trim(),
+      bodyHtml: document.getElementById('az-nl-camp-body').innerHTML,
+      targetGroups: collectNlTargets()
+    };
+  }
+
+  document.getElementById('az-nl-camp-save').addEventListener('click', async function(){
+    var msg = document.getElementById('az-nl-camp-msg');
+    msg.hidden = true;
+    var btn = this;
+    btn.disabled = true;
+    try {
+      var payload = collectCampaignPayload();
+      var res;
+      if (currentCampaignId) {
+        res = await fetch('/api/admin/newsletter-campaigns', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(Object.assign({ id: currentCampaignId }, payload))
+        });
+      } else {
+        res = await fetch('/api/admin/newsletter-campaigns', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
+      var data = await res.json();
+      if (res.ok) {
+        currentCampaignId = data.campaign.id;
+        showMsg(msg, 'Bozza salvata.', false);
+        await loadNlCampaigns();
+      } else showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+    } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
+    btn.disabled = false;
+  });
+
+  document.getElementById('az-nl-camp-send').addEventListener('click', async function(){
+    var msg = document.getElementById('az-nl-camp-msg');
+    msg.hidden = true;
+    var targets = collectNlTargets();
+    if (!targets.length) { showMsg(msg, 'Scegli almeno un destinatario.', true); return; }
+    var subject = document.getElementById('az-nl-camp-subject').value.trim();
+    if (!subject) { showMsg(msg, 'Scrivi un oggetto prima di inviare.', true); return; }
+    if (!confirm('Inviare questa newsletter adesso? Non si può annullare.')) return;
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Invio in corso...';
+    try {
+      var payload = collectCampaignPayload();
+      var saveRes = currentCampaignId
+        ? await fetch('/api/admin/newsletter-campaigns', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ id: currentCampaignId }, payload)) })
+        : await fetch('/api/admin/newsletter-campaigns', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      var saveData = await saveRes.json();
+      if (!saveRes.ok) { showMsg(msg, saveData.error || 'Qualcosa è andato storto nel salvataggio.', true); btn.disabled = false; btn.textContent = '📤 Invia adesso'; return; }
+      currentCampaignId = saveData.campaign.id;
+      var res = await fetch('/api/admin/newsletter-send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentCampaignId })
+      });
+      var data = await res.json();
+      if (res.ok) {
+        alert('Fatto: inviata a ' + data.sent + ' persone su ' + data.total + ' (' + data.failed + ' fallite).');
+        document.getElementById('az-nl-composer-wrap').hidden = true;
+        currentCampaignId = null;
+        await loadNlCampaigns();
+      } else showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+    } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
+    btn.disabled = false;
+    btn.textContent = '📤 Invia adesso';
+  });
+
+  panelLoaders.newsletter = { loaded: false, load: function(){
+    loadNlGroups().then(loadNlSubscribers);
+    loadNlEventsForComposer().then(loadNlCampaigns);
+  } };
 
   // ---- Feedback (tabella) ----
   var allFeedback = [];

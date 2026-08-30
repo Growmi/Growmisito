@@ -393,6 +393,60 @@ async function handleFetch(request, env, ctx) {
         return jsonResponse({ error: err.message }, 500);
       }
     }
+    if (url.pathname === "/api/admin/newsletter-campaigns" && request.method === "GET") {
+      try {
+        return await handleAdminListNewsletterCampaigns(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-campaigns GET:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+    if (url.pathname === "/api/admin/newsletter-campaigns" && request.method === "POST") {
+      try {
+        return await handleAdminCreateNewsletterCampaign(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-campaigns POST:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+    if (url.pathname === "/api/admin/newsletter-campaigns" && request.method === "PUT") {
+      try {
+        return await handleAdminSaveNewsletterCampaign(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-campaigns PUT:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+    if (url.pathname === "/api/admin/newsletter-campaigns" && request.method === "DELETE") {
+      try {
+        return await handleAdminDeleteNewsletterCampaign(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-campaigns DELETE:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+    if (url.pathname === "/api/admin/newsletter-preview-recipients" && request.method === "POST") {
+      try {
+        return await handleAdminPreviewNewsletterRecipients(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-preview-recipients:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+    if (url.pathname === "/api/admin/newsletter-send" && request.method === "POST") {
+      try {
+        return await handleAdminSendNewsletterCampaign(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-send:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+    if (url.pathname === "/api/newsletter-track-open" && request.method === "GET") {
+      return await handleNewsletterTrackOpen(request, env);
+    }
+    if (url.pathname === "/api/newsletter-track-click" && request.method === "GET") {
+      return await handleNewsletterTrackClick(request, env);
+    }
 
     // Opzioni di default per la domanda "Cosa ti è piaciuto di più" del form feedback generico
     // (feedback.html senza ?slug=, o un evento senza opzioni proprie) — pubblica e di sola
@@ -2615,6 +2669,260 @@ async function handleAdminSetSubscriberGroup(request, env) {
   sub.updatedAt = new Date().toISOString();
   await env.TICKETS.put(`subscriber:${email}`, JSON.stringify(sub));
   return jsonResponse({ ok: true, subscriber: sub });
+}
+
+// ============================================================================
+// Campagne newsletter — "newslettercampaign:<id>". Un target è una lista di stringhe:
+// "all" | "site-signup" | "event:<slug>" | "group:<groupId>" — un iscritto la riceve se
+// combacia con ALMENO UNO dei target scelti (OR), ma SOLO se ha ancora newsletterOptin true e
+// non si è disiscritto: i gruppi sono solo segmentazione, non un permesso a mandare email.
+// ============================================================================
+function subscriberMatchesTarget(sub, target) {
+  if (target === "all") return true;
+  if (target === "site-signup") return !!sub.siteSignup;
+  if (target.indexOf("event:") === 0) return (sub.eventGroups || []).includes(target.slice(6));
+  if (target.indexOf("group:") === 0) return (sub.manualGroups || []).includes(target.slice(6));
+  return false;
+}
+
+async function resolveCampaignRecipients(env, targetGroups) {
+  const targets = Array.isArray(targetGroups) && targetGroups.length ? targetGroups : ["all"];
+  const recipients = [];
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "subscriber:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      if (!raw) continue;
+      const sub = JSON.parse(raw);
+      if (!sub.newsletterOptin || sub.unsubscribed) continue;
+      if (targets.some(function(t){ return subscriberMatchesTarget(sub, t); })) recipients.push(sub);
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  return recipients;
+}
+
+function newsletterBaseUrl(env) {
+  return env.SITE_URL || "https://growmisito.grow-mi.workers.dev";
+}
+
+// Bozza automatica: nome/data/luogo/teaser dell'evento già dentro un template pronto, l'admin
+// aggiunge solo foto e ritocca il testo se vuole (vedi handleAdminCreateNewsletterCampaign).
+function autoDraftHtmlFromEvent(event) {
+  const url = `EVENT_URL_PLACEHOLDER`; // sostituito con l'URL vero lato client, dove si conosce già lo slug
+  return `<p>Ciao,</p><p>${event.teaser || "Ti aspettiamo al prossimo evento GrowMi!"}</p>` +
+    `<p><strong>${event.name}</strong><br>${event.dateDisplay || ""}${event.location ? " · " + event.location : ""}</p>` +
+    `<p><a href="${url}">Scopri di più e prendi il biglietto</a></p>`;
+}
+
+// Inserisce il pixel di apertura, riscrive i link per tracciare i click, e aggiunge in fondo il
+// link di disiscrizione obbligatorio — SEMPRE, per ogni email davvero inviata (mai facoltativo).
+function buildTrackedEmailHtml(bodyHtml, campaignId, subscriber, env) {
+  const base = newsletterBaseUrl(env);
+  const e = encodeURIComponent(subscriber.email);
+  const trackedBody = String(bodyHtml || "").replace(/href="(https?:\/\/[^"]+)"/g, function(match, url){
+    return `href="${base}/api/newsletter-track-click?c=${encodeURIComponent(campaignId)}&e=${e}&url=${encodeURIComponent(url)}"`;
+  });
+  const pixel = `<img src="${base}/api/newsletter-track-open?c=${encodeURIComponent(campaignId)}&e=${e}" width="1" height="1" alt="" style="display:block;border:0;">`;
+  const unsubUrl = `${base}/newsletter-unsubscribe?token=${encodeURIComponent(subscriber.unsubscribeToken)}`;
+  return `<div style="font-family:Arial,sans-serif; font-size:15px; color:#1E0C2C; line-height:1.5;">${trackedBody}</div>` +
+    `<p style="font-size:12px; color:#6E6478; margin-top:32px; border-top:1px solid #eee; padding-top:16px;">Ricevi questa email perché sei iscritto alla newsletter di GrowMi. <a href="${unsubUrl}" style="color:#6E6478;">Disiscriviti</a></p>` +
+    pixel;
+}
+
+async function handleAdminListNewsletterCampaigns(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const campaigns = [];
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "newslettercampaign:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      if (raw) campaigns.push(JSON.parse(raw));
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  campaigns.sort(function(a, b){ return (b.createdAt || "").localeCompare(a.createdAt || ""); });
+  return jsonResponse({ campaigns });
+}
+
+async function handleAdminCreateNewsletterCampaign(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const name = String(body.name || "").trim().slice(0, 200) || "Nuova newsletter";
+  const id = crypto.randomUUID();
+  let subject = String(body.subject || "").trim().slice(0, 200);
+  let bodyHtml = typeof body.bodyHtml === "string" ? body.bodyHtml.slice(0, 20000) : "";
+  let eventSlug = null;
+  let targetGroups = [];
+  if (body.eventSlug) {
+    const event = await getEvent(env, String(body.eventSlug));
+    if (event) {
+      eventSlug = String(body.eventSlug);
+      if (!subject) subject = event.name;
+      if (!bodyHtml) bodyHtml = autoDraftHtmlFromEvent(event).replace("EVENT_URL_PLACEHOLDER", `${newsletterBaseUrl(env)}/evento/${eventSlug}`);
+      targetGroups = [`event:${eventSlug}`];
+    }
+  }
+  const campaign = {
+    id, name, eventSlug, subject, bodyHtml,
+    targetGroups: Array.isArray(body.targetGroups) && body.targetGroups.length ? body.targetGroups : targetGroups,
+    status: "draft", createdAt: new Date().toISOString(), sentAt: null,
+    recipientCount: 0, openCount: 0, clickCount: 0
+  };
+  await env.TICKETS.put(`newslettercampaign:${id}`, JSON.stringify(campaign));
+  return jsonResponse({ ok: true, campaign });
+}
+
+async function handleAdminSaveNewsletterCampaign(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const id = String(body.id || "").trim();
+  if (!id) return jsonResponse({ error: "id mancante" }, 400);
+  const raw = await env.TICKETS.get(`newslettercampaign:${id}`);
+  if (!raw) return jsonResponse({ error: "campagna non trovata" }, 404);
+  const campaign = JSON.parse(raw);
+  if (campaign.status === "sent") return jsonResponse({ error: "questa newsletter è già stata inviata, non è più modificabile" }, 400);
+  campaign.name = String(body.name || campaign.name || "").trim().slice(0, 200);
+  campaign.subject = String(body.subject || "").trim().slice(0, 200);
+  campaign.bodyHtml = typeof body.bodyHtml === "string" ? body.bodyHtml.slice(0, 20000) : campaign.bodyHtml;
+  if (Array.isArray(body.targetGroups)) campaign.targetGroups = body.targetGroups;
+  await env.TICKETS.put(`newslettercampaign:${id}`, JSON.stringify(campaign));
+  return jsonResponse({ ok: true, campaign });
+}
+
+async function handleAdminDeleteNewsletterCampaign(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const id = String(new URL(request.url).searchParams.get("id") || "").trim();
+  if (!id) return jsonResponse({ error: "id mancante" }, 400);
+  await env.TICKETS.delete(`newslettercampaign:${id}`);
+  return jsonResponse({ ok: true });
+}
+
+async function handleAdminPreviewNewsletterRecipients(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const recipients = await resolveCampaignRecipients(env, body.targetGroups);
+  return jsonResponse({ count: recipients.length });
+}
+
+async function handleAdminSendNewsletterCampaign(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  if (!env.RESEND_API_KEY) throw new Error("RESEND_API_KEY non configurato");
+  const body = await request.json();
+  const id = String(body.id || "").trim();
+  if (!id) return jsonResponse({ error: "id mancante" }, 400);
+  const raw = await env.TICKETS.get(`newslettercampaign:${id}`);
+  if (!raw) return jsonResponse({ error: "campagna non trovata" }, 404);
+  const campaign = JSON.parse(raw);
+  if (campaign.status === "sent") return jsonResponse({ error: "già inviata in precedenza" }, 400);
+  if (!campaign.subject || !campaign.bodyHtml) return jsonResponse({ error: "oggetto e testo obbligatori prima di inviare" }, 400);
+
+  const recipients = await resolveCampaignRecipients(env, campaign.targetGroups);
+  let sent = 0, failed = 0;
+  for (const sub of recipients) {
+    try {
+      const html = buildTrackedEmailHtml(campaign.bodyHtml, id, sub, env);
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ from: "GrowMi <noreply@growmi.it>", to: sub.email, subject: campaign.subject, html })
+      });
+      if (res.ok) {
+        sent++;
+        sub.stats = sub.stats || { sent: 0, opens: 0, clicks: 0 };
+        sub.stats.sent++;
+        await env.TICKETS.put(`subscriber:${sub.email}`, JSON.stringify(sub));
+      } else {
+        failed++;
+        console.log("Resend newsletter error:", res.status, await res.text());
+      }
+    } catch (e) {
+      failed++;
+      console.log("Errore invio newsletter a", sub.email, e.message);
+    }
+  }
+  campaign.status = "sent";
+  campaign.sentAt = new Date().toISOString();
+  campaign.recipientCount = sent;
+  await env.TICKETS.put(`newslettercampaign:${id}`, JSON.stringify(campaign));
+  return jsonResponse({ ok: true, sent, failed, total: recipients.length });
+}
+
+// Pixel 1x1 trasparente (GIF più corto possibile in base64) — ogni apertura reale carica questa
+// immagine, l'endpoint conta solo la PRIMA apertura per coppia campagna/iscritto (stesso
+// principio "unique opens" degli altri tool di email marketing, non un contatore grezzo di hit).
+const TRACKING_PIXEL_GIF = Uint8Array.from(atob("R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="), function(c){ return c.charCodeAt(0); });
+
+async function handleNewsletterTrackOpen(request, env) {
+  const pixelResponse = function(){
+    return new Response(TRACKING_PIXEL_GIF, { headers: { "Content-Type": "image/gif", "Cache-Control": "no-store" } });
+  };
+  if (!env.TICKETS) return pixelResponse();
+  const url = new URL(request.url);
+  const campaignId = url.searchParams.get("c");
+  const email = String(url.searchParams.get("e") || "").trim().toLowerCase();
+  if (!campaignId || !isValidEmail(email)) return pixelResponse();
+  try {
+    const subRaw = await env.TICKETS.get(`subscriber:${email}`);
+    if (subRaw) {
+      const sub = JSON.parse(subRaw);
+      const openedKey = `nlopen:${campaignId}:${email}`;
+      const alreadyOpened = await env.TICKETS.get(openedKey);
+      if (!alreadyOpened) {
+        await env.TICKETS.put(openedKey, "1");
+        sub.stats = sub.stats || { sent: 0, opens: 0, clicks: 0 };
+        sub.stats.opens++;
+        await env.TICKETS.put(`subscriber:${email}`, JSON.stringify(sub));
+        const campRaw = await env.TICKETS.get(`newslettercampaign:${campaignId}`);
+        if (campRaw) {
+          const camp = JSON.parse(campRaw);
+          camp.openCount = (camp.openCount || 0) + 1;
+          await env.TICKETS.put(`newslettercampaign:${campaignId}`, JSON.stringify(camp));
+        }
+      }
+    }
+  } catch (e) { /* il pixel deve comunque tornare, mai bloccare l'apertura dell'email */ }
+  return pixelResponse();
+}
+
+async function handleNewsletterTrackClick(request, env) {
+  const url = new URL(request.url);
+  const target = url.searchParams.get("url") || "/";
+  if (!env.TICKETS) return Response.redirect(target, 302);
+  const campaignId = url.searchParams.get("c");
+  const email = String(url.searchParams.get("e") || "").trim().toLowerCase();
+  try {
+    if (campaignId && isValidEmail(email)) {
+      const subRaw = await env.TICKETS.get(`subscriber:${email}`);
+      if (subRaw) {
+        const sub = JSON.parse(subRaw);
+        sub.stats = sub.stats || { sent: 0, opens: 0, clicks: 0 };
+        sub.stats.clicks++;
+        await env.TICKETS.put(`subscriber:${email}`, JSON.stringify(sub));
+      }
+      const campRaw = await env.TICKETS.get(`newslettercampaign:${campaignId}`);
+      if (campRaw) {
+        const camp = JSON.parse(campRaw);
+        camp.clickCount = (camp.clickCount || 0) + 1;
+        await env.TICKETS.put(`newslettercampaign:${campaignId}`, JSON.stringify(camp));
+      }
+    }
+  } catch (e) { /* il redirect deve comunque avvenire, mai bloccare il click */ }
+  return Response.redirect(target, 302);
 }
 
 // Salva i dati raccolti dal form "I tuoi dati" (nome/cognome/email/consensi) prima
