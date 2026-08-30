@@ -4038,6 +4038,7 @@
       heroTitle.textContent = 'Ciao, ' + firstName + '!';
       heroLead.textContent = 'Ecco cosa succede su GrowMi.';
       sidebarUser.textContent = data.email || '';
+      loadDashboardEventFilter();
       loadDashboardStats();
       panelLoaders.dashboard.loaded = true;
 
