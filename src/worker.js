@@ -6192,6 +6192,12 @@ async function applyLegacyEventsOverride(response, overrides) {
 // Tetto di percorsi distinti per non far crescere il record all'infinito con traffico bot/scanner
 // che genera URL a caso — oltre il tetto il totale continua comunque a salire.
 const ANALYTICS_MAX_PATHS_PER_DAY = 200;
+// Campionamento: si traccia solo 1 visita su 4 (a caso) invece di ognuna, e si moltiplica per 4 in
+// lettura (handleAdminGetAnalytics) — stessa stima nel pannello, ma un quarto delle scritture KV.
+// Il tetto gratuito di Cloudflare KV (1.000 scritture/giorno, condiviso con tutto il resto del
+// sito: biglietti, iscrizioni, sessioni...) è per l'intero account, non solo per l'analytics —
+// prima di questo campionamento, il traffico reale del sito da solo poteva avvicinarcisi.
+const ANALYTICS_SAMPLE_RATE = 0.25;
 async function trackPageView(env, pathname) {
   try {
     const day = new Date().toISOString().slice(0, 10);
@@ -6226,16 +6232,18 @@ async function handleAdminGetAnalytics(request, env) {
 
   const records = await Promise.all(dates.map(function(date){ return env.TICKETS.get(`analytics:day:${date}`); }));
   const pageTotals = {};
+  // Riscalato per il campionamento (vedi ANALYTICS_SAMPLE_RATE) — quello salvato è 1 visita su 4,
+  // qui si stima il vero totale moltiplicando per 4, arrotondato.
   const daysOut = dates.map(function(date, i){
     const rec = records[i] ? JSON.parse(records[i]) : { total: 0, pages: {} };
     for (const path of Object.keys(rec.pages || {})) {
       pageTotals[path] = (pageTotals[path] || 0) + rec.pages[path];
     }
-    return { date, total: rec.total || 0 };
+    return { date, total: Math.round((rec.total || 0) / ANALYTICS_SAMPLE_RATE) };
   });
 
   const topPages = Object.keys(pageTotals)
-    .map(function(path){ return { path, count: pageTotals[path] }; })
+    .map(function(path){ return { path, count: Math.round(pageTotals[path] / ANALYTICS_SAMPLE_RATE) }; })
     .sort(function(a, b){ return b.count - a.count; })
     .slice(0, 15);
 
@@ -6248,7 +6256,7 @@ async function finalizePublicHtmlResponse(request, env, response, ctx) {
   if (!isPublicThemedPath(url.pathname)) return response;
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("text/html")) return response;
-  if (response.ok && request.method === "GET" && ctx) {
+  if (response.ok && request.method === "GET" && ctx && Math.random() < ANALYTICS_SAMPLE_RATE) {
     ctx.waitUntil(trackPageView(env, url.pathname));
   }
   try {
