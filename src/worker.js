@@ -496,6 +496,14 @@ async function handleFetch(request, env, ctx) {
         return jsonResponse({ error: err.message }, 500);
       }
     }
+    if (url.pathname === "/api/admin/analytics" && request.method === "GET") {
+      try {
+        return await handleAdminGetAnalytics(request, env);
+      } catch (err) {
+        console.log("Errore admin/analytics:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
 
     // Opzioni di default per la domanda "Cosa ti è piaciuto di più" del form feedback generico
     // (feedback.html senza ?slug=, o un evento senza opzioni proprie) — pubblica e di sola
@@ -744,7 +752,7 @@ async function handleFetch(request, env, ctx) {
     if (url.pathname.startsWith("/evento/") && request.method === "GET") {
       try {
         const handled = await handleEventPage(request, env);
-        if (handled) return await finalizePublicHtmlResponse(request, env, handled);
+        if (handled) return await finalizePublicHtmlResponse(request, env, handled, ctx);
         // Nessun evento pubblicato con questo slug: passa oltre, cade sul 404 statico normale
         // (vedi not_found_handling in wrangler.toml) invece di inventare una risposta qui.
       } catch (err) {
@@ -791,7 +799,7 @@ async function handleFetch(request, env, ctx) {
     if (url.pathname.startsWith("/artista/") && request.method === "GET") {
       try {
         const handled = await handleArtistPage(request, env);
-        if (handled) return await finalizePublicHtmlResponse(request, env, handled);
+        if (handled) return await finalizePublicHtmlResponse(request, env, handled, ctx);
       } catch (err) {
         console.log("Errore artista page:", err.stack || err.message);
       }
@@ -965,7 +973,7 @@ async function handleFetch(request, env, ctx) {
     if ((url.pathname === "/" || url.pathname === "/index.html") && request.method === "GET") {
       try {
         const handled = await handleHomePage(request, env);
-        if (handled) return await finalizePublicHtmlResponse(request, env, handled);
+        if (handled) return await finalizePublicHtmlResponse(request, env, handled, ctx);
       } catch (err) {
         console.log("Errore home page:", err.stack || err.message);
       }
@@ -977,7 +985,7 @@ async function handleFetch(request, env, ctx) {
     if ((url.pathname === "/chi-siamo" || url.pathname === "/chi-siamo.html") && request.method === "GET") {
       try {
         const handled = await handleChiSiamoPage(request, env);
-        if (handled) return await finalizePublicHtmlResponse(request, env, handled);
+        if (handled) return await finalizePublicHtmlResponse(request, env, handled, ctx);
       } catch (err) {
         console.log("Errore chi-siamo page:", err.stack || err.message);
       }
@@ -986,7 +994,7 @@ async function handleFetch(request, env, ctx) {
     if ((url.pathname === "/contatti" || url.pathname === "/contatti.html") && request.method === "GET") {
       try {
         const handled = await handleContattiPage(request, env);
-        if (handled) return await finalizePublicHtmlResponse(request, env, handled);
+        if (handled) return await finalizePublicHtmlResponse(request, env, handled, ctx);
       } catch (err) {
         console.log("Errore contatti page:", err.stack || err.message);
       }
@@ -995,7 +1003,7 @@ async function handleFetch(request, env, ctx) {
     if ((url.pathname === "/loyalty-card" || url.pathname === "/loyalty-card.html") && request.method === "GET") {
       try {
         const handled = await handleLoyaltyCardPage(request, env);
-        if (handled) return await finalizePublicHtmlResponse(request, env, handled);
+        if (handled) return await finalizePublicHtmlResponse(request, env, handled, ctx);
       } catch (err) {
         console.log("Errore loyalty-card page:", err.stack || err.message);
       }
@@ -1004,7 +1012,7 @@ async function handleFetch(request, env, ctx) {
     if ((url.pathname === "/art-mall-collab" || url.pathname === "/art-mall-collab.html") && request.method === "GET") {
       try {
         const handled = await handleArtMallCollabPage(request, env);
-        if (handled) return await finalizePublicHtmlResponse(request, env, handled);
+        if (handled) return await finalizePublicHtmlResponse(request, env, handled, ctx);
       } catch (err) {
         console.log("Errore art-mall-collab page:", err.stack || err.message);
       }
@@ -1013,7 +1021,7 @@ async function handleFetch(request, env, ctx) {
     if ((url.pathname === "/grow-with-us" || url.pathname === "/grow-with-us.html") && request.method === "GET") {
       try {
         const handled = await handleGrowWithUsPage(request, env);
-        if (handled) return await finalizePublicHtmlResponse(request, env, handled);
+        if (handled) return await finalizePublicHtmlResponse(request, env, handled, ctx);
       } catch (err) {
         console.log("Errore grow-with-us page:", err.stack || err.message);
       }
@@ -1022,7 +1030,7 @@ async function handleFetch(request, env, ctx) {
     if ((url.pathname === "/feedback" || url.pathname === "/feedback.html") && request.method === "GET") {
       try {
         const handled = await handleFeedbackPage(request, env);
-        if (handled) return await finalizePublicHtmlResponse(request, env, handled);
+        if (handled) return await finalizePublicHtmlResponse(request, env, handled, ctx);
       } catch (err) {
         console.log("Errore feedback page:", err.stack || err.message);
       }
@@ -1065,7 +1073,7 @@ async function handleFetch(request, env, ctx) {
     }
 
     const fallthrough = await env.ASSETS.fetch(request);
-    if (request.method === "GET") return await finalizePublicHtmlResponse(request, env, fallthrough);
+    if (request.method === "GET") return await finalizePublicHtmlResponse(request, env, fallthrough, ctx);
     return fallthrough;
 }
 
@@ -5994,12 +6002,71 @@ async function applyLegacyEventsOverride(response, overrides) {
   return new HTMLRewriter().on('script[src$="events-data.js"]', new InsertAfterHandler(html)).transform(response);
 }
 
-async function finalizePublicHtmlResponse(request, env, response) {
+// Un record al giorno per tutto il sito ({total, pages:{<path>: count}}) — un read-modify-write
+// per visita, senza lock: sotto carico concorrente molto alto un incremento potrebbe perdersi, ma
+// per un sito di queste dimensioni serve un numero indicativo, non una precisione da fatturazione.
+// Tetto di percorsi distinti per non far crescere il record all'infinito con traffico bot/scanner
+// che genera URL a caso — oltre il tetto il totale continua comunque a salire.
+const ANALYTICS_MAX_PATHS_PER_DAY = 200;
+async function trackPageView(env, pathname) {
+  try {
+    const day = new Date().toISOString().slice(0, 10);
+    const key = `analytics:day:${day}`;
+    const raw = await env.TICKETS.get(key);
+    const rec = raw ? JSON.parse(raw) : { total: 0, pages: {} };
+    rec.total = (rec.total || 0) + 1;
+    if (rec.pages[pathname] !== undefined || Object.keys(rec.pages).length < ANALYTICS_MAX_PATHS_PER_DAY) {
+      rec.pages[pathname] = (rec.pages[pathname] || 0) + 1;
+    }
+    await env.TICKETS.put(key, JSON.stringify(rec));
+  } catch (err) {
+    console.log("Errore tracking analytics:", err.stack || err.message);
+  }
+}
+
+// Legge gli ultimi N giorni (letture dirette per chiave — N è piccolo, nessun bisogno di list())
+// e aggrega le pagine più viste su tutto il range richiesto.
+async function handleAdminGetAnalytics(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const url = new URL(request.url);
+  const days = Math.min(Math.max(parseInt(url.searchParams.get("days"), 10) || 30, 1), 90);
+
+  const dates = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+
+  const records = await Promise.all(dates.map(function(date){ return env.TICKETS.get(`analytics:day:${date}`); }));
+  const pageTotals = {};
+  const daysOut = dates.map(function(date, i){
+    const rec = records[i] ? JSON.parse(records[i]) : { total: 0, pages: {} };
+    for (const path of Object.keys(rec.pages || {})) {
+      pageTotals[path] = (pageTotals[path] || 0) + rec.pages[path];
+    }
+    return { date, total: rec.total || 0 };
+  });
+
+  const topPages = Object.keys(pageTotals)
+    .map(function(path){ return { path, count: pageTotals[path] }; })
+    .sort(function(a, b){ return b.count - a.count; })
+    .slice(0, 15);
+
+  return jsonResponse({ days: daysOut, topPages });
+}
+
+async function finalizePublicHtmlResponse(request, env, response, ctx) {
   if (!env.TICKETS || !response) return response;
   const url = new URL(request.url);
   if (!isPublicThemedPath(url.pathname)) return response;
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("text/html")) return response;
+  if (response.ok && request.method === "GET" && ctx) {
+    ctx.waitUntil(trackPageView(env, url.pathname));
+  }
   try {
     const [theme, legacyEventsOverride] = await Promise.all([getSiteTheme(env), getLegacyEventsOverride(env)]);
     let out = await applySiteTheme(response, theme);

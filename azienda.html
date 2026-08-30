@@ -471,6 +471,23 @@
         <div class="az-stat"><span class="n" id="az-stat-avgrating">—</span><span class="l">Valutazione media</span></div>
       </div>
 
+      <div style="margin-top:36px; padding-top:28px; border-top:1.5px solid var(--line); display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div class="az-settings-card" style="max-width:none;">
+          <h3>Visite al sito</h3>
+          <div class="az-stat-grid" style="margin-bottom:16px;">
+            <div class="az-stat"><span class="n" id="az-an-today">—</span><span class="l">Oggi</span></div>
+            <div class="az-stat"><span class="n" id="az-an-7d">—</span><span class="l">Ultimi 7 giorni</span></div>
+            <div class="az-stat wide"><span class="n" id="az-an-30d">—</span><span class="l">Ultimi 30 giorni</span></div>
+          </div>
+          <div id="az-an-days-bars"></div>
+        </div>
+        <div class="az-settings-card" style="max-width:none;">
+          <h3>Pagine più viste</h3>
+          <p class="az-settings-hint">Ultimi 30 giorni.</p>
+          <div id="az-an-pages-bars"></div>
+        </div>
+      </div>
+
       <div class="az-danger-zone">
         <h3>Zona pericolosa</h3>
         <p>Azzera tutti i dati di vendita (biglietti, account clienti, carta fedeltà, coupon, numeri cliente, feedback) — usa solo prima del lancio vero, per ripartire da zero. Non tocca il tuo login aziendale né la configurazione degli eventi.</p>
@@ -1323,6 +1340,34 @@
       document.getElementById('az-stat-avgrating').textContent = d.avgRating !== null ? (d.avgRating + ' / 10') : '—';
     } catch (err) { /* i numeri restano com'erano */ }
   }
+  // Sempre sul sito intero — a differenza delle statistiche sopra, non si filtra per evento.
+  async function loadSiteAnalytics(){
+    try {
+      var res = await fetch('/api/admin/analytics?days=30');
+      if (!res.ok) return;
+      var data = await res.json();
+      var days = data.days || [];
+      var today = days.length ? days[days.length - 1].total : 0;
+      var last7 = days.slice(-7).reduce(function(sum, d){ return sum + d.total; }, 0);
+      var last30 = days.reduce(function(sum, d){ return sum + d.total; }, 0);
+      document.getElementById('az-an-today').textContent = today;
+      document.getElementById('az-an-7d').textContent = last7;
+      document.getElementById('az-an-30d').textContent = last30;
+
+      var recentDays = days.slice(-14);
+      var maxDay = Math.max.apply(null, recentDays.map(function(d){ return d.total; }).concat([0]));
+      var dayEntries = recentDays.map(function(d){
+        var parts = d.date.split('-');
+        return { label: parts[2] + '/' + parts[1], count: d.total };
+      });
+      renderFeedbackBars(document.getElementById('az-an-days-bars'), dayEntries, maxDay);
+
+      var topPages = data.topPages || [];
+      var maxPage = Math.max.apply(null, topPages.map(function(p){ return p.count; }).concat([0]));
+      var pageEntries = topPages.map(function(p){ return { label: p.path, count: p.count }; });
+      renderFeedbackBars(document.getElementById('az-an-pages-bars'), pageEntries, maxPage);
+    } catch (err) { /* riprovabile ricaricando il pannello */ }
+  }
   async function loadDashboardEventFilter(){
     var select = document.getElementById('az-dashboard-event-filter');
     if (select.dataset.loaded) return;
@@ -1342,7 +1387,7 @@
     }
   }
   document.getElementById('az-dashboard-event-filter').addEventListener('change', loadDashboardStats);
-  panelLoaders.dashboard = { loaded: false, load: function(){ loadDashboardEventFilter(); loadDashboardStats(); } };
+  panelLoaders.dashboard = { loaded: false, load: function(){ loadDashboardEventFilter(); loadDashboardStats(); loadSiteAnalytics(); } };
 
   // ---- Zona pericolosa: azzeramento dati di test ----
   var WIPE_LABELS = {
@@ -5117,6 +5162,7 @@
       sidebarUser.textContent = data.email || '';
       loadDashboardEventFilter();
       loadDashboardStats();
+      loadSiteAnalytics();
       panelLoaders.dashboard.loaded = true;
 
       var wantedPanel = new URLSearchParams(window.location.search).get('panel');
