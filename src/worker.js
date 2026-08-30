@@ -4614,7 +4614,10 @@ function validateEventPayload(body, existingTiers, sold) {
   return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder } };
 }
 
-const IMAGE_CONTENT_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+// image/gif incluso apposta per le newsletter: un GIF animato è l'unico modo che parte da solo e
+// va in loop in praticamente ogni client email (un <video> vero viene quasi sempre bloccato) — un
+// GIF è comunque solo un'immagine, quindi il blocco "Immagine" del builder lo gestisce già uguale.
+const IMAGE_CONTENT_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif" };
 const VIDEO_CONTENT_TYPES = { "video/mp4": "mp4" };
 const MEDIA_CONTENT_TYPES = Object.assign({}, IMAGE_CONTENT_TYPES, VIDEO_CONTENT_TYPES);
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -4645,9 +4648,12 @@ async function handleUploadImage(request, env) {
 
   if (!(file instanceof File)) return jsonResponse({ error: "nessun file ricevuto" }, 400);
   const ext = MEDIA_CONTENT_TYPES[file.type];
-  if (!ext) return jsonResponse({ error: "formato non supportato (solo JPEG, PNG, WEBP, MP4)" }, 400);
+  if (!ext) return jsonResponse({ error: "formato non supportato (solo JPEG, PNG, WEBP, GIF, MP4)" }, 400);
   const isVideo = !!VIDEO_CONTENT_TYPES[file.type];
-  const maxBytes = isVideo ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
+  // Un GIF animato pesa molto più di una foto ferma (è di fatto un video ricompresso) — stesso
+  // tetto di un video vero, non quello di un'immagine statica.
+  const isAnimatedGif = file.type === "image/gif";
+  const maxBytes = (isVideo || isAnimatedGif) ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
   if (file.size > maxBytes) {
     return jsonResponse({ error: `file troppo grande (max ${Math.round(maxBytes / 1024 / 1024)}MB)` }, 400);
   }

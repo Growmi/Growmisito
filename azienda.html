@@ -563,7 +563,7 @@
         <div class="az-field" style="margin-bottom:14px;">
           <label>Foto in cima (facoltativa)</label>
           <div class="az-image-preview" id="az-nl-camp-hero-preview" style="aspect-ratio:16/9;">Nessuna immagine</div>
-          <input type="file" accept="image/jpeg,image/png,image/webp" id="az-nl-camp-hero-input">
+          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-nl-camp-hero-input">
           <button type="button" class="az-mini-btn danger" id="az-nl-camp-hero-remove" style="margin-top:6px;">Rimuovi</button>
           <div id="az-nl-camp-hero-framing" style="margin-top:10px;"></div>
         </div>
@@ -778,7 +778,7 @@
             <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Immagine hero</label>
             <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Sfondo in cima alla pagina dell'evento.</p>
             <div class="az-image-preview" id="az-ev-hero-preview">Nessuna immagine</div>
-            <input type="file" accept="image/jpeg,image/png,image/webp" id="az-ev-hero-input">
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-ev-hero-input">
             <button type="button" class="az-mini-btn danger" id="az-ev-hero-remove" hidden>Rimuovi</button>
             <div id="az-ev-hero-framing"></div>
           </div>
@@ -787,7 +787,7 @@
             <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Immagine copertina</label>
             <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Locandina/poster mostrata sulla pagina evento (e come immagine della card nell'elenco eventi, se non ne carichi una diversa).</p>
             <div class="az-image-preview" id="az-ev-cover-preview">Nessuna immagine</div>
-            <input type="file" accept="image/jpeg,image/png,image/webp" id="az-ev-cover-input">
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-ev-cover-input">
             <button type="button" class="az-mini-btn danger" id="az-ev-cover-remove" hidden>Rimuovi</button>
           </div>
 
@@ -795,7 +795,7 @@
             <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Galleria foto</label>
             <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Foto dell'evento mostrate più in basso nella pagina — puoi caricarne più di una alla volta.</p>
             <div id="az-ev-gallery" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:8px; margin-bottom:10px;"></div>
-            <input type="file" accept="image/jpeg,image/png,image/webp" id="az-ev-gallery-input" multiple>
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-ev-gallery-input" multiple>
           </div>
 
           <p class="az-group-label">Pubblicazione</p>
@@ -861,7 +861,7 @@
             <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Foto card</label>
             <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Mostrata nell'elenco artisti e come sfondo pagina se non c'è un'immagine hero.</p>
             <div class="az-image-preview" id="az-ar-card-preview">Nessuna immagine</div>
-            <input type="file" accept="image/jpeg,image/png,image/webp" id="az-ar-card-input">
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-ar-card-input">
             <div id="az-ar-card-framing"></div>
           </div>
 
@@ -924,17 +924,17 @@
           <div class="az-photo-row az-photo-row-3" style="margin-top:14px;">
             <div>
               <div class="az-image-preview" id="az-home-slide1-preview" style="aspect-ratio:9/16;">Slide 1</div>
-              <input type="file" accept="image/jpeg,image/png,image/webp" id="az-home-slide1-input" data-slide-key="hero.slide1">
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-home-slide1-input" data-slide-key="hero.slide1">
               <div id="az-home-slide1-framing"></div>
             </div>
             <div>
               <div class="az-image-preview" id="az-home-slide2-preview" style="aspect-ratio:9/16;">Slide 2</div>
-              <input type="file" accept="image/jpeg,image/png,image/webp" id="az-home-slide2-input" data-slide-key="hero.slide2">
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-home-slide2-input" data-slide-key="hero.slide2">
               <div id="az-home-slide2-framing"></div>
             </div>
             <div>
               <div class="az-image-preview" id="az-home-slide3-preview" style="aspect-ratio:9/16;">Slide 3</div>
-              <input type="file" accept="image/jpeg,image/png,image/webp" id="az-home-slide3-input" data-slide-key="hero.slide3">
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-home-slide3-input" data-slide-key="hero.slide3">
               <div id="az-home-slide3-framing"></div>
             </div>
           </div>
@@ -942,7 +942,7 @@
             <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Altre foto (facoltative) — si aggiungono in coda alle 3 di sopra, e la slideshow mostra automaticamente un pallino in più per ognuna.</p>
             <div id="az-home-extra-slides" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:10px; margin-bottom:10px;"></div>
             <button type="button" class="az-mini-btn" id="az-home-add-slide">+ Aggiungi foto</button>
-            <input type="file" accept="image/jpeg,image/png,image/webp" id="az-home-add-slide-input" style="display:none;">
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-home-add-slide-input" style="display:none;">
           </div>
         </div>
 
@@ -990,7 +990,7 @@
           <div id="az-cs-fields-hero" style="display:flex; flex-direction:column; gap:14px; margin-bottom:14px;"></div>
           <label style="font-size:12px; color:var(--grey); display:block; margin-bottom:6px;">Foto di sfondo hero (facoltativa — se vuota resta lo sfondo di default del sito)</label>
           <div class="az-image-preview" id="az-cs-hero-preview" style="aspect-ratio:16/9;">Nessuna immagine</div>
-          <input type="file" accept="image/jpeg,image/png,image/webp" id="az-cs-hero-input">
+          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-cs-hero-input">
           <button type="button" class="az-mini-btn danger" id="az-cs-hero-remove" style="margin-top:6px;">Rimuovi (torna allo sfondo di default)</button>
           <div id="az-cs-hero-framing" style="margin-top:10px;"></div>
         </div>
@@ -1052,7 +1052,7 @@
           <div id="az-ct-fields-hero" style="display:flex; flex-direction:column; gap:14px; margin-bottom:14px;"></div>
           <label style="font-size:12px; color:var(--grey); display:block; margin-bottom:6px;">Foto di sfondo hero (facoltativa — se vuota resta il video attuale)</label>
           <div class="az-image-preview" id="az-ct-hero-preview" style="aspect-ratio:16/9;">Nessuna immagine</div>
-          <input type="file" accept="image/jpeg,image/png,image/webp" id="az-ct-hero-input">
+          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-ct-hero-input">
           <button type="button" class="az-mini-btn danger" id="az-ct-hero-remove" style="margin-top:6px;">Rimuovi (torna al video attuale)</button>
           <div id="az-ct-hero-framing" style="margin-top:10px;"></div>
         </div>
@@ -1092,12 +1092,12 @@
           <div class="az-photo-row az-photo-row-2" style="margin-bottom:14px;">
             <div>
               <div class="az-image-preview" id="az-loy-front-preview" style="aspect-ratio:9/14;">Fronte</div>
-              <input type="file" accept="image/jpeg,image/png,image/webp" id="az-loy-front-input">
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-loy-front-input">
               <div id="az-loy-front-framing"></div>
             </div>
             <div>
               <div class="az-image-preview" id="az-loy-back-preview" style="aspect-ratio:9/14;">Retro</div>
-              <input type="file" accept="image/jpeg,image/png,image/webp" id="az-loy-back-input">
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-loy-back-input">
               <div id="az-loy-back-framing"></div>
             </div>
           </div>
@@ -1129,7 +1129,7 @@
         <p class="az-settings-hint">Sfondo mostrato su eventi.html, artisti.html, chi-siamo.html, loyalty-card.html e su qualsiasi pagina futura senza una foto propria — la sostituisci qui, senza bisogno di sviluppo.</p>
         <div class="az-image-upload" id="az-hero-default-upload">
           <div class="az-image-preview" id="az-hero-default-preview"></div>
-          <input type="file" accept="image/jpeg,image/png,image/webp" id="az-hero-default-input">
+          <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-hero-default-input">
           <div id="az-hero-default-framing"></div>
           <div style="margin-top:10px;">
             <button type="button" class="az-submit" id="az-hero-default-framing-save" style="padding:12px 22px;">Pubblica posizione/zoom</button>
@@ -2131,7 +2131,7 @@
     } else if (block.type === 'image'){
       container.innerHTML =
         '<div class="az-image-preview" style="aspect-ratio:16/9;">' + (block.key ? '<img src="' + mediaSrc(block.key) + '" alt="">' : 'Nessuna immagine') + '</div>' +
-        '<input type="file" accept="image/jpeg,image/png,image/webp">' +
+        '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif">' +
         (block.key ? '<button type="button" class="az-mini-btn danger" style="margin-top:6px;">Rimuovi</button>' : '') +
         '<div class="az-nl-block-framing" style="margin-top:10px;"></div>';
       container.querySelector('input[type=file]').addEventListener('change', async function(){
@@ -3097,7 +3097,7 @@
         '<p style="font-size:12px; font-weight:600; margin-bottom:8px;">Galleria foto</p>' +
         '<div id="' + containerId + '-gallery" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:12px; margin-bottom:10px;"></div>' +
         '<button type="button" class="az-mini-btn" data-action="add-gallery-photo">+ Aggiungi foto</button>' +
-        '<input type="file" accept="image/jpeg,image/png,image/webp" id="' + containerId + '-gallery-add-input" hidden>' +
+        '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="' + containerId + '-gallery-add-input" hidden>' +
       '</div>'
     ) : '';
     container.innerHTML =
@@ -3112,12 +3112,12 @@
           '<div>' +
             '<label style="font-size:12px; color:var(--grey); display:block; margin-bottom:6px;">Foto hero</label>' +
             '<div class="az-image-preview" id="' + containerId + '-hero-preview" style="aspect-ratio:16/9;"></div>' +
-            '<input type="file" accept="image/jpeg,image/png,image/webp" id="' + containerId + '-hero-input">' +
+            '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="' + containerId + '-hero-input">' +
           '</div>' +
           '<div>' +
             '<label style="font-size:12px; color:var(--grey); display:block; margin-bottom:6px;">Poster</label>' +
             '<div class="az-image-preview" id="' + containerId + '-poster-preview" style="aspect-ratio:16/9;"></div>' +
-            '<input type="file" accept="image/jpeg,image/png,image/webp" id="' + containerId + '-poster-input">' +
+            '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="' + containerId + '-poster-input">' +
           '</div>' +
         '</div>' +
         galleryBlockHtml +
@@ -3185,7 +3185,7 @@
         var tile = document.createElement('div');
         tile.innerHTML =
           '<div class="az-image-preview" style="aspect-ratio:1; margin-bottom:6px;"><img src="' + mediaSrc(key) + '" alt=""></div>' +
-          '<input type="file" accept="image/jpeg,image/png,image/webp">' +
+          '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif">' +
           '<button type="button" class="az-mini-btn danger" style="margin-top:4px; width:100%;">Rimuovi</button>';
         tile.querySelector('input[type=file]').addEventListener('change', async function(){
           var file = this.files[0]; this.value = ''; if (!file) return;
@@ -3316,7 +3316,7 @@
       card.innerHTML =
         '<div>' +
           '<div class="az-image-preview" style="aspect-ratio:1/1;">' + ((o.coverKey || def.coverKey) ? '<img src="' + mediaSrc(o.coverKey || def.coverKey) + '" alt="">' : 'Copertina') + '</div>' +
-          '<input type="file" accept="image/jpeg,image/png,image/webp" style="margin-top:6px; font-size:11px; width:90px;">' +
+          '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="margin-top:6px; font-size:11px; width:90px;">' +
         '</div>' +
         '<div style="display:flex; flex-direction:column; gap:8px;">' +
           '<div style="font-size:11px; color:var(--grey);">' + esc(def.title) + (def.draft ? ' · bozza, non ancora sul sito' : '') + ' · ' + (typeof o.sortOrder === 'number' ? ('posizione ' + o.sortOrder) : 'posizione non impostata') + '</div>' +
@@ -3771,7 +3771,7 @@
       } else {
         row.innerHTML =
           '<div class="az-image-preview" style="aspect-ratio:16/7;">' + (s.key ? '<img src="/media/' + s.key + '" alt="">' : 'Nessuna immagine') + '</div>' +
-          '<input type="file" accept="image/jpeg,image/png,image/webp" style="margin-bottom:8px;">' +
+          '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="margin-bottom:8px;">' +
           '<input type="text" placeholder="Didascalia (facoltativa)" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
           '<button type="button" class="az-mini-btn danger">Rimuovi sezione</button>';
         var fileInput = row.querySelector('input[type=file]');
@@ -3982,7 +3982,7 @@
       row.innerHTML =
         '<div>' +
           '<div class="az-image-preview" style="aspect-ratio:1/1;">' + (f.photoKey ? '<img src="' + mediaSrc(f.photoKey) + '" alt="">' : 'Foto') + '</div>' +
-          '<input type="file" accept="image/jpeg,image/png,image/webp" style="margin-top:6px; font-size:11px;">' +
+          '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="margin-top:6px; font-size:11px;">' +
           '<div class="cs-founder-framing"></div>' +
         '</div>' +
         '<div>' +
@@ -4100,7 +4100,7 @@
           row.innerHTML =
             '<div>' +
               '<div class="az-image-preview" style="aspect-ratio:1/1;">' + (m.photoKey ? '<img src="' + mediaSrc(m.photoKey) + '" alt="">' : 'Foto') + '</div>' +
-              '<input type="file" accept="image/jpeg,image/png,image/webp" style="margin-top:4px; font-size:10px; width:56px;">' +
+              '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="margin-top:4px; font-size:10px; width:56px;">' +
             '</div>' +
             '<div>' +
               '<input type="text" placeholder="Nome" style="width:100%; margin-bottom:6px; padding:7px 9px; border-radius:7px; border:1.5px solid var(--line); font-size:13px;">' +
@@ -4161,7 +4161,7 @@
       } else {
         row.innerHTML =
           '<div class="az-image-preview" style="aspect-ratio:16/7;">' + (s.key ? '<img src="/media/' + s.key + '" alt="">' : 'Nessuna immagine') + '</div>' +
-          '<input type="file" accept="image/jpeg,image/png,image/webp" style="margin-bottom:8px;">' +
+          '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="margin-bottom:8px;">' +
           '<input type="text" placeholder="Didascalia (facoltativa)" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
           '<button type="button" class="az-mini-btn danger">Rimuovi sezione</button>';
         var fileInput2 = row.querySelector('input[type=file]');
@@ -4332,7 +4332,7 @@
       } else {
         row.innerHTML =
           '<div class="az-image-preview" style="aspect-ratio:16/7;">' + (s.key ? '<img src="/media/' + s.key + '" alt="">' : 'Nessuna immagine') + '</div>' +
-          '<input type="file" accept="image/jpeg,image/png,image/webp" style="margin-bottom:8px;">' +
+          '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="margin-bottom:8px;">' +
           '<input type="text" placeholder="Didascalia (facoltativa)" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
           '<button type="button" class="az-mini-btn danger">Rimuovi sezione</button>';
         var fileInput = row.querySelector('input[type=file]');
