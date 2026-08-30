@@ -52,7 +52,9 @@ namespace_id = "1003"
 [vars]
 SITE_URL = "https://growmisito.grow-mi.workers.dev"
 
-# Gira ogni giorno alle 10:00 UTC = mezzogiorno in Italia (ora legale, valida per l'evento del
-# 10 settembre) - controlla se un evento è finito ieri e, se sì, manda il feedback in automatico.
+# Due cron distinti (vedi scheduled() in src/worker.js, distingue in base a event.cron):
+# - "0 10 * * *": una volta al giorno alle 10:00 UTC = mezzogiorno in Italia (ora legale) -
+#   controlla se un evento è finito ieri e, se sì, manda il feedback in automatico + backup KV.
+# - "*/15 * * * *": ogni 15 minuti - manda le newsletter programmate il cui orario è arrivato.
 [triggers]
-crons = ["0 10 * * *"]
+crons = ["0 10 * * *", "*/15 * * * *"]

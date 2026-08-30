@@ -11,20 +11,29 @@ export default {
     return withSecurityHeaders(response);
   },
 
-  // Cron giornaliero (vedi [triggers] in wrangler.toml): manda il feedback in automatico agli
-  // eventi finiti ieri, poi il backup dei dati. Ogni job nel suo try/catch, cosi' se uno fallisce
-  // l'altro parte comunque — un'eccezione qui non ha nessuno a cui rispondere con un errore (non
-  // è una richiesta HTTP), finirebbe solo nei log di Cloudflare.
+  // Due cron distinti (vedi [triggers] in wrangler.toml) — si distinguono da event.cron, non da
+  // due funzioni "scheduled" diverse (Cloudflare Workers ne accetta solo una). Ogni job nel suo
+  // try/catch, così se uno fallisce gli altri partono comunque — un'eccezione qui non ha nessuno
+  // a cui rispondere con un errore (non è una richiesta HTTP), finirebbe solo nei log di Cloudflare.
   async scheduled(event, env, ctx) {
-    try {
-      await runScheduledFeedback(env);
-    } catch (err) {
-      console.log("Errore cron feedback:", err.stack || err.message);
+    if (event.cron === "0 10 * * *") {
+      try {
+        await runScheduledFeedback(env);
+      } catch (err) {
+        console.log("Errore cron feedback:", err.stack || err.message);
+      }
+      try {
+        await sendKVBackupEmail(env);
+      } catch (err) {
+        console.log("Errore cron backup:", err.stack || err.message);
+      }
     }
-    try {
-      await sendKVBackupEmail(env);
-    } catch (err) {
-      console.log("Errore cron backup:", err.stack || err.message);
+    if (event.cron === "*/15 * * * *") {
+      try {
+        await runScheduledNewsletters(env);
+      } catch (err) {
+        console.log("Errore cron newsletter programmate:", err.stack || err.message);
+      }
     }
   }
 };
@@ -2789,6 +2798,35 @@ function buildTrackedEmailHtml(bodyHtml, campaignId, subscriber, env) {
     pixel;
 }
 
+// Crea da sola una bozza di newsletter appena si salva un evento NUOVO (vedi
+// handleAdminCreateEvent) — zero click in più: l'admin la trova già pronta in "Campagne", con
+// testo/oggetto precompilati come per il flusso manuale "Lega a un evento", aggiunge solo le
+// foto e la manda quando vuole. Non tocca nulla se una bozza per questo evento esiste già
+// (es. l'admin l'ha creata a mano prima di salvare l'evento).
+async function autoCreateDraftCampaignForEvent(env, slug, event) {
+  try {
+    const page = await env.TICKETS.list({ prefix: "newslettercampaign:" });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      if (!raw) continue;
+      const existing = JSON.parse(raw);
+      if (existing.eventSlug === slug) return; // già ce n'è una, non duplicarla
+    }
+    const id = crypto.randomUUID();
+    const campaign = {
+      id, name: `Newsletter — ${event.name}`, eventSlug: slug,
+      subject: event.name,
+      bodyHtml: autoDraftHtmlFromEvent(event).replace("EVENT_URL_PLACEHOLDER", `${newsletterBaseUrl(env)}/evento/${slug}`),
+      targetGroups: [`event:${slug}`],
+      status: "draft", createdAt: new Date().toISOString(), sentAt: null, scheduledAt: null,
+      recipientCount: 0, openCount: 0, clickCount: 0
+    };
+    await env.TICKETS.put(`newslettercampaign:${id}`, JSON.stringify(campaign));
+  } catch (err) {
+    console.log("Errore bozza newsletter automatica per evento", slug, err.stack || err.message);
+  }
+}
+
 async function handleAdminListNewsletterCampaigns(request, env) {
   const auth = await requireStaffAccount(request, env);
   if (auth.error) return auth.error;
@@ -2830,7 +2868,7 @@ async function handleAdminCreateNewsletterCampaign(request, env) {
   const campaign = {
     id, name, eventSlug, subject, bodyHtml,
     targetGroups: Array.isArray(body.targetGroups) && body.targetGroups.length ? body.targetGroups : targetGroups,
-    status: "draft", createdAt: new Date().toISOString(), sentAt: null,
+    status: "draft", createdAt: new Date().toISOString(), sentAt: null, scheduledAt: null,
     recipientCount: 0, openCount: 0, clickCount: 0
   };
   await env.TICKETS.put(`newslettercampaign:${id}`, JSON.stringify(campaign));
@@ -2849,9 +2887,22 @@ async function handleAdminSaveNewsletterCampaign(request, env) {
   const campaign = JSON.parse(raw);
   if (campaign.status === "sent") return jsonResponse({ error: "questa newsletter è già stata inviata, non è più modificabile" }, 400);
   campaign.name = String(body.name || campaign.name || "").trim().slice(0, 200);
-  campaign.subject = String(body.subject || "").trim().slice(0, 200);
+  campaign.subject = typeof body.subject === "string" ? body.subject.trim().slice(0, 200) : campaign.subject;
   campaign.bodyHtml = typeof body.bodyHtml === "string" ? body.bodyHtml.slice(0, 20000) : campaign.bodyHtml;
   if (Array.isArray(body.targetGroups)) campaign.targetGroups = body.targetGroups;
+  // Programmazione: un datetime-local valido pianifica l'invio (status "scheduled", se ne
+  // occupa il cron ogni 15 minuti — vedi runScheduledNewsletters). Stringa vuota/assente riporta
+  // a bozza normale, senza toccare lo status se non è stato passato il campo affatto (salvataggi
+  // "solo testo" non devono disprogrammare per sbaglio una campagna già programmata).
+  if (Object.prototype.hasOwnProperty.call(body, "scheduledAt")) {
+    if (body.scheduledAt && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(body.scheduledAt)) {
+      campaign.scheduledAt = body.scheduledAt;
+      campaign.status = "scheduled";
+    } else {
+      campaign.scheduledAt = null;
+      if (campaign.status === "scheduled") campaign.status = "draft";
+    }
+  }
   await env.TICKETS.put(`newslettercampaign:${id}`, JSON.stringify(campaign));
   return jsonResponse({ ok: true, campaign });
 }
@@ -2875,20 +2926,11 @@ async function handleAdminPreviewNewsletterRecipients(request, env) {
   return jsonResponse({ count: recipients.length });
 }
 
-async function handleAdminSendNewsletterCampaign(request, env) {
-  const auth = await requireStaffAccount(request, env);
-  if (auth.error) return auth.error;
-  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
-  if (!env.RESEND_API_KEY) throw new Error("RESEND_API_KEY non configurato");
-  const body = await request.json();
-  const id = String(body.id || "").trim();
-  if (!id) return jsonResponse({ error: "id mancante" }, 400);
-  const raw = await env.TICKETS.get(`newslettercampaign:${id}`);
-  if (!raw) return jsonResponse({ error: "campagna non trovata" }, 404);
-  const campaign = JSON.parse(raw);
-  if (campaign.status === "sent") return jsonResponse({ error: "già inviata in precedenza" }, 400);
-  if (!campaign.subject || !campaign.bodyHtml) return jsonResponse({ error: "oggetto e testo obbligatori prima di inviare" }, 400);
-
+// Invio vero e proprio — condiviso tra la rotta manuale ("Invia adesso") e il cron che manda le
+// campagne programmate (vedi runScheduledNewsletters). Il chiamante ha già controllato che la
+// campagna esista e non sia già stata inviata.
+async function sendNewsletterCampaignNow(env, campaign) {
+  const id = campaign.id;
   const recipients = await resolveCampaignRecipients(env, campaign.targetGroups);
   let sent = 0, failed = 0;
   for (const sub of recipients) {
@@ -2915,9 +2957,54 @@ async function handleAdminSendNewsletterCampaign(request, env) {
   }
   campaign.status = "sent";
   campaign.sentAt = new Date().toISOString();
+  campaign.scheduledAt = null;
   campaign.recipientCount = sent;
   await env.TICKETS.put(`newslettercampaign:${id}`, JSON.stringify(campaign));
-  return jsonResponse({ ok: true, sent, failed, total: recipients.length });
+  return { sent, failed, total: recipients.length };
+}
+
+// Cron ogni 15 minuti (vedi [triggers] in wrangler.toml): manda le campagne con status
+// "scheduled" il cui orario è arrivato. Un job alla volta con un piccolo margine di ritardo
+// accettabile (fino a ~15 minuti) — va benissimo per una newsletter, non serve precisione al
+// secondo.
+async function runScheduledNewsletters(env) {
+  if (!env.TICKETS || !env.RESEND_API_KEY) return;
+  const now = new Date();
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "newslettercampaign:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      if (!raw) continue;
+      const campaign = JSON.parse(raw);
+      if (campaign.status !== "scheduled" || !campaign.scheduledAt) continue;
+      if (new Date(campaign.scheduledAt) > now) continue;
+      try {
+        await sendNewsletterCampaignNow(env, campaign);
+      } catch (err) {
+        console.log("Errore invio programmato newsletter", campaign.id, err.stack || err.message);
+      }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+}
+
+async function handleAdminSendNewsletterCampaign(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  if (!env.RESEND_API_KEY) throw new Error("RESEND_API_KEY non configurato");
+  const body = await request.json();
+  const id = String(body.id || "").trim();
+  if (!id) return jsonResponse({ error: "id mancante" }, 400);
+  const raw = await env.TICKETS.get(`newslettercampaign:${id}`);
+  if (!raw) return jsonResponse({ error: "campagna non trovata" }, 404);
+  const campaign = JSON.parse(raw);
+  if (campaign.status === "sent") return jsonResponse({ error: "già inviata in precedenza" }, 400);
+  if (!campaign.subject || !campaign.bodyHtml) return jsonResponse({ error: "oggetto e testo obbligatori prima di inviare" }, 400);
+
+  const { sent, failed, total } = await sendNewsletterCampaignNow(env, campaign);
+  return jsonResponse({ ok: true, sent, failed, total });
 }
 
 // Pixel 1x1 trasparente (GIF più corto possibile in base64) — ogni apertura reale carica questa
@@ -4431,6 +4518,7 @@ async function handleAdminCreateEvent(request, env) {
   }
 
   await env.TICKETS.put(`event:${slug}`, JSON.stringify(validated.event));
+  await autoCreateDraftCampaignForEvent(env, slug, validated.event);
   return jsonResponse({ ok: true, slug, event: validated.event });
 }
 

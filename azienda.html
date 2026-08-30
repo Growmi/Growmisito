@@ -526,6 +526,11 @@
           <div id="az-nl-camp-targets"></div>
         </div>
         <p style="font-size:12px; color:var(--grey); margin-bottom:16px;" id="az-nl-camp-recipient-count"></p>
+        <div class="az-field" style="margin-bottom:16px; max-width:320px;">
+          <label>Programma l'invio (facoltativo)</label>
+          <input type="datetime-local" id="az-nl-camp-schedule">
+          <p style="font-size:11px; color:var(--grey); margin-top:4px;">Lascia vuoto per inviare subito. Se lo compili, il pulsante qui sotto programma l'invio invece di mandarlo adesso — parte da solo entro 15 minuti dall'orario scelto.</p>
+        </div>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
           <button type="button" class="az-mini-btn" id="az-nl-camp-save">Salva bozza</button>
           <button type="button" class="az-submit" id="az-nl-camp-send" style="padding:12px 22px;">📤 Invia adesso</button>
@@ -550,6 +555,12 @@
         <p style="font-size:12px; color:var(--grey); margin-bottom:14px; max-width:600px;">Chi si iscrive dal popup del sito o spunta "newsletter" all'acquisto del biglietto finisce qui — non più su MailerLite.</p>
         <div class="az-toolbar">
           <input type="text" class="az-search" id="az-nl-search" placeholder="Cerca per email o nome...">
+          <select id="az-nl-filter-group"><option value="">Tutti i gruppi</option></select>
+          <select id="az-nl-filter-consent">
+            <option value="">Consenso: tutti</option>
+            <option value="yes">Consenso: sì</option>
+            <option value="no">Consenso: no</option>
+          </select>
           <div class="actions">
             <span class="az-count" id="az-nl-count"></span>
             <button type="button" class="az-mini-btn" id="az-nl-import-mailerlite">⬇️ Importa da MailerLite</button>
@@ -1518,11 +1529,31 @@
     btn.disabled = false;
   });
 
+  function populateNlGroupFilter(){
+    var select = document.getElementById('az-nl-filter-group');
+    var current = select.value;
+    var eventSlugs = new Set();
+    allSubscribers.forEach(function(s){ (s.eventGroups || []).forEach(function(slug){ eventSlugs.add(slug); }); });
+    var options = ['<option value="">Tutti i gruppi</option>', '<option value="site">Solo sito</option>'];
+    Array.from(eventSlugs).sort().forEach(function(slug){ options.push('<option value="event:' + slug + '">Evento: ' + esc(slug) + '</option>'); });
+    allNlGroups.forEach(function(g){ options.push('<option value="group:' + g.id + '">Gruppo: ' + esc(g.name) + '</option>'); });
+    select.innerHTML = options.join('');
+    if (Array.from(select.options).some(function(o){ return o.value === current; })) select.value = current;
+  }
+
   function renderNlSubscribers(){
     var q = document.getElementById('az-nl-search').value.trim().toLowerCase();
+    var groupFilter = document.getElementById('az-nl-filter-group').value;
+    var consentFilter = document.getElementById('az-nl-filter-consent').value;
     var items = allSubscribers.filter(function(s){
-      if (!q) return true;
-      return (s.email || '').toLowerCase().indexOf(q) !== -1 || (s.name || '').toLowerCase().indexOf(q) !== -1;
+      if (q && (s.email || '').toLowerCase().indexOf(q) === -1 && (s.name || '').toLowerCase().indexOf(q) === -1) return false;
+      if (groupFilter === 'site' && !s.siteSignup) return false;
+      if (groupFilter.indexOf('event:') === 0 && !(s.eventGroups || []).includes(groupFilter.slice(6))) return false;
+      if (groupFilter.indexOf('group:') === 0 && !(s.manualGroups || []).includes(groupFilter.slice(6))) return false;
+      var hasConsent = s.newsletterOptin && !s.unsubscribed;
+      if (consentFilter === 'yes' && !hasConsent) return false;
+      if (consentFilter === 'no' && hasConsent) return false;
+      return true;
     });
     var tbody = document.getElementById('az-nl-tbody');
     var empty = document.getElementById('az-nl-empty');
@@ -1562,12 +1593,15 @@
     });
   }
   document.getElementById('az-nl-search').addEventListener('input', renderNlSubscribers);
+  document.getElementById('az-nl-filter-group').addEventListener('change', renderNlSubscribers);
+  document.getElementById('az-nl-filter-consent').addEventListener('change', renderNlSubscribers);
 
   async function loadNlSubscribers(){
     try {
       var res = await fetch('/api/admin/newsletter-subscribers');
       var data = await res.json();
       allSubscribers = data.subscribers || [];
+      populateNlGroupFilter();
       renderNlSubscribers();
     } catch (err) { document.getElementById('az-nl-count').textContent = 'Errore di connessione.'; }
   }
@@ -1609,6 +1643,26 @@
   var allNlCampaigns = [];
   var currentCampaignId = null;
 
+  function pct(n, d){ return d > 0 ? Math.round((n / d) * 1000) / 10 : 0; }
+
+  function nlStatsDetailHtml(c){
+    var opened = pct(c.openCount, c.recipientCount);
+    var clicked = pct(c.clickCount, c.recipientCount);
+    var ctor = pct(c.clickCount, c.openCount); // click-to-open rate: click sul totale di chi ha aperto
+    function statRow(color, label, value){
+      return '<div style="display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid #f0ece5;">' +
+        '<span style="width:4px; height:22px; border-radius:2px; background:' + color + ';"></span>' +
+        '<span style="flex:1; font-size:13.5px; color:var(--grey);">' + label + '</span>' +
+        '<strong style="font-size:14.5px;">' + value + '</strong></div>';
+    }
+    return '<div style="margin-top:10px; padding:14px 18px; background:#FBF6F0; border-radius:10px;">' +
+      statRow('#ddd', 'Destinatari', c.recipientCount) +
+      statRow('#4CAF50', 'Aperture', opened + '%') +
+      statRow('#3B82F6', 'Click', clicked + '%') +
+      statRow('#9333EA', 'CTOR (click su chi ha aperto)', ctor + '%') +
+      '</div>';
+  }
+
   function renderNlCampaigns(){
     var wrap = document.getElementById('az-nl-campaigns-list');
     var empty = document.getElementById('az-nl-campaigns-empty');
@@ -1616,15 +1670,20 @@
     empty.hidden = !!allNlCampaigns.length;
     allNlCampaigns.forEach(function(c){
       var row = document.createElement('div');
-      row.style.cssText = 'display:flex; align-items:center; justify-content:space-between; gap:12px; border:1.5px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px; background:#fff;';
+      row.style.cssText = 'border:1.5px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px; background:#fff;';
       var statusBadge = c.status === 'sent'
         ? '<span class="az-pill newsletter">Inviata · ' + c.recipientCount + ' destinatari · ' + c.openCount + ' aperture · ' + c.clickCount + ' click</span>'
+        : c.status === 'scheduled'
+        ? '<span class="az-pill card">🕒 Programmata per ' + new Date(c.scheduledAt).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</span>'
         : '<span class="az-pill">Bozza</span>';
       row.innerHTML =
-        '<div><strong>' + esc(c.name) + '</strong><br><span style="font-size:12px; color:var(--grey);">' + esc(c.subject || 'Nessun oggetto') + '</span></div>' +
-        '<div style="display:flex; align-items:center; gap:10px;">' + statusBadge +
-          (c.status !== 'sent' ? '<button type="button" class="az-mini-btn" data-open="' + c.id + '">Modifica</button><button type="button" class="az-mini-btn danger" data-del="' + c.id + '">Elimina</button>' : '') +
-        '</div>';
+        '<div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">' +
+          '<div' + (c.status === 'sent' ? ' style="cursor:pointer;" data-toggle-stats' : '') + '><strong>' + esc(c.name) + '</strong><br><span style="font-size:12px; color:var(--grey);">' + esc(c.subject || 'Nessun oggetto') + '</span></div>' +
+          '<div style="display:flex; align-items:center; gap:10px;">' + statusBadge +
+            (c.status !== 'sent' ? '<button type="button" class="az-mini-btn" data-open="' + c.id + '">Modifica</button><button type="button" class="az-mini-btn danger" data-del="' + c.id + '">Elimina</button>' : '') +
+          '</div>' +
+        '</div>' +
+        (c.status === 'sent' ? '<div class="nl-stats-detail" hidden>' + nlStatsDetailHtml(c) + '</div>' : '');
       var openBtn = row.querySelector('[data-open]');
       if (openBtn) openBtn.addEventListener('click', function(){ openCampaignComposer(c); });
       var delBtn = row.querySelector('[data-del]');
@@ -1632,6 +1691,11 @@
         if (!confirm('Eliminare la bozza "' + c.name + '"?')) return;
         await fetch('/api/admin/newsletter-campaigns?id=' + encodeURIComponent(c.id), { method: 'DELETE' });
         await loadNlCampaigns();
+      });
+      var toggle = row.querySelector('[data-toggle-stats]');
+      if (toggle) toggle.addEventListener('click', function(){
+        var detail = row.querySelector('.nl-stats-detail');
+        detail.hidden = !detail.hidden;
       });
       wrap.appendChild(row);
     });
@@ -1697,6 +1761,7 @@
     document.getElementById('az-nl-camp-event').value = campaign ? (campaign.eventSlug || '') : '';
     document.getElementById('az-nl-camp-subject').value = campaign ? campaign.subject : '';
     document.getElementById('az-nl-camp-body').innerHTML = campaign ? campaign.bodyHtml : '';
+    document.getElementById('az-nl-camp-schedule').value = (campaign && campaign.scheduledAt) ? campaign.scheduledAt.slice(0, 16) : '';
     renderNlTargets(campaign ? campaign.targetGroups : []);
     updateRecipientCount();
     document.getElementById('az-nl-composer-wrap').hidden = false;
@@ -1757,7 +1822,8 @@
       eventSlug: document.getElementById('az-nl-camp-event').value || null,
       subject: document.getElementById('az-nl-camp-subject').value.trim(),
       bodyHtml: document.getElementById('az-nl-camp-body').innerHTML,
-      targetGroups: collectNlTargets()
+      targetGroups: collectNlTargets(),
+      scheduledAt: document.getElementById('az-nl-camp-schedule').value || null
     };
   }
 
@@ -1790,6 +1856,10 @@
     btn.disabled = false;
   });
 
+  document.getElementById('az-nl-camp-schedule').addEventListener('input', function(){
+    document.getElementById('az-nl-camp-send').textContent = this.value ? '🕒 Programma invio' : '📤 Invia adesso';
+  });
+
   document.getElementById('az-nl-camp-send').addEventListener('click', async function(){
     var msg = document.getElementById('az-nl-camp-msg');
     msg.hidden = true;
@@ -1797,32 +1867,41 @@
     if (!targets.length) { showMsg(msg, 'Scegli almeno un destinatario.', true); return; }
     var subject = document.getElementById('az-nl-camp-subject').value.trim();
     if (!subject) { showMsg(msg, 'Scrivi un oggetto prima di inviare.', true); return; }
-    if (!confirm('Inviare questa newsletter adesso? Non si può annullare.')) return;
+    var scheduling = !!document.getElementById('az-nl-camp-schedule').value;
+    if (!confirm(scheduling ? 'Programmare l\'invio di questa newsletter per l\'orario scelto?' : 'Inviare questa newsletter adesso? Non si può annullare.')) return;
     var btn = this;
     btn.disabled = true;
-    btn.textContent = 'Invio in corso...';
+    btn.textContent = scheduling ? 'Programmazione...' : 'Invio in corso...';
     try {
       var payload = collectCampaignPayload();
       var saveRes = currentCampaignId
         ? await fetch('/api/admin/newsletter-campaigns', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ id: currentCampaignId }, payload)) })
         : await fetch('/api/admin/newsletter-campaigns', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       var saveData = await saveRes.json();
-      if (!saveRes.ok) { showMsg(msg, saveData.error || 'Qualcosa è andato storto nel salvataggio.', true); btn.disabled = false; btn.textContent = '📤 Invia adesso'; return; }
+      if (!saveRes.ok) { showMsg(msg, saveData.error || 'Qualcosa è andato storto nel salvataggio.', true); btn.disabled = false; btn.textContent = scheduling ? '🕒 Programma invio' : '📤 Invia adesso'; return; }
       currentCampaignId = saveData.campaign.id;
-      var res = await fetch('/api/admin/newsletter-send', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: currentCampaignId })
-      });
-      var data = await res.json();
-      if (res.ok) {
-        alert('Fatto: inviata a ' + data.sent + ' persone su ' + data.total + ' (' + data.failed + ' fallite).');
+      if (scheduling) {
+        // Il salvataggio con scheduledAt ha già impostato status "scheduled" — il cron ci pensa da solo.
+        alert('Programmata — partirà da sola entro 15 minuti dall\'orario scelto.');
         document.getElementById('az-nl-composer-wrap').hidden = true;
         currentCampaignId = null;
         await loadNlCampaigns();
-      } else showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+      } else {
+        var res = await fetch('/api/admin/newsletter-send', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: currentCampaignId })
+        });
+        var data = await res.json();
+        if (res.ok) {
+          alert('Fatto: inviata a ' + data.sent + ' persone su ' + data.total + ' (' + data.failed + ' fallite).');
+          document.getElementById('az-nl-composer-wrap').hidden = true;
+          currentCampaignId = null;
+          await loadNlCampaigns();
+        } else showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+      }
     } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
     btn.disabled = false;
-    btn.textContent = '📤 Invia adesso';
+    btn.textContent = document.getElementById('az-nl-camp-schedule').value ? '🕒 Programma invio' : '📤 Invia adesso';
   });
 
   panelLoaders.newsletter = { loaded: false, load: function(){
