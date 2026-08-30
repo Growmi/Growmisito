@@ -2129,11 +2129,22 @@
         });
       });
     } else if (block.type === 'image'){
+      var widthOptions = [[100, 'Larghezza intera'], [50, 'Metà'], [33, 'Un terzo']];
       container.innerHTML =
-        '<div class="az-image-preview" style="aspect-ratio:16/9;">' + (block.key ? '<img src="' + mediaSrc(block.key) + '" alt="">' : 'Nessuna immagine') + '</div>' +
+        '<div class="az-image-preview" style="aspect-ratio:16/9; max-width:' + (block.width || 100) + '%; margin:0 auto;">' + (block.key ? '<img src="' + mediaSrc(block.key) + '" alt="">' : 'Nessuna immagine') + '</div>' +
         '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif">' +
         (block.key ? '<button type="button" class="az-mini-btn danger" style="margin-top:6px;">Rimuovi</button>' : '') +
-        '<div class="az-nl-block-framing" style="margin-top:10px;"></div>';
+        '<div class="az-nl-block-framing" style="margin-top:10px;"></div>' +
+        (block.key ? (
+          '<div style="margin-top:10px;">' +
+            '<label style="font-size:11px; color:var(--grey); display:block; margin-bottom:6px;">Dimensione nella mail</label>' +
+            '<div class="az-nl-block-width-row" style="display:flex; gap:6px;">' +
+              widthOptions.map(function(o){
+                return '<button type="button" class="az-mini-btn nl-width-opt" data-width="' + o[0] + '"' + ((block.width || 100) === o[0] ? ' style="border-color:var(--coral);"' : '') + '>' + o[1] + '</button>';
+              }).join('') +
+            '</div>' +
+          '</div>'
+        ) : '');
       container.querySelector('input[type=file]').addEventListener('change', async function(){
         var file = this.files[0];
         this.value = '';
@@ -2145,6 +2156,12 @@
       });
       var removeBtn = container.querySelector('button.danger');
       if (removeBtn) removeBtn.addEventListener('click', function(){ block.key = null; renderBlockBody(container, block); });
+      container.querySelectorAll('.nl-width-opt').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          block.width = Number(btn.getAttribute('data-width'));
+          renderBlockBody(container, block);
+        });
+      });
       if (block.key){
         renderFramingControls(container.querySelector('.az-nl-block-framing'), container.querySelector('.az-image-preview img'), block);
       }
@@ -2252,7 +2269,7 @@
   function nlBlockToHtml(b){
     if (b.type === 'heading') return b.text ? '<h2 style="font-family:Arial,sans-serif; font-size:20px; font-weight:800; color:#1E0C2C; margin:0 0 14px;">' + b.text + '</h2>' : '';
     if (b.type === 'text') return b.html ? '<div style="margin:0 0 14px; font-size:15px; color:#1E0C2C; line-height:1.6;">' + b.html + '</div>' : '';
-    if (b.type === 'image') return b.key ? '<img src="' + mediaSrc(b.key) + '" alt="" style="width:100%; display:block; border-radius:14px; object-position:' + (b.position || 'center') + '; margin:0 0 14px;">' : '';
+    if (b.type === 'image') return b.key ? '<img src="' + mediaSrc(b.key) + '" alt="" style="width:' + (b.width || 100) + '%; display:block; border-radius:14px; object-position:' + (b.position || 'center') + '; margin:0 auto 14px;">' : '';
     if (b.type === 'button') return b.url ? '<p style="text-align:center; margin:20px 0;"><a href="' + b.url + '" style="display:inline-block; background:#F86639; color:#fff; font-weight:700; text-decoration:none; padding:14px 28px; border-radius:10px;">' + esc(b.label || 'Scopri di più') + '</a></p>' : '';
     if (b.type === 'divider') return '<hr style="border:none; border-top:1.5px solid #E4D9EA; margin:20px 0;">';
     if (b.type === 'spacer') return '<div style="height:' + (b.height || 24) + 'px;"></div>';
