@@ -1884,19 +1884,32 @@
     allNlCampaigns.forEach(function(c){
       var row = document.createElement('div');
       row.style.cssText = 'border:1.5px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px; background:#fff;';
+      var pendingCount = Array.isArray(c.pendingRecipients) ? c.pendingRecipients.length : 0;
       var statusBadge = c.status === 'sent'
         ? '<span class="az-pill newsletter">Inviata · ' + (c.sentAt ? new Date(c.sentAt).toLocaleDateString('it-IT') : '') + '</span>'
+        : c.status === 'partial'
+        ? '<span class="az-pill card">⏳ ' + pendingCount + ' in sospeso</span>'
         : c.status === 'scheduled'
         ? '<span class="az-pill card">🕒 Programmata per ' + new Date(c.scheduledAt).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</span>'
         : '<span class="az-pill">Bozza</span>';
+      var canEdit = c.status !== 'sent' && c.status !== 'partial';
       row.innerHTML =
         '<div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">' +
           '<div><strong>' + esc(c.name) + '</strong><br><span style="font-size:12px; color:var(--grey);">' + esc(c.subject || 'Nessun oggetto') + '</span></div>' +
-          '<div style="display:flex; align-items:center; gap:10px;">' + statusBadge +
-            (c.status !== 'sent' ? '<button type="button" class="az-mini-btn" data-open="' + c.id + '">Modifica</button><button type="button" class="az-mini-btn danger" data-del="' + c.id + '">Elimina</button>' : '') +
+          '<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">' + statusBadge +
+            (canEdit ? '<button type="button" class="az-mini-btn" data-open="' + c.id + '">Modifica</button><button type="button" class="az-mini-btn danger" data-del="' + c.id + '">Elimina</button>' : '') +
+            (c.status === 'partial' ? '<button type="button" class="az-mini-btn" data-retry="' + c.id + '">🔁 Riprova ai rimasti</button>' : '') +
+            ((c.status === 'sent' || c.status === 'partial') ? '<button type="button" class="az-mini-btn" data-manual="' + c.id + '">✉️ Invia a lista</button>' : '') +
           '</div>' +
         '</div>' +
-        (c.status === 'sent' ? nlStatsDetailHtml(c) : '');
+        ((c.status === 'sent' || c.status === 'partial') ? nlStatsDetailHtml(c) : '') +
+        (c.status === 'partial' ? '<p style="font-size:12px; color:var(--grey); margin-top:8px;">Resend ha smesso di rispondere a metà (limite di velocità o tetto del piano) — questi ' + pendingCount + ' verranno ritentati da soli entro 15 minuti, oppure clicca "Riprova" per farlo subito.</p>' : '') +
+        '<div id="nl-manual-wrap-' + c.id + '" hidden style="margin-top:10px; padding-top:10px; border-top:1.5px solid var(--line);">' +
+          '<p style="font-size:12px; color:var(--grey); margin-bottom:6px;">Incolla una email per riga — utile per rimandare a chi risulta fallito su Resend (controlla lì la lista esatta, qui non è ricostruibile per gli invii fatti prima di questa funzione).</p>' +
+          '<textarea class="nl-manual-emails" rows="4" style="width:100%; max-width:420px; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line); font-family:\'Inter\',sans-serif; font-size:13px;" placeholder="email1@esempio.it&#10;email2@esempio.it"></textarea><br>' +
+          '<button type="button" class="az-mini-btn" data-send-manual="' + c.id + '" style="margin-top:6px;">Invia a questa lista</button>' +
+          '<p class="az-msg" id="nl-manual-msg-' + c.id + '" hidden></p>' +
+        '</div>';
       var openBtn = row.querySelector('[data-open]');
       if (openBtn) openBtn.addEventListener('click', function(){ openCampaignComposer(c); });
       var delBtn = row.querySelector('[data-del]');
@@ -1904,6 +1917,45 @@
         if (!confirm('Eliminare la bozza "' + c.name + '"?')) return;
         await fetch('/api/admin/newsletter-campaigns?id=' + encodeURIComponent(c.id), { method: 'DELETE' });
         await loadNlCampaigns();
+      });
+      var retryBtn = row.querySelector('[data-retry]');
+      if (retryBtn) retryBtn.addEventListener('click', async function(){
+        retryBtn.disabled = true;
+        retryBtn.textContent = 'Invio in corso...';
+        try {
+          var res = await fetch('/api/admin/newsletter-send', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: c.id })
+          });
+          var data = await res.json();
+          if (res.ok) alert('Fatto: ' + data.sent + ' inviate, ' + data.failed + ' fallite di nuovo, ' + data.pending + ' ancora in sospeso.');
+          else alert(data.error || 'Qualcosa è andato storto.');
+          await loadNlCampaigns();
+        } catch (err) { alert('Errore di connessione.'); retryBtn.disabled = false; retryBtn.textContent = '🔁 Riprova ai rimasti'; }
+      });
+      var manualToggle = row.querySelector('[data-manual]');
+      if (manualToggle) manualToggle.addEventListener('click', function(){
+        var wrap2 = document.getElementById('nl-manual-wrap-' + c.id);
+        wrap2.hidden = !wrap2.hidden;
+      });
+      var sendManualBtn = row.querySelector('[data-send-manual]');
+      if (sendManualBtn) sendManualBtn.addEventListener('click', async function(){
+        var textarea = row.querySelector('.nl-manual-emails');
+        var msg = document.getElementById('nl-manual-msg-' + c.id);
+        msg.hidden = true;
+        var emails = textarea.value.split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+        if (!emails.length) { showMsg(msg, 'Incolla almeno una email.', true); return; }
+        sendManualBtn.disabled = true;
+        try {
+          var res = await fetch('/api/admin/newsletter-send-to-list', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: c.id, emails: emails })
+          });
+          var data = await res.json();
+          if (res.ok) { showMsg(msg, 'Inviate ' + data.sent + ' su ' + data.matched + ' email valide trovate (di ' + data.requested + ' incollate).', false); textarea.value = ''; await loadNlCampaigns(); }
+          else showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+        } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
+        sendManualBtn.disabled = false;
       });
       wrap.appendChild(row);
     });

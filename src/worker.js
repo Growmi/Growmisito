@@ -458,6 +458,14 @@ async function handleFetch(request, env, ctx) {
         return jsonResponse({ error: err.message }, 500);
       }
     }
+    if (url.pathname === "/api/admin/newsletter-send-to-list" && request.method === "POST") {
+      try {
+        return await handleAdminSendNewsletterCampaignToList(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-send-to-list:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
     if (url.pathname === "/api/newsletter-track-open" && request.method === "GET") {
       return await handleNewsletterTrackOpen(request, env);
     }
@@ -2863,6 +2871,22 @@ async function resolveCampaignRecipients(env, targetGroups) {
   return recipients;
 }
 
+// Risolve una lista di email specifiche in oggetti iscritto — usato per riprovare solo chi era
+// rimasto in sospeso (pendingRecipients) o per un invio manuale a una lista (recupero incidenti).
+// Ri-controlla optin/disiscrizione al momento della chiamata (potrebbero essere cambiati nel
+// frattempo), non si fida della lista da sola.
+async function resolveRecipientsByEmail(env, emails) {
+  const recipients = [];
+  for (const email of emails) {
+    const raw = await env.TICKETS.get(`subscriber:${String(email).trim().toLowerCase()}`);
+    if (!raw) continue;
+    const sub = JSON.parse(raw);
+    if (!sub.newsletterOptin || sub.unsubscribed) continue;
+    recipients.push(sub);
+  }
+  return recipients;
+}
+
 function newsletterBaseUrl(env) {
   return env.SITE_URL || "https://growmisito.grow-mi.workers.dev";
 }
@@ -3175,12 +3199,24 @@ async function handleAdminPreviewNewsletterCampaign(request, env) {
 // Invio vero e proprio — condiviso tra la rotta manuale ("Invia adesso") e il cron che manda le
 // campagne programmate (vedi runScheduledNewsletters). Il chiamante ha già controllato che la
 // campagna esista e non sia già stata inviata.
-async function sendNewsletterCampaignNow(env, campaign) {
+// overrideRecipients (facoltativo): se passato, si manda SOLO a questa lista invece di
+// ricalcolare i destinatari dai targetGroups — usato per riprovare solo chi era rimasto in sospeso
+// (campaign.pendingRecipients) o per un invio manuale a una lista di email specifiche (recupero da
+// un incidente), senza mai reinviare a chi ha già ricevuto questa campagna con successo.
+async function sendNewsletterCampaignNow(env, campaign, overrideRecipients) {
   const id = campaign.id;
-  const recipients = await resolveCampaignRecipients(env, campaign.targetGroups);
+  const recipients = overrideRecipients || await resolveCampaignRecipients(env, campaign.targetGroups);
   const settings = await getNewsletterSettings(env);
   let sent = 0, failed = 0;
-  for (const sub of recipients) {
+  const pending = [];
+  // Un 429 di Resend (limite di velocità O tetto del piano esaurito) significa che OGNI invio
+  // successivo fallirebbe comunque — continuare a provare brucia solo tempo e riempie i log.
+  // Ci si ferma subito, si tiene da parte chi non è stato ancora tentato, e si riprova più tardi
+  // (vedi runScheduledNewsletters, ogni 15 minuti prova anche le campagne "partial").
+  let rateLimited = false;
+  for (let i = 0; i < recipients.length; i++) {
+    const sub = recipients[i];
+    if (rateLimited) { pending.push(sub.email); continue; }
     try {
       const html = buildTrackedEmailHtml(campaign.bodyHtml, id, sub, env, {
         title: campaign.title, heroImageKey: campaign.heroImageKey, heroImagePosition: campaign.heroImagePosition, settings
@@ -3195,6 +3231,15 @@ async function sendNewsletterCampaignNow(env, campaign) {
         sub.stats = sub.stats || { sent: 0, opens: 0, clicks: 0 };
         sub.stats.sent++;
         await env.TICKETS.put(`subscriber:${sub.email}`, JSON.stringify(sub));
+        // Marcatore per-campagna/per-email (mai usato per l'invio, solo per poter rispondere in
+        // futuro a "chi non ha ricevuto la campagna X" — cosa che oggi non è possibile ricostruire
+        // per gli invii fatti prima di questo campo).
+        await env.TICKETS.put(`nlsent:${id}:${sub.email}`, "1");
+      } else if (res.status === 429) {
+        failed++;
+        rateLimited = true;
+        pending.push(sub.email);
+        console.log("Resend: limite raggiunto, invio messo in pausa per", campaign.id, await res.text());
       } else {
         failed++;
         console.log("Resend newsletter error:", res.status, await res.text());
@@ -3203,13 +3248,19 @@ async function sendNewsletterCampaignNow(env, campaign) {
       failed++;
       console.log("Errore invio newsletter a", sub.email, e.message);
     }
+    // Pausa tra un invio e l'altro (non dopo l'ultimo) — riduce la probabilità di innescare un
+    // limite di velocità al secondo, a parte quello giornaliero del piano che questo non evita.
+    if (!rateLimited && i < recipients.length - 1) {
+      await new Promise(function(resolve){ setTimeout(resolve, 150); });
+    }
   }
-  campaign.status = "sent";
+  campaign.pendingRecipients = pending;
+  campaign.status = pending.length ? "partial" : "sent";
   campaign.sentAt = new Date().toISOString();
-  campaign.scheduledAt = null;
-  campaign.recipientCount = sent;
+  campaign.scheduledAt = pending.length ? campaign.scheduledAt : null;
+  campaign.recipientCount = (campaign.recipientCount || 0) + sent;
   await env.TICKETS.put(`newslettercampaign:${id}`, JSON.stringify(campaign));
-  return { sent, failed, total: recipients.length };
+  return { sent, failed, total: recipients.length, pending: pending.length };
 }
 
 // Cron ogni 15 minuti (vedi [triggers] in wrangler.toml): manda le campagne con status
@@ -3226,6 +3277,19 @@ async function runScheduledNewsletters(env) {
       const raw = await env.TICKETS.get(key.name);
       if (!raw) continue;
       const campaign = JSON.parse(raw);
+      // "partial": un invio precedente si è fermato per un limite di Resend con qualcuno ancora
+      // in sospeso (vedi sendNewsletterCampaignNow) — si riprova automaticamente, senza bisogno
+      // che l'admin clicchi niente, esattamente come per il tetto giornaliero che si libera da
+      // solo il giorno dopo.
+      if (campaign.status === "partial" && Array.isArray(campaign.pendingRecipients) && campaign.pendingRecipients.length) {
+        try {
+          const pendingSubs = await resolveRecipientsByEmail(env, campaign.pendingRecipients);
+          if (pendingSubs.length) await sendNewsletterCampaignNow(env, campaign, pendingSubs);
+        } catch (err) {
+          console.log("Errore riprova invio newsletter", campaign.id, err.stack || err.message);
+        }
+        continue;
+      }
       if (campaign.status !== "scheduled" || !campaign.scheduledAt) continue;
       if (new Date(campaign.scheduledAt) > now) continue;
       try {
@@ -3252,8 +3316,41 @@ async function handleAdminSendNewsletterCampaign(request, env) {
   if (campaign.status === "sent") return jsonResponse({ error: "già inviata in precedenza" }, 400);
   if (!campaign.subject || !campaign.bodyHtml) return jsonResponse({ error: "oggetto e testo obbligatori prima di inviare" }, 400);
 
-  const { sent, failed, total } = await sendNewsletterCampaignNow(env, campaign);
-  return jsonResponse({ ok: true, sent, failed, total });
+  // "partial": un invio precedente si è fermato a metà (limite di Resend) — questo pulsante deve
+  // riprovare SOLO chi è rimasto in sospeso, mai rifare l'invio completo (rimanderebbe la stessa
+  // newsletter anche a chi l'ha già ricevuta).
+  const overrideRecipients = (campaign.status === "partial" && Array.isArray(campaign.pendingRecipients) && campaign.pendingRecipients.length)
+    ? await resolveRecipientsByEmail(env, campaign.pendingRecipients)
+    : undefined;
+
+  const { sent, failed, total, pending } = await sendNewsletterCampaignNow(env, campaign, overrideRecipients);
+  return jsonResponse({ ok: true, sent, failed, total, pending });
+}
+
+// Recupero manuale: manda questa campagna a una lista di email specifiche, indipendentemente
+// dallo status (anche se già "sent") — per quando Resend ha fallito degli invii che il sistema non
+// aveva ancora modo di tracciare uno per uno (vedi nlsent: aggiunto dopo), e la lista di chi non
+// ha ricevuto arriva da fuori (es. il pannello di Resend stesso).
+async function handleAdminSendNewsletterCampaignToList(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  if (!env.RESEND_API_KEY) throw new Error("RESEND_API_KEY non configurato");
+  const body = await request.json();
+  const id = String(body.id || "").trim();
+  if (!id) return jsonResponse({ error: "id mancante" }, 400);
+  const raw = await env.TICKETS.get(`newslettercampaign:${id}`);
+  if (!raw) return jsonResponse({ error: "campagna non trovata" }, 404);
+  const campaign = JSON.parse(raw);
+  if (!campaign.subject || !campaign.bodyHtml) return jsonResponse({ error: "questa campagna non ha ancora oggetto/testo" }, 400);
+  const emails = Array.isArray(body.emails) ? body.emails.filter(function(e){ return isValidEmail(e); }).slice(0, 500) : [];
+  if (!emails.length) return jsonResponse({ error: "nessuna email valida nella lista" }, 400);
+  const recipients = await resolveRecipientsByEmail(env, emails);
+  if (!recipients.length) return jsonResponse({ error: "nessuno di questi indirizzi risulta iscritto con consenso attivo" }, 400);
+  // sendNewsletterCampaignNow calcola già status/pendingRecipients/salvataggio in base a QUESTO
+  // tentativo (chi di questa lista è passato, chi no) — niente altro da aggiornare qui sopra.
+  const { sent, failed, total, pending } = await sendNewsletterCampaignNow(env, campaign, recipients);
+  return jsonResponse({ ok: true, sent, failed, total, pending, requested: emails.length, matched: recipients.length });
 }
 
 // Pixel 1x1 trasparente (GIF più corto possibile in base64) — ogni apertura reale carica questa
