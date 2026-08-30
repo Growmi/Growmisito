@@ -5260,11 +5260,29 @@ function validatePageContentPayload(body) {
     }
   }
 
+  // "gallery" (usato oggi solo dalle pagine evento "storiche", es. grow-with-us): stessa logica
+  // di generalità/undefined di founders/heroSlides — assente vuol dire "mostra la galleria fissa
+  // già nell'HTML", un array (anche vuoto) la sostituisce del tutto. A differenza di heroSlides
+  // non è un'aggiunta ma una sostituzione, perché qui la galleria statica non è "sempre presente
+  // più le foto extra" ma un'unica lista che lo staff deve poter curare (aggiungere/togliere/
+  // sostituire singole foto).
+  let gallery;
+  if (Array.isArray(body.gallery)) {
+    gallery = [];
+    for (const raw of body.gallery) {
+      const key = String(raw || "").trim();
+      if (!key) continue;
+      gallery.push(key);
+      if (gallery.length >= 24) break;
+    }
+  }
+
   const content = { fields, extraSections };
   if (founders !== undefined) content.founders = founders;
   if (heroSlides !== undefined) content.heroSlides = heroSlides;
   if (teamAreas !== undefined) content.teamAreas = teamAreas;
   if (likedOptions !== undefined) content.likedOptions = likedOptions;
+  if (gallery !== undefined) content.gallery = gallery;
   return { ok: true, content };
 }
 
@@ -5359,6 +5377,15 @@ function foundersHTML(founders){
 function heroSlidesHTML(keys){
   return keys.map(function(key){
     return `<div class="ed-hero-slide"><img src="${mediaUrl(key)}" alt=""></div>`;
+  }).join("");
+}
+
+// Galleria foto di una pagina evento "storica" (oggi solo grow-with-us — vedi ".ed-gallery" nel
+// suo HTML) — stesso markup .ed-gallery-item della versione statica, così sostituendo il
+// contenuto del nodo la resa visiva non cambia, cambiano solo le foto.
+function galleryHTML(keys){
+  return keys.map(function(key){
+    return `<div class="ed-gallery-item"><img src="${mediaUrl(key)}" alt="" loading="lazy"></div>`;
   }).join("");
 }
 
@@ -5511,8 +5538,11 @@ async function handleArtMallCollabPage(request, env) {
   });
 }
 async function handleGrowWithUsPage(request, env) {
-  return handleFixedPageRoute(request, env, "grow-with-us", function(){
-    return { extraSections: "#ev-extra-sections", replace: [] };
+  return handleFixedPageRoute(request, env, "grow-with-us", function(content){
+    return {
+      extraSections: "#ev-extra-sections",
+      replace: [{ selector: ".ed-gallery", data: content.gallery, render: galleryHTML }]
+    };
   });
 }
 

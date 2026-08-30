@@ -3047,6 +3047,14 @@
   // dato che le due pagine hanno la stessa identica struttura (hero + sezione "La serata").
   function createLegacyEventPageEditor(containerId, pageKey, label, defaults){
     var container = document.getElementById(containerId);
+    var galleryBlockHtml = defaults.galleryKeys ? (
+      '<div>' +
+        '<p style="font-size:12px; font-weight:600; margin-bottom:8px;">Galleria foto</p>' +
+        '<div id="' + containerId + '-gallery" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:12px; margin-bottom:10px;"></div>' +
+        '<button type="button" class="az-mini-btn" data-action="add-gallery-photo">+ Aggiungi foto</button>' +
+        '<input type="file" accept="image/jpeg,image/png,image/webp" id="' + containerId + '-gallery-add-input" hidden>' +
+      '</div>'
+    ) : '';
     container.innerHTML =
       '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px;">' +
         '<h4 style="font-family:\'Space Grotesk\',sans-serif; font-size:14px;">' + label + '</h4>' +
@@ -3067,6 +3075,7 @@
             '<input type="file" accept="image/jpeg,image/png,image/webp" id="' + containerId + '-poster-input">' +
           '</div>' +
         '</div>' +
+        galleryBlockHtml +
         '<div>' +
           '<p style="font-size:12px; font-weight:600; margin-bottom:8px;">Sezioni extra</p>' +
           '<div id="' + containerId + '-extra" style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;"></div>' +
@@ -3118,6 +3127,39 @@
       try { posterKey = await uploadArtistMediaGeneric(file, 'poster', pageKey, 'pages'); renderPosterPreview(); } catch (err) { alert(err.message); }
     });
 
+    // Galleria foto (facoltativa — solo le pagine passate a createLegacyEventPageEditor con
+    // defaults.galleryKeys, oggi solo grow-with-us). A differenza di hero/poster (un solo file
+    // ciascuno) qui la lista intera va risalvata a ogni modifica, così una riga in meno o in più
+    // si vede subito nell'array mandato al server.
+    var galleryKeys = [];
+    function renderGallery(){
+      if (!defaults.galleryKeys) return;
+      var grid = document.getElementById(containerId + '-gallery');
+      grid.innerHTML = '';
+      galleryKeys.forEach(function(key, i){
+        var tile = document.createElement('div');
+        tile.innerHTML =
+          '<div class="az-image-preview" style="aspect-ratio:1; margin-bottom:6px;"><img src="' + mediaSrc(key) + '" alt=""></div>' +
+          '<input type="file" accept="image/jpeg,image/png,image/webp">' +
+          '<button type="button" class="az-mini-btn danger" style="margin-top:4px; width:100%;">Rimuovi</button>';
+        tile.querySelector('input[type=file]').addEventListener('change', async function(){
+          var file = this.files[0]; this.value = ''; if (!file) return;
+          try { galleryKeys[i] = await uploadArtistMediaGeneric(file, 'gallery', pageKey, 'pages'); renderGallery(); } catch (err) { alert(err.message); }
+        });
+        tile.querySelector('button.danger').addEventListener('click', function(){ galleryKeys.splice(i, 1); renderGallery(); });
+        grid.appendChild(tile);
+      });
+    }
+    if (defaults.galleryKeys) {
+      container.querySelector('[data-action="add-gallery-photo"]').addEventListener('click', function(){
+        document.getElementById(containerId + '-gallery-add-input').click();
+      });
+      document.getElementById(containerId + '-gallery-add-input').addEventListener('change', async function(){
+        var file = this.files[0]; this.value = ''; if (!file) return;
+        try { galleryKeys.push(await uploadArtistMediaGeneric(file, 'gallery', pageKey, 'pages')); renderGallery(); } catch (err) { alert(err.message); }
+      });
+    }
+
     function renderExtra(){ renderExtraSectionsGeneric(containerId + '-extra', extraSections, pageKey, renderExtra); }
     form.querySelector('[data-action="add-text"]').addEventListener('click', function(){ extraSections.push({ type: 'text', title: '', body: '' }); renderExtra(); });
     form.querySelector('[data-action="add-image"]').addEventListener('click', function(){ extraSections.push({ type: 'image', key: null, caption: '' }); renderExtra(); });
@@ -3150,7 +3192,7 @@
         var res = await fetch('/api/admin/page-content', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ page: pageKey, fields: collectFields(), extraSections: extraSections })
+          body: JSON.stringify({ page: pageKey, fields: collectFields(), extraSections: extraSections, gallery: defaults.galleryKeys ? galleryKeys : undefined })
         });
         var data = await res.json();
         if (res.ok) showMsg(msg, 'Salvato — la pagina è già aggiornata.', false);
@@ -3171,6 +3213,10 @@
         posterKey = content.fields['poster.image'] || null;
         renderHeroPreview();
         renderPosterPreview();
+        if (defaults.galleryKeys) {
+          galleryKeys = (content.gallery && content.gallery.length ? content.gallery : defaults.galleryKeys).slice();
+          renderGallery();
+        }
         extraSections = (content.extraSections || []).slice();
         renderExtra();
       } catch (err) { /* riprovabile ricaricando il pannello */ }
@@ -3180,7 +3226,15 @@
     heroKey: 'assets/img/eventi/art-mall-collab/sticker-bg.jpg', posterKey: 'assets/img/eventi/art-mall-collab/poster.png'
   });
   var loadGrowWithUsPage = createLegacyEventPageEditor('az-legacy-page-grow-with-us', 'grow-with-us', 'Grow With Us (6 maggio 2025)', {
-    heroKey: 'assets/img/eventi/grow-with-us/cover.jpg', posterKey: 'assets/img/eventi/grow-with-us/poster.png'
+    heroKey: 'assets/img/eventi/grow-with-us/cover.jpg', posterKey: 'assets/img/eventi/grow-with-us/poster.png',
+    galleryKeys: [
+      'assets/img/eventi/grow-with-us/01.jpg',
+      'assets/img/eventi/grow-with-us/02.jpg',
+      'assets/img/eventi/grow-with-us/03.jpg',
+      'assets/img/eventi/grow-with-us/04.jpg',
+      'assets/img/eventi/grow-with-us/05.jpg',
+      'assets/img/eventi/grow-with-us/06.jpg'
+    ]
   });
 
   async function loadEvents(){
