@@ -2963,10 +2963,19 @@ function newsletterStandardTemplateHtml(opts){
 // "+ Bottone" nell'editor della newsletter. Riconosciuto qui solo per convertire il colore in
 // coral come il resto del sito quando arriva "as-is" dal contenteditable (già coral di suo,
 // questa funzione serve più che altro a isolare lo stile in un solo posto).
+// Le immagini caricate dal pannello (hero, o inserite nel corpo del testo/nei blocchi del
+// builder) hanno un src relativo ("/media/<key>") lato composer — corretto lì perché si apre
+// nella stessa pagina admin, ma un client email (Gmail, Outlook...) non ha nessun documento a cui
+// il percorso sia relativo, quindi l'immagine risulterebbe rotta. Riscrive in assoluto prima
+// dell'invio o dell'anteprima.
+function absolutizeMediaUrls(html, base) {
+  return String(html || "").replace(/src="\/media\//g, `src="${base}/media/`);
+}
+
 function buildTrackedEmailHtml(bodyHtml, campaignId, subscriber, env, extra) {
   const base = newsletterBaseUrl(env);
   const e = encodeURIComponent(subscriber.email);
-  const trackedBody = String(bodyHtml || "").replace(/href="(https?:\/\/[^"]+)"/g, function(match, url){
+  const trackedBody = absolutizeMediaUrls(bodyHtml, base).replace(/href="(https?:\/\/[^"]+)"/g, function(match, url){
     return `href="${base}/api/newsletter-track-click?c=${encodeURIComponent(campaignId)}&e=${e}&url=${encodeURIComponent(url)}"`;
   });
   const pixel = `<img src="${base}/api/newsletter-track-open?c=${encodeURIComponent(campaignId)}&e=${e}" width="1" height="1" alt="" style="display:block;border:0;">`;
@@ -3060,6 +3069,11 @@ async function handleAdminCreateNewsletterCampaign(request, env) {
   }
   const campaign = {
     id, name, eventSlug, subject, title, bodyHtml, heroImageKey, heroImagePosition,
+    // Struttura a blocchi del builder (vedi azienda.html) — bodyHtml resta comunque la fonte di
+    // verità per l'invio/anteprima (calcolato dal client con blocksToHtml), blocks serve solo a
+    // poter riaprire la campagna nel builder così com'era, invece di dover ripartire da un unico
+    // blocco "legacy" col solo HTML già renderizzato.
+    blocks: Array.isArray(body.blocks) ? body.blocks : null,
     targetGroups: Array.isArray(body.targetGroups) && body.targetGroups.length ? body.targetGroups : targetGroups,
     status: "draft", createdAt: new Date().toISOString(), sentAt: null, scheduledAt: null,
     recipientCount: 0, openCount: 0, clickCount: 0
@@ -3083,6 +3097,7 @@ async function handleAdminSaveNewsletterCampaign(request, env) {
   campaign.subject = typeof body.subject === "string" ? body.subject.trim().slice(0, 200) : campaign.subject;
   campaign.title = typeof body.title === "string" ? body.title.trim().slice(0, 200) : campaign.title;
   campaign.bodyHtml = typeof body.bodyHtml === "string" ? body.bodyHtml.slice(0, 20000) : campaign.bodyHtml;
+  if (Array.isArray(body.blocks)) campaign.blocks = body.blocks;
   if (Object.prototype.hasOwnProperty.call(body, "heroImageKey")) {
     campaign.heroImageKey = (body.heroImageKey && String(body.heroImageKey).trim()) || null;
   }
@@ -3138,7 +3153,7 @@ async function handleAdminPreviewNewsletterCampaign(request, env) {
     base, settings, heroImageUrl,
     heroImagePosition: body.heroImagePosition,
     title: body.title,
-    trackedBody: body.bodyHtml || "",
+    trackedBody: absolutizeMediaUrls(body.bodyHtml || "", base),
     unsubUrl: "#"
   });
   const safeTitle = String(body.subject || "Anteprima newsletter").replace(/[<>&]/g, function(c){ return c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&amp;"; });

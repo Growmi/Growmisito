@@ -154,6 +154,38 @@
   .az-nl-editor-body img{ max-width:100%; border-radius:8px; }
   .az-nl-target-row{ display:flex; align-items:center; gap:8px; font-size:13.5px; padding:6px 0; }
 
+  .az-nl-blocks{ display:flex; flex-direction:column; gap:10px; }
+  .az-nl-block{
+    border:1.5px solid var(--line); border-radius:12px; background:#fff; padding:12px 14px;
+  }
+  .az-nl-block.az-nl-block-dragging{ opacity:.4; }
+  .az-nl-block.az-nl-block-dragover{ border-color:var(--coral); }
+  .az-nl-block-head{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .az-nl-block-handle{ cursor:grab; color:var(--grey); font-size:15px; user-select:none; }
+  .az-nl-block-label{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--grey); flex:1; }
+  .az-nl-block-actions{ display:flex; gap:4px; }
+  .az-nl-block-actions button{
+    width:26px; height:26px; border-radius:7px; border:1.5px solid var(--line); background:#fff; cursor:pointer; font-size:12px; line-height:1;
+  }
+  .az-nl-block-actions button:hover{ border-color:var(--coral); }
+  .az-nl-block-actions button.danger{ border-color:#D9534F; color:#D9534F; }
+  .az-nl-block-heading{
+    width:100%; border:none; outline:none; font-family:'Space Grotesk',sans-serif; font-size:19px; font-weight:800; color:#1E0C2C;
+  }
+  .az-nl-block-text{
+    min-height:70px; border:1.5px solid var(--line); border-radius:8px; padding:10px 12px;
+    font-family:'Inter',sans-serif; font-size:14px; line-height:1.5;
+  }
+  .az-nl-block-text:focus{ outline:none; border-color:var(--coral); }
+  .az-nl-block-btn-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .az-nl-block-btn-row input{ flex:1 1 160px; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line); font-family:'Inter',sans-serif; font-size:13.5px; }
+  .az-nl-add-block-bar{ display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .az-nl-add-block-btn{
+    padding:8px 14px; border-radius:999px; border:1.5px dashed var(--line); background:#fff; cursor:pointer;
+    font-family:'Inter',sans-serif; font-size:12.5px; color:var(--ink);
+  }
+  .az-nl-add-block-btn:hover{ border-color:var(--coral); border-style:solid; }
+
   .az-settings-card{ background:#fff; border:1.5px solid var(--line); border-radius:16px; padding:22px 24px; max-width:480px; }
   .az-settings-card h3{ font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:8px; }
   .az-settings-hint{ font-size:13px; color:var(--grey); margin-bottom:18px; }
@@ -519,17 +551,16 @@
           <div id="az-nl-camp-hero-framing" style="margin-top:10px;"></div>
         </div>
         <div class="az-field" style="margin-bottom:14px;">
-          <label>Testo</label>
-          <div class="az-nl-editor-toolbar">
-            <button type="button" data-cmd="bold" title="Grassetto"><strong>B</strong></button>
-            <button type="button" data-cmd="italic" title="Corsivo"><em>I</em></button>
-            <button type="button" data-cmd="underline" title="Sottolineato"><u>U</u></button>
-            <button type="button" id="az-nl-camp-link-btn" title="Link">🔗</button>
-            <button type="button" id="az-nl-camp-button-btn" title="Inserisci bottone" style="width:auto; padding:0 10px; font-size:12px;">+ Bottone</button>
-            <button type="button" id="az-nl-camp-image-btn" title="Inserisci immagine">🖼</button>
-            <input type="file" id="az-nl-camp-image-input" accept="image/jpeg,image/png,image/webp" hidden>
+          <label>Contenuto — trascina i blocchi (⠿) per riordinarli</label>
+          <div id="az-nl-camp-blocks" class="az-nl-blocks"></div>
+          <div class="az-nl-add-block-bar">
+            <button type="button" class="az-nl-add-block-btn" data-block-type="heading">+ Titolo</button>
+            <button type="button" class="az-nl-add-block-btn" data-block-type="text">+ Testo</button>
+            <button type="button" class="az-nl-add-block-btn" data-block-type="image">+ Immagine</button>
+            <button type="button" class="az-nl-add-block-btn" data-block-type="button">+ Bottone</button>
+            <button type="button" class="az-nl-add-block-btn" data-block-type="divider">+ Divisore</button>
+            <button type="button" class="az-nl-add-block-btn" data-block-type="spacer">+ Spazio</button>
           </div>
-          <div id="az-nl-camp-body" contenteditable="true" class="az-nl-editor-body"></div>
         </div>
         <div class="az-field" style="margin-bottom:6px;">
           <label>Destinatari</label>
@@ -1897,7 +1928,17 @@
     document.getElementById('az-nl-camp-event').value = campaign ? (campaign.eventSlug || '') : '';
     document.getElementById('az-nl-camp-subject').value = campaign ? campaign.subject : '';
     document.getElementById('az-nl-camp-title').value = campaign ? (campaign.title || '') : '';
-    document.getElementById('az-nl-camp-body').innerHTML = campaign ? campaign.bodyHtml : '';
+    if (campaign && Array.isArray(campaign.blocks) && campaign.blocks.length) {
+      campaignBlocks = campaign.blocks.map(function(b){ return Object.assign({}, b); });
+    } else if (campaign && campaign.bodyHtml) {
+      // Campagna salvata prima del builder a blocchi (o importata da MailerLite) — il contenuto
+      // non si perde, diventa un blocco "esistente" di sola lettura che si può solo eliminare e
+      // ricreare a blocchi, non decomporre automaticamente.
+      campaignBlocks = [{ id: 'legacy_' + Date.now(), type: 'legacy', html: campaign.bodyHtml }];
+    } else {
+      campaignBlocks = [];
+    }
+    renderCampaignBlocks();
     document.getElementById('az-nl-camp-schedule').value = (campaign && campaign.scheduledAt) ? campaign.scheduledAt.slice(0, 16) : '';
     nlCampHeroKey = campaign ? (campaign.heroImageKey || null) : null;
     nlCampHeroFraming = { position: (campaign && campaign.heroImagePosition) || 'center', zoom: 1 };
@@ -1933,8 +1974,10 @@
       eventSlug: null,
       subject: 'Il tuo oggetto qui',
       title: 'Il tuo titolo qui',
-      bodyHtml: '<p>Ciao a tutti,</p><p>Scrivi qui il messaggio della tua newsletter...</p>' +
-        '<p style="text-align:center; margin:20px 0;"><a href="https://growmi.it" style="display:inline-block; background:#F86639; color:#fff; font-weight:700; text-decoration:none; padding:14px 28px; border-radius:10px;">Scopri di più</a></p>',
+      blocks: [
+        { id: 'tpl_text', type: 'text', html: '<p>Ciao a tutti,</p><p>Scrivi qui il messaggio della tua newsletter...</p>' },
+        { id: 'tpl_btn', type: 'button', label: 'Scopri di più', url: 'https://growmi.it' }
+      ],
       heroImageKey: null,
       heroImagePosition: 'center',
       targetGroups: [],
@@ -1954,11 +1997,14 @@
     if (!event) return;
     if (!document.getElementById('az-nl-camp-subject').value) document.getElementById('az-nl-camp-subject').value = event.name;
     if (!document.getElementById('az-nl-camp-title').value) document.getElementById('az-nl-camp-title').value = event.name;
-    if (!document.getElementById('az-nl-camp-body').innerHTML.trim()) {
-      document.getElementById('az-nl-camp-body').innerHTML =
-        '<p>Ciao,</p><p>' + (event.teaser || 'Ti aspettiamo al prossimo evento GrowMi!') + '</p>' +
-        '<p><strong>' + event.name + '</strong><br>' + (event.dateDisplay || '') + (event.location ? ' · ' + event.location : '') + '</p>' +
-        '<p><a href="' + location.origin + '/evento/' + slug + '">Scopri di più e prendi il biglietto</a></p>';
+    if (!campaignBlocks.length) {
+      campaignBlocks = [{
+        id: 'auto_' + Date.now(), type: 'text',
+        html: '<p>Ciao,</p><p>' + (event.teaser || 'Ti aspettiamo al prossimo evento GrowMi!') + '</p>' +
+          '<p><strong>' + event.name + '</strong><br>' + (event.dateDisplay || '') + (event.location ? ' · ' + event.location : '') + '</p>' +
+          '<p><a href="' + location.origin + '/evento/' + slug + '">Scopri di più e prendi il biglietto</a></p>'
+      }];
+      renderCampaignBlocks();
     }
     if (!nlCampHeroKey && (event.coverImageKey || event.heroImageKey)) {
       nlCampHeroKey = event.coverImageKey || event.heroImageKey;
@@ -1969,13 +2015,32 @@
     updateRecipientCount();
   });
 
+  // ---- Builder a blocchi (composer newsletter) ----
+  // Ogni newsletter è una lista di blocchi (titolo/testo/immagine/bottone/divisore/spazio),
+  // riordinabile col drag; blocksToHtml() la trasforma nell'HTML che poi va a bodyHtml, esattamente
+  // come faceva prima l'unica casella di testo — tutto il resto (invio, tracking, anteprima) non
+  // cambia, legge sempre bodyHtml.
+  var campaignBlocks = [];
+  var nlBlockIdSeq = 0;
+  var nlDragFromIndex = null;
+  var NL_BLOCK_LABELS = { heading: 'Titolo', text: 'Testo', image: 'Immagine', button: 'Bottone', divider: 'Divisore', spacer: 'Spazio', legacy: 'Contenuto esistente' };
+
+  function nlNewBlock(type){
+    var id = 'b' + (++nlBlockIdSeq) + '_' + Date.now();
+    if (type === 'heading') return { id: id, type: 'heading', text: '' };
+    if (type === 'image') return { id: id, type: 'image', key: null, position: 'center', zoom: 1 };
+    if (type === 'button') return { id: id, type: 'button', label: 'Scopri di più', url: '' };
+    if (type === 'divider') return { id: id, type: 'divider' };
+    if (type === 'spacer') return { id: id, type: 'spacer', height: 24 };
+    return { id: id, type: 'text', html: '' };
+  }
+
   // Dopo il selettore file nativo (o comunque dopo un'attesa async, es. l'upload), il browser
   // perde spesso il cursore/selezione dentro il contenteditable — focus() da solo non basta,
-  // riporta il focus sul div ma senza nessun punto dove inserire. Qui si ricrea un cursore in
-  // fondo al contenuto esistente quando serve, PRIMA di execCommand, così l'inserimento va
-  // sempre a buon fine invece di silenziosamente non fare niente.
-  function nlEditorEnsureCaret(){
-    var editor = document.getElementById('az-nl-camp-body');
+  // riporta il focus sul div ma senza nessun punto dove inserire. Ricrea un cursore in fondo al
+  // contenuto esistente quando serve, PRIMA di execCommand. Generica (accetta l'editor del blocco
+  // specifico) perché ora ogni blocco testo ha la sua casella, non ce n'è più una sola.
+  function nlEditorEnsureCaret(editor){
     editor.focus();
     var sel = window.getSelection();
     if (sel.rangeCount > 0 && editor.contains(sel.getRangeAt(0).startContainer)) return;
@@ -1986,39 +2051,172 @@
     sel.addRange(range);
   }
 
-  document.querySelectorAll('.az-nl-editor-toolbar [data-cmd]').forEach(function(btn){
+  function renderBlockBody(container, block){
+    if (block.type === 'heading'){
+      container.innerHTML = '<input type="text" class="az-nl-block-heading" placeholder="Titolo...">';
+      var hInput = container.querySelector('input');
+      hInput.value = block.text || '';
+      hInput.addEventListener('input', function(){ block.text = hInput.value; });
+    } else if (block.type === 'text'){
+      container.innerHTML =
+        '<div class="az-nl-editor-toolbar">' +
+          '<button type="button" data-cmd="bold" title="Grassetto"><strong>B</strong></button>' +
+          '<button type="button" data-cmd="italic" title="Corsivo"><em>I</em></button>' +
+          '<button type="button" data-cmd="underline" title="Sottolineato"><u>U</u></button>' +
+          '<button type="button" data-cmd="link" title="Link">🔗</button>' +
+        '</div>' +
+        '<div class="az-nl-block-text" contenteditable="true"></div>';
+      var editor = container.querySelector('.az-nl-block-text');
+      editor.innerHTML = block.html || '';
+      editor.addEventListener('input', function(){ block.html = editor.innerHTML; });
+      container.querySelectorAll('.az-nl-editor-toolbar button').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          nlEditorEnsureCaret(editor);
+          var cmd = btn.getAttribute('data-cmd');
+          if (cmd === 'link'){
+            var url = prompt('Indirizzo del link (es. https://growmi.it/eventi):');
+            if (!url) return;
+            document.execCommand('createLink', false, url);
+          } else {
+            document.execCommand(cmd, false, null);
+          }
+          block.html = editor.innerHTML;
+        });
+      });
+    } else if (block.type === 'image'){
+      container.innerHTML =
+        '<div class="az-image-preview" style="aspect-ratio:16/9;">' + (block.key ? '<img src="' + mediaSrc(block.key) + '" alt="">' : 'Nessuna immagine') + '</div>' +
+        '<input type="file" accept="image/jpeg,image/png,image/webp">' +
+        (block.key ? '<button type="button" class="az-mini-btn danger" style="margin-top:6px;">Rimuovi</button>' : '') +
+        '<div class="az-nl-block-framing" style="margin-top:10px;"></div>';
+      container.querySelector('input[type=file]').addEventListener('change', async function(){
+        var file = this.files[0];
+        this.value = '';
+        if (!file) return;
+        try {
+          block.key = await uploadArtistMediaGeneric(file, 'image', 'newsletter', 'pages');
+          renderBlockBody(container, block);
+        } catch (err) { alert(err.message); }
+      });
+      var removeBtn = container.querySelector('button.danger');
+      if (removeBtn) removeBtn.addEventListener('click', function(){ block.key = null; renderBlockBody(container, block); });
+      if (block.key){
+        renderFramingControls(container.querySelector('.az-nl-block-framing'), container.querySelector('.az-image-preview img'), block);
+      }
+    } else if (block.type === 'button'){
+      container.innerHTML =
+        '<div class="az-nl-block-btn-row">' +
+          '<input type="text" class="nl-block-btn-label" placeholder="Testo del bottone">' +
+          '<input type="text" class="nl-block-btn-url" placeholder="https://growmi.it/...">' +
+        '</div>';
+      var labelInput = container.querySelector('.nl-block-btn-label');
+      var urlInput = container.querySelector('.nl-block-btn-url');
+      labelInput.value = block.label || '';
+      urlInput.value = block.url || '';
+      labelInput.addEventListener('input', function(){ block.label = labelInput.value; });
+      urlInput.addEventListener('input', function(){ block.url = urlInput.value; });
+    } else if (block.type === 'spacer'){
+      container.innerHTML =
+        '<label style="font-size:11px; color:var(--grey);">Altezza: <span class="nl-block-spacer-val">' + (block.height || 24) + '</span>px</label>' +
+        '<input type="range" min="8" max="80" class="nl-block-spacer-input">';
+      var range = container.querySelector('.nl-block-spacer-input');
+      range.value = block.height || 24;
+      range.addEventListener('input', function(){
+        block.height = Number(range.value);
+        container.querySelector('.nl-block-spacer-val').textContent = block.height;
+      });
+    } else if (block.type === 'divider'){
+      container.innerHTML = '<p style="font-size:12px; color:var(--grey); margin:0;">Una linea sottile separatrice — nessuna opzione.</p>';
+    } else if (block.type === 'legacy'){
+      container.innerHTML =
+        '<p style="font-size:12px; color:var(--grey); margin-bottom:6px;">Contenuto della versione precedente — non editabile a blocchi. Eliminalo (✕) per ricominciare con i blocchi nuovi, il resto della newsletter non viene toccato.</p>' +
+        '<div style="border:1.5px solid var(--line); border-radius:8px; padding:10px 12px; font-size:13px; max-height:160px; overflow:auto;">' + block.html + '</div>';
+    }
+  }
+
+  function renderCampaignBlocks(){
+    var wrap = document.getElementById('az-nl-camp-blocks');
+    wrap.innerHTML = '';
+    campaignBlocks.forEach(function(block, index){
+      var card = document.createElement('div');
+      card.className = 'az-nl-block';
+      card.draggable = true;
+
+      var head = document.createElement('div');
+      head.className = 'az-nl-block-head';
+      head.innerHTML =
+        '<span class="az-nl-block-handle">⠿</span>' +
+        '<span class="az-nl-block-label">' + esc(NL_BLOCK_LABELS[block.type] || block.type) + '</span>' +
+        '<span class="az-nl-block-actions">' +
+          '<button type="button" data-act="up" title="Sposta su">↑</button>' +
+          '<button type="button" data-act="down" title="Sposta giù">↓</button>' +
+          '<button type="button" data-act="delete" class="danger" title="Elimina">✕</button>' +
+        '</span>';
+      card.appendChild(head);
+
+      var body = document.createElement('div');
+      card.appendChild(body);
+      renderBlockBody(body, block);
+
+      head.querySelector('[data-act="up"]').addEventListener('click', function(){
+        if (index === 0) return;
+        campaignBlocks.splice(index - 1, 0, campaignBlocks.splice(index, 1)[0]);
+        renderCampaignBlocks();
+      });
+      head.querySelector('[data-act="down"]').addEventListener('click', function(){
+        if (index === campaignBlocks.length - 1) return;
+        campaignBlocks.splice(index + 1, 0, campaignBlocks.splice(index, 1)[0]);
+        renderCampaignBlocks();
+      });
+      head.querySelector('[data-act="delete"]').addEventListener('click', function(){
+        campaignBlocks.splice(index, 1);
+        renderCampaignBlocks();
+      });
+
+      card.addEventListener('dragstart', function(e){
+        nlDragFromIndex = index;
+        card.classList.add('az-nl-block-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      card.addEventListener('dragend', function(){ card.classList.remove('az-nl-block-dragging'); });
+      card.addEventListener('dragover', function(e){ e.preventDefault(); card.classList.add('az-nl-block-dragover'); });
+      card.addEventListener('dragleave', function(){ card.classList.remove('az-nl-block-dragover'); });
+      card.addEventListener('drop', function(e){
+        e.preventDefault();
+        card.classList.remove('az-nl-block-dragover');
+        if (nlDragFromIndex === null || nlDragFromIndex === index) return;
+        var moved = campaignBlocks.splice(nlDragFromIndex, 1)[0];
+        campaignBlocks.splice(index, 0, moved);
+        nlDragFromIndex = null;
+        renderCampaignBlocks();
+      });
+
+      wrap.appendChild(card);
+    });
+  }
+
+  document.querySelectorAll('.az-nl-add-block-btn').forEach(function(btn){
     btn.addEventListener('click', function(){
-      nlEditorEnsureCaret();
-      document.execCommand(btn.getAttribute('data-cmd'), false, null);
+      campaignBlocks.push(nlNewBlock(btn.getAttribute('data-block-type')));
+      renderCampaignBlocks();
     });
   });
-  document.getElementById('az-nl-camp-link-btn').addEventListener('click', function(){
-    var url = prompt('Indirizzo del link (es. https://growmi.it/eventi):');
-    if (!url) return;
-    nlEditorEnsureCaret();
-    document.execCommand('createLink', false, url);
-  });
-  document.getElementById('az-nl-camp-button-btn').addEventListener('click', function(){
-    var url = prompt('Indirizzo del link del bottone (es. https://growmi.it/eventi):');
-    if (!url) return;
-    var label = prompt('Testo del bottone:', 'Scopri di più') || 'Scopri di più';
-    nlEditorEnsureCaret();
-    document.execCommand('insertHTML', false,
-      '<p style="text-align:center; margin:20px 0;"><a href="' + url + '" style="display:inline-block; background:#F86639; color:#fff; font-weight:700; text-decoration:none; padding:14px 28px; border-radius:10px;">' + label + '</a></p>');
-  });
-  document.getElementById('az-nl-camp-image-btn').addEventListener('click', function(){
-    document.getElementById('az-nl-camp-image-input').click();
-  });
-  document.getElementById('az-nl-camp-image-input').addEventListener('change', async function(){
-    var file = this.files[0];
-    this.value = '';
-    if (!file) return;
-    try {
-      var key = await uploadArtistMediaGeneric(file, 'image', 'newsletter', 'pages');
-      nlEditorEnsureCaret();
-      document.execCommand('insertHTML', false, '<img src="' + mediaSrc(key) + '" alt="" style="max-width:100%;">');
-    } catch (err) { alert(err.message); }
-  });
+
+  // Stesso stile inline già usato nel resto del sistema newsletter (coral #F86639 per i bottoni,
+  // ink #1E0C2C per il testo) — nessun sistema di stile nuovo da mantenere.
+  function nlBlockToHtml(b){
+    if (b.type === 'heading') return b.text ? '<h2 style="font-family:Arial,sans-serif; font-size:20px; font-weight:800; color:#1E0C2C; margin:0 0 14px;">' + b.text + '</h2>' : '';
+    if (b.type === 'text') return b.html ? '<div style="margin:0 0 14px; font-size:15px; color:#1E0C2C; line-height:1.6;">' + b.html + '</div>' : '';
+    if (b.type === 'image') return b.key ? '<img src="' + mediaSrc(b.key) + '" alt="" style="width:100%; display:block; border-radius:14px; object-position:' + (b.position || 'center') + '; margin:0 0 14px;">' : '';
+    if (b.type === 'button') return b.url ? '<p style="text-align:center; margin:20px 0;"><a href="' + b.url + '" style="display:inline-block; background:#F86639; color:#fff; font-weight:700; text-decoration:none; padding:14px 28px; border-radius:10px;">' + esc(b.label || 'Scopri di più') + '</a></p>' : '';
+    if (b.type === 'divider') return '<hr style="border:none; border-top:1.5px solid #E4D9EA; margin:20px 0;">';
+    if (b.type === 'spacer') return '<div style="height:' + (b.height || 24) + 'px;"></div>';
+    if (b.type === 'legacy') return b.html || '';
+    return '';
+  }
+  function blocksToHtml(blocks){
+    return blocks.map(nlBlockToHtml).join('');
+  }
 
   function collectCampaignPayload(){
     return {
@@ -2026,7 +2224,8 @@
       eventSlug: document.getElementById('az-nl-camp-event').value || null,
       subject: document.getElementById('az-nl-camp-subject').value.trim(),
       title: document.getElementById('az-nl-camp-title').value.trim(),
-      bodyHtml: document.getElementById('az-nl-camp-body').innerHTML,
+      blocks: campaignBlocks,
+      bodyHtml: blocksToHtml(campaignBlocks),
       heroImageKey: nlCampHeroKey,
       heroImagePosition: nlCampHeroFraming.position,
       targetGroups: collectNlTargets(),
