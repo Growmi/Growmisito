@@ -1958,6 +1958,7 @@
             (canEdit ? '<button type="button" class="az-mini-btn" data-open="' + c.id + '">Modifica</button><button type="button" class="az-mini-btn danger" data-del="' + c.id + '">Elimina</button>' : '') +
             (c.status === 'partial' ? '<button type="button" class="az-mini-btn" data-retry="' + c.id + '">🔁 Riprova ai rimasti</button>' : '') +
             ((c.status === 'sent' || c.status === 'partial') ? '<button type="button" class="az-mini-btn" data-manual="' + c.id + '">✉️ Invia a lista</button>' : '') +
+            ((c.status === 'sent' || c.status === 'partial') ? '<button type="button" class="az-mini-btn" data-find-missing="' + c.id + '">🔍 Chi manca</button>' : '') +
             (c.status === 'draft' ? '<button type="button" class="az-mini-btn" data-mark-sent="' + c.id + '" title="Usa solo se sai già (es. da Resend) che questa newsletter è stata inviata davvero">✅ Segna come già inviata</button>' : '') +
           '</div>' +
         '</div>' +
@@ -1968,6 +1969,12 @@
           '<textarea class="nl-manual-emails" rows="4" style="width:100%; max-width:420px; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line); font-family:\'Inter\',sans-serif; font-size:13px;" placeholder="email1@esempio.it&#10;email2@esempio.it"></textarea><br>' +
           '<button type="button" class="az-mini-btn" data-send-manual="' + c.id + '" style="margin-top:6px;">Invia a questa lista</button>' +
           '<p class="az-msg" id="nl-manual-msg-' + c.id + '" hidden></p>' +
+        '</div>' +
+        '<div id="nl-missing-wrap-' + c.id + '" hidden style="margin-top:10px; padding-top:10px; border-top:1.5px solid var(--line);">' +
+          '<p style="font-size:12px; color:var(--grey); margin-bottom:6px;">Incolla qui la lista di chi ha GIÀ ricevuto questa newsletter (es. l\'export "Delivered" di Resend, una email per riga o CSV) — calcolo chi manca confrontandola con chi doveva riceverla.</p>' +
+          '<textarea class="nl-missing-delivered" rows="5" style="width:100%; max-width:420px; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line); font-family:\'Inter\',sans-serif; font-size:13px;" placeholder="già-ricevuta1@esempio.it&#10;già-ricevuta2@esempio.it"></textarea><br>' +
+          '<button type="button" class="az-mini-btn" data-calc-missing="' + c.id + '" style="margin-top:6px;">Calcola chi manca</button>' +
+          '<div id="nl-missing-result-' + c.id + '" style="margin-top:10px;"></div>' +
         '</div>';
       var openBtn = row.querySelector('[data-open]');
       if (openBtn) openBtn.addEventListener('click', function(){ openCampaignComposer(c); });
@@ -1996,6 +2003,50 @@
       if (manualToggle) manualToggle.addEventListener('click', function(){
         var wrap2 = document.getElementById('nl-manual-wrap-' + c.id);
         wrap2.hidden = !wrap2.hidden;
+      });
+      var missingToggle = row.querySelector('[data-find-missing]');
+      if (missingToggle) missingToggle.addEventListener('click', function(){
+        var wrap3 = document.getElementById('nl-missing-wrap-' + c.id);
+        wrap3.hidden = !wrap3.hidden;
+      });
+      var calcMissingBtn = row.querySelector('[data-calc-missing]');
+      if (calcMissingBtn) calcMissingBtn.addEventListener('click', async function(){
+        var textarea = row.querySelector('.nl-missing-delivered');
+        var resultBox = document.getElementById('nl-missing-result-' + c.id);
+        resultBox.innerHTML = '';
+        // Incolla-libero: una email per riga, o CSV/TSV con l'email nella colonna "To"/"Subscriber" —
+        // qui basta prendere il primo indirizzo email valido trovato su ogni riga, non serve
+        // sapere in che formato esatto Resend esporta il file.
+        var lines = textarea.value.split('\n');
+        var delivered = [];
+        lines.forEach(function(line){
+          var match = line.match(/[^\s,;"]+@[^\s,;"]+\.[^\s,;"]+/);
+          if (match) delivered.push(match[0]);
+        });
+        if (!delivered.length) { resultBox.innerHTML = '<p style="font-size:12px; color:#D9534F;">Incolla almeno una email.</p>'; return; }
+        calcMissingBtn.disabled = true;
+        try {
+          var res = await fetch('/api/admin/newsletter-missing-recipients', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: c.id, delivered: delivered })
+          });
+          var data = await res.json();
+          if (res.ok) {
+            var missingList = data.missing || [];
+            resultBox.innerHTML =
+              '<p style="font-size:13px; margin-bottom:8px;">Dovevano riceverla in <strong>' + data.total + '</strong>, ne hai incollate <strong>' + data.deliveredCount + '</strong> come già consegnate → mancano <strong>' + missingList.length + '</strong>.</p>' +
+              (missingList.length ? '<textarea readonly rows="5" style="width:100%; max-width:420px; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line); font-family:\'Inter\',sans-serif; font-size:13px;">' + esc(missingList.join('\n')) + '</textarea><br><button type="button" class="az-mini-btn" style="margin-top:6px;" id="nl-use-missing-' + c.id + '">Usa questa lista per l\'invio</button>' : '<p style="font-size:12px; color:var(--grey);">Nessuno manca — risulta consegnata a tutti quelli che dovevano riceverla.</p>');
+            var useBtn = document.getElementById('nl-use-missing-' + c.id);
+            if (useBtn) useBtn.addEventListener('click', function(){
+              document.getElementById('nl-missing-wrap-' + c.id).hidden = true;
+              var manualWrap = document.getElementById('nl-manual-wrap-' + c.id);
+              manualWrap.hidden = false;
+              manualWrap.querySelector('.nl-manual-emails').value = missingList.join('\n');
+              manualWrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            });
+          } else resultBox.innerHTML = '<p style="font-size:12px; color:#D9534F;">' + esc(data.error || 'Qualcosa è andato storto.') + '</p>';
+        } catch (err) { resultBox.innerHTML = '<p style="font-size:12px; color:#D9534F;">Errore di connessione.</p>'; }
+        calcMissingBtn.disabled = false;
       });
       var sendManualBtn = row.querySelector('[data-send-manual]');
       if (sendManualBtn) sendManualBtn.addEventListener('click', async function(){

@@ -474,6 +474,14 @@ async function handleFetch(request, env, ctx) {
         return jsonResponse({ error: err.message }, 500);
       }
     }
+    if (url.pathname === "/api/admin/newsletter-missing-recipients" && request.method === "POST") {
+      try {
+        return await handleAdminNewsletterMissingRecipients(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-missing-recipients:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
     if (url.pathname === "/api/newsletter-track-open" && request.method === "GET") {
       return await handleNewsletterTrackOpen(request, env);
     }
@@ -3395,6 +3403,31 @@ async function handleAdminMarkNewsletterCampaignSent(request, env) {
   campaign.scheduledAt = null;
   await env.TICKETS.put(`newslettercampaign:${id}`, JSON.stringify(campaign));
   return jsonResponse({ ok: true, campaign });
+}
+
+// Confronta chi DOVEVA ricevere questa campagna (risolto dai targetGroups salvati, come per un
+// invio vero) con una lista di email già consegnate (incollata da fuori, es. l'export "Delivered"
+// di Resend) — utile per gli invii precedenti a nlsent: quando il sistema non teneva ancora questo
+// dato da solo. Il risultato (chi manca) è pensato per essere incollato direttamente in "Invia a
+// lista".
+async function handleAdminNewsletterMissingRecipients(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const id = String(body.id || "").trim();
+  if (!id) return jsonResponse({ error: "id mancante" }, 400);
+  const raw = await env.TICKETS.get(`newslettercampaign:${id}`);
+  if (!raw) return jsonResponse({ error: "campagna non trovata" }, 404);
+  const campaign = JSON.parse(raw);
+  const delivered = new Set(
+    (Array.isArray(body.delivered) ? body.delivered : [])
+      .map(function(e){ return String(e || "").trim().toLowerCase(); })
+      .filter(Boolean)
+  );
+  const recipients = await resolveCampaignRecipients(env, campaign.targetGroups);
+  const missing = recipients.filter(function(r){ return !delivered.has(r.email); }).map(function(r){ return r.email; });
+  return jsonResponse({ ok: true, total: recipients.length, deliveredCount: delivered.size, missing });
 }
 
 // Pixel 1x1 trasparente (GIF più corto possibile in base64) — ogni apertura reale carica questa
