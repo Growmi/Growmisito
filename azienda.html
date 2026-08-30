@@ -13,6 +13,10 @@
   :root{
     --purple-deep:#3E0D5D; --purple-deeper:#2C0943; --coral:#F86639; --yellow:#FDC631;
     --cream:#FBF6F0; --ink:#1E0C2C; --line:#E4DCD2; --grey:#6E6478;
+    /* Scala per i pezzi condivisi (bottoni, componenti nuovi) — non retrofittata sui 350+ stili
+       inline già esistenti, solo un riferimento comune da qui in avanti. */
+    --fs-2xs:11px; --fs-xs:12px; --fs-sm:13px; --fs-base:14px; --fs-md:14.5px; --fs-lg:15px; --fs-xl:16px;
+    --radius-sm:8px; --radius-md:12px; --radius-lg:16px; --radius-pill:999px;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   html,body{height:100%;}
@@ -66,13 +70,30 @@
   .az-field input:focus, .az-field textarea:focus, .az-field select:focus{ outline:none; border-color:var(--coral); }
   .az-field .hint{ font-size:12px; color:var(--grey); margin-top:6px; }
   .az-submit{
-    padding:14px; border-radius:12px; border:none; background:var(--coral); color:#fff;
-    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14.5px; cursor:pointer;
+    padding:13px 20px; border-radius:var(--radius-md); border:none; background:var(--coral); color:#fff;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:var(--fs-md); cursor:pointer;
   }
   .az-submit:disabled{ opacity:.6; cursor:default; }
   .az-msg{ font-size:13.5px; padding:12px 14px; border-radius:10px; }
   .az-msg.ok{ background:#EAF7EE; color:#1E7A3A; }
   .az-msg.error{ background:#FDE8E0; color:#B4400F; }
+
+  /* Utility per gli stili inline più ripetuti nel file (una decina di pattern che comparivano
+     identici 7-17 volte ciascuno) — stessa resa visiva di prima, solo non più ripetuti a mano
+     ovunque. Non è un sistema di utility-class completo, solo i pattern che si ripetevano
+     davvero: il resto degli stili inline resta com'è. */
+  .az-u-stack14{ display:flex; flex-direction:column; gap:14px; }
+  .az-u-h3-12{ font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px; }
+  .az-u-input{ width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line); }
+  .az-u-hint12{ font-size:12px; color:var(--grey); margin-bottom:12px; }
+  .az-u-hint10{ font-size:12px; color:var(--grey); margin-bottom:10px; }
+  .az-u-label13{ display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px; }
+  .az-u-h3-4{ font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px; }
+  .az-u-row10{ display:flex; gap:10px; align-items:center; }
+  .az-u-mt10{ margin-top:10px; }
+  .az-u-h3-16{ font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px; }
+  .az-u-rowgap10{ display:flex; gap:10px; }
+  .az-u-stack10mb10{ display:flex; flex-direction:column; gap:10px; margin-bottom:10px; }
 
   /* Shell a due colonne stile dashboard (sidebar fissa + area di lavoro), a tutta altezza —
      sostituisce il vecchio menu a pillole centrato: più spazio utile per tabelle/form quando
@@ -296,8 +317,8 @@
   .az-tier-block input:focus{ outline:none; border-color:var(--coral); }
   .az-opt-row{ display:grid; grid-template-columns:2fr 1fr auto; gap:8px; margin-bottom:8px; align-items:center; }
   .az-mini-btn{
-    padding:9px 13px; border-radius:8px; border:1.5px solid var(--line); background:#fff;
-    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:12px; cursor:pointer; white-space:nowrap; color:var(--ink);
+    padding:9px 14px; border-radius:var(--radius-sm); border:1.5px solid var(--line); background:#fff;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:var(--fs-xs); cursor:pointer; white-space:nowrap; color:var(--ink);
   }
   .az-mini-btn.danger{ border-color:#D9534F; color:#D9534F; }
   .az-tier-block-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
@@ -314,8 +335,8 @@
   .az-wipe-emails{ color:var(--grey); font-size:12px; }
 
   .az-preview-btn{
-    padding:14px 22px; border-radius:999px; border:1.5px solid var(--ink); background:#fff;
-    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; cursor:pointer; color:var(--ink);
+    padding:9px 18px; border-radius:var(--radius-pill); border:1.5px solid var(--ink); background:#fff;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:var(--fs-sm); cursor:pointer; color:var(--ink);
   }
   .az-preview-drawer{ position:fixed; inset:0; z-index:200; }
   .az-preview-drawer-backdrop{
@@ -537,7 +558,7 @@
 
     <!-- Newsletter -->
     <div class="az-panel" data-panel-content="newsletter" hidden>
-      <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Campagne</h3>
+      <h3 class="az-u-h3-16">Campagne</h3>
       <p style="font-size:12px; color:var(--grey); margin-bottom:16px; max-width:600px;">Lega una newsletter a un evento per una bozza già pronta (testo ed evento precompilati, tu aggiungi le foto), parti dal modello standard, oppure da zero.</p>
       <div class="az-toolbar">
         <span></span>
@@ -565,7 +586,7 @@
           <div class="az-image-preview" id="az-nl-camp-hero-preview" style="aspect-ratio:16/9;">Nessuna immagine</div>
           <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-nl-camp-hero-input">
           <button type="button" class="az-mini-btn danger" id="az-nl-camp-hero-remove" style="margin-top:6px;">Rimuovi</button>
-          <div id="az-nl-camp-hero-framing" style="margin-top:10px;"></div>
+          <div id="az-nl-camp-hero-framing" class="az-u-mt10"></div>
         </div>
         <div class="az-field" style="margin-bottom:14px;">
           <label>Contenuto — trascina i blocchi (⠿) per riordinarli</label>
@@ -599,7 +620,7 @@
       </div>
 
       <div style="margin-top:36px; padding-top:28px; border-top:1.5px solid var(--line);">
-        <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Gruppi</h3>
+        <h3 class="az-u-h3-16">Gruppi</h3>
         <p style="font-size:12px; color:var(--grey); margin-bottom:14px; max-width:600px;">I gruppi per evento si creano da soli quando qualcuno compra un biglietto. Qui puoi creare gruppi tuoi (es. "Sponsor", "Solo promozioni") e assegnarci gli iscritti dalla tabella qui sotto.</p>
         <div id="az-nl-groups" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px;"></div>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
@@ -617,7 +638,7 @@
       </div>
 
       <div style="margin-top:36px; padding-top:28px; border-top:1.5px solid var(--line);">
-        <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Iscritti</h3>
+        <h3 class="az-u-h3-16">Iscritti</h3>
         <p style="font-size:12px; color:var(--grey); margin-bottom:14px; max-width:600px;">Chi si iscrive dal popup del sito o spunta "newsletter" all'acquisto del biglietto finisce qui — non più su MailerLite.</p>
         <div class="az-toolbar">
           <input type="text" class="az-search" id="az-nl-search" placeholder="Cerca per email o nome...">
@@ -654,7 +675,7 @@
       </div>
 
       <div style="margin-top:36px; padding-top:28px; border-top:1.5px solid var(--line);">
-        <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Link nelle email</h3>
+        <h3 class="az-u-h3-16">Link nelle email</h3>
         <p style="font-size:12px; color:var(--grey); margin-bottom:14px; max-width:600px;">Usati nell'intestazione e nel footer del modello standard, per ogni newsletter. I social restano gli stessi per tutte le email: si cambiano qui una volta sola, non nella singola newsletter.</p>
         <div style="display:flex; flex-wrap:wrap; gap:14px; max-width:640px;">
           <div class="az-field" style="flex:1 1 260px;"><label>Indirizzo (footer)</label><input type="text" id="az-nl-set-address"></div>
@@ -686,14 +707,14 @@
         </div>
         <p style="font-size:12px; color:var(--grey); margin-bottom:14px; max-width:600px;">Testi del form — sono già quelli pubblicati: modificali e premi "Pubblica form" per aggiornarli.</p>
         <form id="az-fb-form" style="max-width:600px; display:flex; flex-direction:column; gap:16px;">
-          <div id="az-fb-form-fields" style="display:flex; flex-direction:column; gap:14px;"></div>
+          <div id="az-fb-form-fields" class="az-u-stack14"></div>
           <div class="az-field">
             <label style="font-size:12px; font-weight:600;">Cosa ti è piaciuto — opzioni</label>
             <p style="font-size:11px; color:var(--grey); margin:2px 0 10px;">Mostrate come caselle da spuntare (più "Altro" con testo libero). Per il form predefinito valgono solo quando il link non è collegato a un evento con opzioni proprie (impostate nel pannello Eventi, che hanno sempre la precedenza).</p>
             <div id="az-fb-liked-options"></div>
             <button type="button" class="az-mini-btn" id="az-fb-add-liked-option" style="margin-top:4px;">+ Aggiungi opzione</button>
           </div>
-          <div style="display:flex; gap:10px; align-items:center;">
+          <div class="az-u-row10">
             <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Pubblica form</button>
           </div>
           <p class="az-msg" id="az-fb-form-msg" hidden></p>
@@ -735,7 +756,7 @@
 
     <!-- Eventi -->
     <div class="az-panel" data-panel-content="eventi" hidden>
-      <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Eventi in vendita</h3>
+      <h3 class="az-u-h3-16">Eventi in vendita</h3>
       <p style="font-size:12px; color:var(--grey); margin-bottom:16px; max-width:600px;">Eventi con biglietti online — fasce, prezzi, disponibilità e check-in. Più sotto trovi gli eventi passati senza vendita online (pagine storiche).</p>
       <div class="az-toolbar">
         <span></span>
@@ -768,23 +789,23 @@
 
           <p class="az-group-label">Biglietti e feedback</p>
           <div>
-            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Fasce biglietti</label>
-            <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">I prezzi qui sotto sono netti (quello che incassi tu) — sul sito il cliente paga un po' di più, la commissione Stripe stimata si aggiunge in automatico al checkout.</p>
+            <label class="az-u-label13">Fasce biglietti</label>
+            <p class="az-u-hint10">I prezzi qui sotto sono netti (quello che incassi tu) — sul sito il cliente paga un po' di più, la commissione Stripe stimata si aggiunge in automatico al checkout.</p>
             <div id="az-ev-tiers"></div>
             <button type="button" class="az-mini-btn" id="az-ev-add-tier">+ Aggiungi fascia</button>
           </div>
 
           <div>
-            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Opzioni feedback ("cosa ti è piaciuto")</label>
-            <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Compaiono come checkbox nel form di feedback per questo evento. Facoltative: se non ne aggiungi, il form mostra un campo di testo libero.</p>
+            <label class="az-u-label13">Opzioni feedback ("cosa ti è piaciuto")</label>
+            <p class="az-u-hint10">Compaiono come checkbox nel form di feedback per questo evento. Facoltative: se non ne aggiungi, il form mostra un campo di testo libero.</p>
             <div id="az-ev-feedback-options"></div>
             <button type="button" class="az-mini-btn" id="az-ev-add-feedback-option">+ Aggiungi opzione</button>
           </div>
 
           <p class="az-group-label">Immagini</p>
           <div>
-            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Immagine hero</label>
-            <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Sfondo in cima alla pagina dell'evento.</p>
+            <label class="az-u-label13">Immagine hero</label>
+            <p class="az-u-hint10">Sfondo in cima alla pagina dell'evento.</p>
             <div class="az-image-preview" id="az-ev-hero-preview">Nessuna immagine</div>
             <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-ev-hero-input">
             <button type="button" class="az-mini-btn danger" id="az-ev-hero-remove" hidden>Rimuovi</button>
@@ -792,16 +813,16 @@
           </div>
 
           <div>
-            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Immagine copertina</label>
-            <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Locandina/poster mostrata sulla pagina evento (e come immagine della card nell'elenco eventi, se non ne carichi una diversa).</p>
+            <label class="az-u-label13">Immagine copertina</label>
+            <p class="az-u-hint10">Locandina/poster mostrata sulla pagina evento (e come immagine della card nell'elenco eventi, se non ne carichi una diversa).</p>
             <div class="az-image-preview" id="az-ev-cover-preview">Nessuna immagine</div>
             <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-ev-cover-input">
             <button type="button" class="az-mini-btn danger" id="az-ev-cover-remove" hidden>Rimuovi</button>
           </div>
 
           <div>
-            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Galleria foto</label>
-            <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Foto dell'evento mostrate più in basso nella pagina — puoi caricarne più di una alla volta.</p>
+            <label class="az-u-label13">Galleria foto</label>
+            <p class="az-u-hint10">Foto dell'evento mostrate più in basso nella pagina — puoi caricarne più di una alla volta.</p>
             <div id="az-ev-gallery" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:8px; margin-bottom:10px;"></div>
             <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-ev-gallery-input" multiple>
           </div>
@@ -813,7 +834,7 @@
           </label>
           <p style="font-size:12px; color:var(--grey); margin-top:-10px;">Finché non è spuntato, l'evento resta bozza: non compare sul sito né è raggiungibile su /evento/&lt;slug&gt;.</p>
 
-          <div style="display:flex; gap:10px; align-items:center;">
+          <div class="az-u-row10">
             <button type="button" class="az-preview-btn" id="az-ev-preview-btn">👁 Preview pagina evento</button>
             <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Salva evento</button>
             <button type="button" class="az-mini-btn" id="az-ev-cancel">Annulla</button>
@@ -823,7 +844,7 @@
       </div>
 
       <div style="margin-top:36px; padding-top:28px; border-top:1.5px solid var(--line);">
-        <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Eventi passati (pagine storiche)</h3>
+        <h3 class="az-u-h3-16">Eventi passati (pagine storiche)</h3>
         <p style="font-size:12px; color:var(--grey); margin-bottom:16px; max-width:600px;">Le prime edizioni, con una pagina propria invece che generata dal biglietto online — titolo, data, luogo e copertina modificabili qui.</p>
         <div id="az-legacy-events" style="display:flex; flex-direction:column; gap:16px;"></div>
         <div style="display:flex; gap:10px; align-items:center; margin-top:16px;">
@@ -833,7 +854,7 @@
       </div>
 
       <div style="margin-top:36px; padding-top:28px; border-top:1.5px solid var(--line);">
-        <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Contenuto delle pagine eventi passati</h3>
+        <h3 class="az-u-h3-16">Contenuto delle pagine eventi passati</h3>
         <p style="font-size:12px; color:var(--grey); margin-bottom:16px; max-width:600px;">Testi e foto principali dentro ciascuna pagina evento (non solo la card nell'elenco) — sono già quelli pubblicati: modificali e premi "Pubblica" per aggiornarli.</p>
         <div id="az-legacy-page-art-mall-collab"></div>
         <div id="az-legacy-page-grow-with-us" style="margin-top:28px;"></div>
@@ -866,15 +887,15 @@
 
           <p class="az-group-label">Immagini</p>
           <div>
-            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Foto card</label>
-            <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Mostrata nell'elenco artisti e come sfondo pagina se non c'è un'immagine hero.</p>
+            <label class="az-u-label13">Foto card</label>
+            <p class="az-u-hint10">Mostrata nell'elenco artisti e come sfondo pagina se non c'è un'immagine hero.</p>
             <div class="az-image-preview" id="az-ar-card-preview">Nessuna immagine</div>
             <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-ar-card-input">
             <div id="az-ar-card-framing"></div>
           </div>
 
           <div>
-            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Hero</label>
+            <label class="az-u-label13">Hero</label>
             <div class="az-field" style="margin-bottom:10px;">
               <select id="az-ar-hero-type">
                 <option value="none">Nessuna (sfondo di default del sito)</option>
@@ -890,17 +911,17 @@
 
           <p class="az-group-label">Testi</p>
           <div>
-            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Biografia</label>
-            <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Un paragrafo per riquadro — aggiungi, rimuovi o riordina.</p>
+            <label class="az-u-label13">Biografia</label>
+            <p class="az-u-hint10">Un paragrafo per riquadro — aggiungi, rimuovi o riordina.</p>
             <div id="az-ar-bio"></div>
             <button type="button" class="az-mini-btn" id="az-ar-add-bio">+ Aggiungi paragrafo</button>
           </div>
 
           <div>
-            <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Contenuti (video/foto)</label>
-            <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Mostrati sotto la biografia — puoi mischiare video e foto.</p>
-            <div id="az-ar-media" style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;"></div>
-            <div style="display:flex; gap:10px;">
+            <label class="az-u-label13">Contenuti (video/foto)</label>
+            <p class="az-u-hint10">Mostrati sotto la biografia — puoi mischiare video e foto.</p>
+            <div id="az-ar-media" class="az-u-stack10mb10"></div>
+            <div class="az-u-rowgap10">
               <button type="button" class="az-mini-btn" id="az-ar-add-video">+ Aggiungi video</button>
               <button type="button" class="az-mini-btn" id="az-ar-add-image">+ Aggiungi foto</button>
             </div>
@@ -913,7 +934,7 @@
           </label>
           <p style="font-size:12px; color:var(--grey); margin-top:-10px;">Finché non è spuntato, l'artista resta bozza: non compare in elenco né su /artista/&lt;slug&gt;.</p>
 
-          <div style="display:flex; gap:10px; align-items:center;">
+          <div class="az-u-row10">
             <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Salva artista</button>
             <button type="button" class="az-mini-btn" id="az-ar-cancel">Annulla</button>
           </div>
@@ -927,8 +948,8 @@
       <p style="font-size:13px; color:var(--grey); margin-bottom:20px; max-width:600px;">I campi qui sotto mostrano già i testi pubblicati sulla home — modificali e premi "Pubblica" per aggiornarli. Il design della pagina non cambia mai, solo i contenuti.</p>
       <form id="az-home-form" style="max-width:640px; display:flex; flex-direction:column; gap:28px;">
         <div>
-          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Hero</h3>
-          <div id="az-home-fields-hero" style="display:flex; flex-direction:column; gap:14px;"></div>
+          <h3 class="az-u-h3-12">Hero</h3>
+          <div id="az-home-fields-hero" class="az-u-stack14"></div>
           <div class="az-photo-row az-photo-row-3" style="margin-top:14px;">
             <div>
               <div class="az-image-preview" id="az-home-slide1-preview" style="aspect-ratio:9/16;">Slide 1</div>
@@ -947,7 +968,7 @@
             </div>
           </div>
           <div style="margin-top:18px;">
-            <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Altre foto (facoltative) — si aggiungono in coda alle 3 di sopra, e la slideshow mostra automaticamente un pallino in più per ognuna.</p>
+            <p class="az-u-hint10">Altre foto (facoltative) — si aggiungono in coda alle 3 di sopra, e la slideshow mostra automaticamente un pallino in più per ognuna.</p>
             <div id="az-home-extra-slides" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:10px; margin-bottom:10px;"></div>
             <button type="button" class="az-mini-btn" id="az-home-add-slide">+ Aggiungi foto</button>
             <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-home-add-slide-input" style="display:none;">
@@ -955,32 +976,32 @@
         </div>
 
         <div>
-          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Striscia scorrevole</h3>
-          <div id="az-home-fields-marquee" style="display:flex; flex-direction:column; gap:14px;"></div>
+          <h3 class="az-u-h3-12">Striscia scorrevole</h3>
+          <div id="az-home-fields-marquee" class="az-u-stack14"></div>
         </div>
 
         <div>
-          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Il triangolo di GrowMi</h3>
-          <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Il diagramma resta sempre a 3 punte (Pubblico/Artisti/Locali) — puoi cambiare solo i testi.</p>
-          <div id="az-home-fields-triangolo" style="display:flex; flex-direction:column; gap:14px;"></div>
+          <h3 class="az-u-h3-4">Il triangolo di GrowMi</h3>
+          <p class="az-u-hint12">Il diagramma resta sempre a 3 punte (Pubblico/Artisti/Locali) — puoi cambiare solo i testi.</p>
+          <div id="az-home-fields-triangolo" class="az-u-stack14"></div>
         </div>
 
         <div>
-          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">CTA "Vuoi collaborare"</h3>
-          <div id="az-home-fields-cta" style="display:flex; flex-direction:column; gap:14px;"></div>
+          <h3 class="az-u-h3-12">CTA "Vuoi collaborare"</h3>
+          <div id="az-home-fields-cta" class="az-u-stack14"></div>
         </div>
 
         <div>
-          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Sezioni extra</h3>
-          <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Aggiunte in un unico punto fisso, appena prima della newsletter — non toccano mai l'hero o il triangolo.</p>
-          <div id="az-home-extra" style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;"></div>
-          <div style="display:flex; gap:10px;">
+          <h3 class="az-u-h3-4">Sezioni extra</h3>
+          <p class="az-u-hint12">Aggiunte in un unico punto fisso, appena prima della newsletter — non toccano mai l'hero o il triangolo.</p>
+          <div id="az-home-extra" class="az-u-stack10mb10"></div>
+          <div class="az-u-rowgap10">
             <button type="button" class="az-mini-btn" id="az-home-add-text-section">+ Aggiungi sezione di testo</button>
             <button type="button" class="az-mini-btn" id="az-home-add-image-section">+ Aggiungi sezione immagine</button>
           </div>
         </div>
 
-        <div style="display:flex; gap:10px; align-items:center;">
+        <div class="az-u-row10">
           <button type="button" class="az-preview-btn" id="az-home-preview-btn">👁 Preview</button>
           <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Pubblica home</button>
         </div>
@@ -994,56 +1015,56 @@
       <form id="az-chisiamo-form" style="max-width:640px; display:flex; flex-direction:column; gap:28px;">
         <p class="az-group-label">Testi principali</p>
         <div>
-          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Hero</h3>
+          <h3 class="az-u-h3-12">Hero</h3>
           <div id="az-cs-fields-hero" style="display:flex; flex-direction:column; gap:14px; margin-bottom:14px;"></div>
           <label style="font-size:12px; color:var(--grey); display:block; margin-bottom:6px;">Foto di sfondo hero (facoltativa — se vuota resta lo sfondo di default del sito)</label>
           <div class="az-image-preview" id="az-cs-hero-preview" style="aspect-ratio:16/9;">Nessuna immagine</div>
           <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-cs-hero-input">
           <button type="button" class="az-mini-btn danger" id="az-cs-hero-remove" style="margin-top:6px;">Rimuovi (torna allo sfondo di default)</button>
-          <div id="az-cs-hero-framing" style="margin-top:10px;"></div>
+          <div id="az-cs-hero-framing" class="az-u-mt10"></div>
         </div>
-        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Testo introduttivo</h3><div id="az-cs-fields-intro" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+        <div><h3 class="az-u-h3-12">Testo introduttivo</h3><div id="az-cs-fields-intro" class="az-u-stack14"></div></div>
         <p class="az-group-label">Video e contenuti</p>
-        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Sezione video</h3><div id="az-cs-fields-video" style="display:flex; flex-direction:column; gap:14px;"></div></div>
-        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Evoluzione contenuti</h3><div id="az-cs-fields-evoluzione" style="display:flex; flex-direction:column; gap:14px;"></div></div>
-        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Loghi del passato</h3><div id="az-cs-fields-loghi" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+        <div><h3 class="az-u-h3-12">Sezione video</h3><div id="az-cs-fields-video" class="az-u-stack14"></div></div>
+        <div><h3 class="az-u-h3-12">Evoluzione contenuti</h3><div id="az-cs-fields-evoluzione" class="az-u-stack14"></div></div>
+        <div><h3 class="az-u-h3-12">Loghi del passato</h3><div id="az-cs-fields-loghi" class="az-u-stack14"></div></div>
         <p class="az-group-label">Missione</p>
-        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Mission &amp; Vision</h3><div id="az-cs-fields-mv" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+        <div><h3 class="az-u-h3-12">Mission &amp; Vision</h3><div id="az-cs-fields-mv" class="az-u-stack14"></div></div>
 
         <p class="az-group-label">Persone</p>
         <div>
-          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Fondatori</h3>
-          <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Titolo sezione, e la lista delle persone mostrate — aggiungi, rimuovi o modifica.</p>
+          <h3 class="az-u-h3-4">Fondatori</h3>
+          <p class="az-u-hint12">Titolo sezione, e la lista delle persone mostrate — aggiungi, rimuovi o modifica.</p>
           <div id="az-cs-fields-fondatori-header" style="display:flex; flex-direction:column; gap:14px; margin-bottom:14px;"></div>
-          <div id="az-cs-founders" style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;"></div>
+          <div id="az-cs-founders" class="az-u-stack10mb10"></div>
           <button type="button" class="az-mini-btn" id="az-cs-add-founder">+ Aggiungi fondatore</button>
         </div>
 
-        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Sezione staff</h3><div id="az-cs-fields-staff" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+        <div><h3 class="az-u-h3-12">Sezione staff</h3><div id="az-cs-fields-staff" class="az-u-stack14"></div></div>
 
         <div>
-          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Aree del team</h3>
-          <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Le card che si aprono in "Il team GrowMi" — ogni area ha un'icona, un nome, una descrizione e le persone che ne fanno parte.</p>
+          <h3 class="az-u-h3-4">Aree del team</h3>
+          <p class="az-u-hint12">Le card che si aprono in "Il team GrowMi" — ogni area ha un'icona, un nome, una descrizione e le persone che ne fanno parte.</p>
           <div id="az-cs-team-areas" style="display:flex; flex-direction:column; gap:16px; margin-bottom:10px;"></div>
           <button type="button" class="az-mini-btn" id="az-cs-add-team-area">+ Aggiungi area</button>
         </div>
 
         <p class="az-group-label">Call to action e social</p>
-        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">CTA "Vuoi entrare come staff"</h3><div id="az-cs-fields-cta" style="display:flex; flex-direction:column; gap:14px;"></div></div>
-        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Sezione social</h3><div id="az-cs-fields-social" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+        <div><h3 class="az-u-h3-12">CTA "Vuoi entrare come staff"</h3><div id="az-cs-fields-cta" class="az-u-stack14"></div></div>
+        <div><h3 class="az-u-h3-12">Sezione social</h3><div id="az-cs-fields-social" class="az-u-stack14"></div></div>
 
         <p class="az-group-label">Extra</p>
         <div>
-          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Sezioni extra</h3>
-          <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Aggiunte in un unico punto fisso, appena prima della newsletter.</p>
-          <div id="az-cs-extra" style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;"></div>
-          <div style="display:flex; gap:10px;">
+          <h3 class="az-u-h3-4">Sezioni extra</h3>
+          <p class="az-u-hint12">Aggiunte in un unico punto fisso, appena prima della newsletter.</p>
+          <div id="az-cs-extra" class="az-u-stack10mb10"></div>
+          <div class="az-u-rowgap10">
             <button type="button" class="az-mini-btn" id="az-cs-add-text-section">+ Aggiungi sezione di testo</button>
             <button type="button" class="az-mini-btn" id="az-cs-add-image-section">+ Aggiungi sezione immagine</button>
           </div>
         </div>
 
-        <div style="display:flex; gap:10px; align-items:center;">
+        <div class="az-u-row10">
           <button type="button" class="az-preview-btn" id="az-chisiamo-preview-btn">👁 Preview</button>
           <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Pubblica chi siamo</button>
         </div>
@@ -1056,26 +1077,26 @@
       <p style="font-size:13px; color:var(--grey); margin-bottom:20px; max-width:600px;">Come per le altre pagine: i campi mostrano già i testi pubblicati, modificali e premi "Pubblica" per aggiornarli.</p>
       <form id="az-contatti-form" style="max-width:640px; display:flex; flex-direction:column; gap:28px;">
         <div>
-          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Hero</h3>
+          <h3 class="az-u-h3-12">Hero</h3>
           <div id="az-ct-fields-hero" style="display:flex; flex-direction:column; gap:14px; margin-bottom:14px;"></div>
           <label style="font-size:12px; color:var(--grey); display:block; margin-bottom:6px;">Foto di sfondo hero (facoltativa — se vuota resta il video attuale)</label>
           <div class="az-image-preview" id="az-ct-hero-preview" style="aspect-ratio:16/9;">Nessuna immagine</div>
           <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-ct-hero-input">
           <button type="button" class="az-mini-btn danger" id="az-ct-hero-remove" style="margin-top:6px;">Rimuovi (torna al video attuale)</button>
-          <div id="az-ct-hero-framing" style="margin-top:10px;"></div>
+          <div id="az-ct-hero-framing" class="az-u-mt10"></div>
         </div>
 
         <div>
-          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Sezioni extra</h3>
-          <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Aggiunte in un unico punto fisso, appena prima della newsletter.</p>
-          <div id="az-ct-extra" style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;"></div>
-          <div style="display:flex; gap:10px;">
+          <h3 class="az-u-h3-4">Sezioni extra</h3>
+          <p class="az-u-hint12">Aggiunte in un unico punto fisso, appena prima della newsletter.</p>
+          <div id="az-ct-extra" class="az-u-stack10mb10"></div>
+          <div class="az-u-rowgap10">
             <button type="button" class="az-mini-btn" id="az-ct-add-text-section">+ Aggiungi sezione di testo</button>
             <button type="button" class="az-mini-btn" id="az-ct-add-image-section">+ Aggiungi sezione immagine</button>
           </div>
         </div>
 
-        <div style="display:flex; gap:10px; align-items:center;">
+        <div class="az-u-row10">
           <button type="button" class="az-preview-btn" id="az-contatti-preview-btn">👁 Preview</button>
           <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Pubblica contatti</button>
         </div>
@@ -1087,16 +1108,16 @@
     <div class="az-panel" data-panel-content="pagina-loyalty" hidden>
       <p style="font-size:13px; color:var(--grey); margin-bottom:20px; max-width:600px;">Come per le altre pagine: i campi mostrano già i testi pubblicati, modificali e premi "Pubblica" per aggiornarli.</p>
       <form id="az-loyalty-form" style="max-width:640px; display:flex; flex-direction:column; gap:28px;">
-        <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Hero</h3><div id="az-loy-fields-hero" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+        <div><h3 class="az-u-h3-12">Hero</h3><div id="az-loy-fields-hero" class="az-u-stack14"></div></div>
 
         <div>
-          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Premi fedeltà</h3>
-          <div id="az-loy-fields-rewards" style="display:flex; flex-direction:column; gap:14px;"></div>
+          <h3 class="az-u-h3-12">Premi fedeltà</h3>
+          <div id="az-loy-fields-rewards" class="az-u-stack14"></div>
         </div>
 
         <div>
-          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Card fisica</h3>
-          <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Le due facce della card (si gira al tocco) e il testo del suggerimento.</p>
+          <h3 class="az-u-h3-4">Card fisica</h3>
+          <p class="az-u-hint12">Le due facce della card (si gira al tocco) e il testo del suggerimento.</p>
           <div class="az-photo-row az-photo-row-2" style="margin-bottom:14px;">
             <div>
               <div class="az-image-preview" id="az-loy-front-preview" style="aspect-ratio:9/14;">Fronte</div>
@@ -1113,16 +1134,16 @@
         </div>
 
         <div>
-          <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Sezioni extra</h3>
-          <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Aggiunte in un unico punto fisso, appena prima della newsletter.</p>
-          <div id="az-loy-extra" style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;"></div>
-          <div style="display:flex; gap:10px;">
+          <h3 class="az-u-h3-4">Sezioni extra</h3>
+          <p class="az-u-hint12">Aggiunte in un unico punto fisso, appena prima della newsletter.</p>
+          <div id="az-loy-extra" class="az-u-stack10mb10"></div>
+          <div class="az-u-rowgap10">
             <button type="button" class="az-mini-btn" id="az-loy-add-text-section">+ Aggiungi sezione di testo</button>
             <button type="button" class="az-mini-btn" id="az-loy-add-image-section">+ Aggiungi sezione immagine</button>
           </div>
         </div>
 
-        <div style="display:flex; gap:10px; align-items:center;">
+        <div class="az-u-row10">
           <button type="button" class="az-preview-btn" id="az-loyalty-preview-btn">👁 Preview</button>
           <button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Pubblica carta fedeltà</button>
         </div>
@@ -1139,7 +1160,7 @@
           <div class="az-image-preview" id="az-hero-default-preview"></div>
           <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-hero-default-input">
           <div id="az-hero-default-framing"></div>
-          <div style="margin-top:10px;">
+          <div class="az-u-mt10">
             <button type="button" class="az-submit" id="az-hero-default-framing-save" style="padding:12px 22px;">Pubblica posizione/zoom</button>
           </div>
           <p class="az-msg" id="az-hero-default-msg" hidden></p>
@@ -1172,8 +1193,8 @@
 
           <div>
             <p style="font-size:13px; font-weight:600; margin-bottom:4px;">Tipografia</p>
-            <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Dimensione (proporzionale a quella già impostata pagina per pagina) e peso, per ogni elemento.</p>
-            <div id="az-theme-typography" style="display:flex; flex-direction:column; gap:14px;"></div>
+            <p class="az-u-hint12">Dimensione (proporzionale a quella già impostata pagina per pagina) e peso, per ogni elemento.</p>
+            <div id="az-theme-typography" class="az-u-stack14"></div>
           </div>
 
           <div>
@@ -1220,6 +1241,7 @@
   var topbar = document.querySelector('.az-topbar');
   var heroTitle = document.getElementById('az-dash-title');
   var heroLead = document.getElementById('az-dash-lead');
+  var dashFirstName = '';
   var sidebarUser = document.getElementById('az-sidebar-user');
   var logoutBtn = document.getElementById('az-logout');
   var logoutBtnSidebar = document.getElementById('az-logout-sidebar');
@@ -1318,6 +1340,15 @@
       document.querySelectorAll('[data-panel-content]').forEach(function(p){
         p.hidden = p.getAttribute('data-panel-content') !== target;
       });
+      // Il saluto "Ciao, [Nome]!" ha senso solo in Dashboard — sugli altri pannelli si vedeva
+      // identico su ogni schermata, ridondante col nome del pannello già selezionato in sidebar.
+      if (target === 'dashboard') {
+        heroTitle.textContent = 'Ciao, ' + dashFirstName + '!';
+        heroLead.textContent = 'Ecco cosa succede su GrowMi.';
+      } else {
+        heroTitle.textContent = btn.textContent.replace(/^\S+\s*/, '');
+        heroLead.textContent = '';
+      }
       if (panelLoaders[target] && !panelLoaders[target].loaded) {
         panelLoaders[target].loaded = true;
         panelLoaders[target].load();
@@ -1974,7 +2005,7 @@
           '<p style="font-size:12px; color:var(--grey); margin-bottom:6px;">Incolla qui la lista di chi ha GIÀ ricevuto questa newsletter (es. l\'export "Delivered" di Resend, una email per riga o CSV) — calcolo chi manca confrontandola con chi doveva riceverla.</p>' +
           '<textarea class="nl-missing-delivered" rows="5" style="width:100%; max-width:420px; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line); font-family:\'Inter\',sans-serif; font-size:13px;" placeholder="già-ricevuta1@esempio.it&#10;già-ricevuta2@esempio.it"></textarea><br>' +
           '<button type="button" class="az-mini-btn" data-calc-missing="' + c.id + '" style="margin-top:6px;">Calcola chi manca</button>' +
-          '<div id="nl-missing-result-' + c.id + '" style="margin-top:10px;"></div>' +
+          '<div id="nl-missing-result-' + c.id + '" class="az-u-mt10"></div>' +
         '</div>';
       var openBtn = row.querySelector('[data-open]');
       if (openBtn) openBtn.addEventListener('click', function(){ openCampaignComposer(c); });
@@ -2332,9 +2363,9 @@
         '<div class="az-image-preview" style="aspect-ratio:16/9; max-width:' + (block.width || 100) + '%; margin:0 auto;">' + (block.key ? '<img src="' + mediaSrc(block.key) + '" alt="">' : 'Nessuna immagine') + '</div>' +
         '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif">' +
         (block.key ? '<button type="button" class="az-mini-btn danger" style="margin-top:6px;">Rimuovi</button>' : '') +
-        '<div class="az-nl-block-framing" style="margin-top:10px;"></div>' +
+        '<div class="az-nl-block-framing az-u-mt10"></div>' +
         (block.key ? (
-          '<div style="margin-top:10px;">' +
+          '<div class="az-u-mt10">' +
             '<label style="font-size:11px; color:var(--grey); display:block; margin-bottom:6px;">Dimensione nella mail</label>' +
             '<div class="az-nl-block-width-row" style="display:flex; gap:6px;">' +
               widthOptions.map(function(o){
@@ -3338,7 +3369,7 @@
       '</div>' +
       '<div id="' + containerId + '-body" hidden>' +
       '<form class="az-legacy-page-form" style="display:flex; flex-direction:column; gap:16px; max-width:600px;">' +
-        '<div id="' + containerId + '-fields" style="display:flex; flex-direction:column; gap:14px;"></div>' +
+        '<div id="' + containerId + '-fields" class="az-u-stack14"></div>' +
         '<div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px;">' +
           '<div>' +
             '<label style="font-size:12px; color:var(--grey); display:block; margin-bottom:6px;">Foto hero</label>' +
@@ -3354,13 +3385,13 @@
         galleryBlockHtml +
         '<div>' +
           '<p style="font-size:12px; font-weight:600; margin-bottom:8px;">Sezioni extra</p>' +
-          '<div id="' + containerId + '-extra" style="display:flex; flex-direction:column; gap:10px; margin-bottom:10px;"></div>' +
-          '<div style="display:flex; gap:10px;">' +
+          '<div id="' + containerId + '-extra" class="az-u-stack10mb10"></div>' +
+          '<div class="az-u-rowgap10">' +
             '<button type="button" class="az-mini-btn" data-action="add-text">+ Sezione di testo</button>' +
             '<button type="button" class="az-mini-btn" data-action="add-image">+ Sezione immagine</button>' +
           '</div>' +
         '</div>' +
-        '<div style="display:flex; gap:10px; align-items:center;">' +
+        '<div class="az-u-row10">' +
           '<button type="button" class="az-preview-btn" data-action="preview">👁 Preview</button>' +
           '<button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Pubblica</button>' +
         '</div>' +
@@ -3990,7 +4021,7 @@
       row.style.cssText = 'border:1.5px solid var(--line); border-radius:10px; padding:12px;';
       if (s.type === 'text') {
         row.innerHTML =
-          '<input type="text" placeholder="Titolo sezione" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<input type="text" placeholder="Titolo sezione" class="az-u-input">' +
           '<textarea placeholder="Testo" style="width:100%; min-height:70px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line); font-family:Inter,sans-serif; font-size:14.5px;"></textarea>' +
           '<button type="button" class="az-mini-btn danger" style="margin-top:8px;">Rimuovi sezione</button>';
         var titleInput = row.querySelector('input');
@@ -4003,7 +4034,7 @@
         row.innerHTML =
           '<div class="az-image-preview" style="aspect-ratio:16/7;">' + (s.key ? '<img src="/media/' + s.key + '" alt="">' : 'Nessuna immagine') + '</div>' +
           '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="margin-bottom:8px;">' +
-          '<input type="text" placeholder="Didascalia (facoltativa)" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<input type="text" placeholder="Didascalia (facoltativa)" class="az-u-input">' +
           '<button type="button" class="az-mini-btn danger">Rimuovi sezione</button>';
         var fileInput = row.querySelector('input[type=file]');
         var captionInput = row.querySelector('input[type=text]');
@@ -4217,8 +4248,8 @@
           '<div class="cs-founder-framing"></div>' +
         '</div>' +
         '<div>' +
-          '<input type="text" placeholder="Nome" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
-          '<input type="text" placeholder="Ruolo" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<input type="text" placeholder="Nome" class="az-u-input">' +
+          '<input type="text" placeholder="Ruolo" class="az-u-input">' +
           '<button type="button" class="az-mini-btn danger">Rimuovi fondatore</button>' +
         '</div>';
       var fileInput = row.querySelector('input[type=file]');
@@ -4287,14 +4318,14 @@
             '<input type="file" class="az-cs-area-icon-input" accept="image/jpeg,image/png,image/webp,image/svg+xml" style="margin-top:6px; font-size:11px; width:70px;">' +
           '</div>' +
           '<div>' +
-            '<input type="text" class="az-cs-area-name" placeholder="Nome area" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
+            '<input type="text" class="az-cs-area-name az-u-input" placeholder="Nome area">' +
             '<textarea class="az-cs-area-lead" placeholder="Descrizione" style="width:100%; min-height:50px; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line); font-family:Inter,sans-serif; font-size:14.5px;"></textarea>' +
             '<input type="text" class="az-cs-area-count" placeholder="Etichetta (es. &quot;3 persone&quot; o &quot;In crescita&quot;)" style="width:100%; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
           '</div>' +
         '</div>' +
         '<p style="font-size:12px; font-weight:600; margin-bottom:8px;">Persone</p>' +
         '<div class="az-cs-team-area-members" style="display:flex; flex-direction:column; gap:8px; margin-bottom:10px;"></div>' +
-        '<div style="display:flex; gap:10px;">' +
+        '<div class="az-u-rowgap10">' +
           '<button type="button" class="az-mini-btn az-cs-add-member">+ Aggiungi persona</button>' +
           '<button type="button" class="az-mini-btn danger az-cs-remove-area">Rimuovi area</button>' +
         '</div>';
@@ -4380,7 +4411,7 @@
       row.style.cssText = 'border:1.5px solid var(--line); border-radius:10px; padding:12px;';
       if (s.type === 'text') {
         row.innerHTML =
-          '<input type="text" placeholder="Titolo sezione" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<input type="text" placeholder="Titolo sezione" class="az-u-input">' +
           '<textarea placeholder="Testo" style="width:100%; min-height:70px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line); font-family:Inter,sans-serif; font-size:14.5px;"></textarea>' +
           '<button type="button" class="az-mini-btn danger" style="margin-top:8px;">Rimuovi sezione</button>';
         var titleInput = row.querySelector('input');
@@ -4393,7 +4424,7 @@
         row.innerHTML =
           '<div class="az-image-preview" style="aspect-ratio:16/7;">' + (s.key ? '<img src="/media/' + s.key + '" alt="">' : 'Nessuna immagine') + '</div>' +
           '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="margin-bottom:8px;">' +
-          '<input type="text" placeholder="Didascalia (facoltativa)" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<input type="text" placeholder="Didascalia (facoltativa)" class="az-u-input">' +
           '<button type="button" class="az-mini-btn danger">Rimuovi sezione</button>';
         var fileInput2 = row.querySelector('input[type=file]');
         var captionInput = row.querySelector('input[type=text]');
@@ -4551,7 +4582,7 @@
       row.style.cssText = 'border:1.5px solid var(--line); border-radius:10px; padding:12px;';
       if (s.type === 'text') {
         row.innerHTML =
-          '<input type="text" placeholder="Titolo sezione" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<input type="text" placeholder="Titolo sezione" class="az-u-input">' +
           '<textarea placeholder="Testo" style="width:100%; min-height:70px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line); font-family:Inter,sans-serif; font-size:14.5px;"></textarea>' +
           '<button type="button" class="az-mini-btn danger" style="margin-top:8px;">Rimuovi sezione</button>';
         var titleInput = row.querySelector('input');
@@ -4564,7 +4595,7 @@
         row.innerHTML =
           '<div class="az-image-preview" style="aspect-ratio:16/7;">' + (s.key ? '<img src="/media/' + s.key + '" alt="">' : 'Nessuna immagine') + '</div>' +
           '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="margin-bottom:8px;">' +
-          '<input type="text" placeholder="Didascalia (facoltativa)" style="width:100%; margin-bottom:8px; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<input type="text" placeholder="Didascalia (facoltativa)" class="az-u-input">' +
           '<button type="button" class="az-mini-btn danger">Rimuovi sezione</button>';
         var fileInput = row.querySelector('input[type=file]');
         var captionInput = row.querySelector('input[type=text]');
@@ -5387,8 +5418,8 @@
       dashBox.hidden = false;
       topbar.style.display = 'none';
       logoutBtn.hidden = false;
-      var firstName = data.name ? data.name.split(' ')[0] : '';
-      heroTitle.textContent = 'Ciao, ' + firstName + '!';
+      dashFirstName = data.name ? data.name.split(' ')[0] : '';
+      heroTitle.textContent = 'Ciao, ' + dashFirstName + '!';
       heroLead.textContent = 'Ecco cosa succede su GrowMi.';
       sidebarUser.textContent = data.email || '';
       loadDashboardEventFilter();
