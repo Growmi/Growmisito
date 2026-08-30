@@ -133,6 +133,14 @@
     .az-main{ padding:70px 20px 50px; }
   }
 
+  /* Etichetta che raggruppa più sottosezioni (H3) dentro un form lungo — es. "Persone" sopra
+     Fondatori/Staff/Aree del team in Chi siamo — puramente visiva, non un livello di dati in più. */
+  .az-group-label{
+    font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.08em; color:var(--coral); padding-top:22px; margin-top:-6px; border-top:2px solid var(--line);
+  }
+  .az-group-label:first-child{ padding-top:0; margin-top:0; border-top:none; }
+
   .az-settings-card{ background:#fff; border:1.5px solid var(--line); border-radius:16px; padding:22px 24px; max-width:480px; }
   .az-settings-card h3{ font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:8px; }
   .az-settings-hint{ font-size:13px; color:var(--grey); margin-bottom:18px; }
@@ -780,6 +788,7 @@
     <div class="az-panel" data-panel-content="pagina-chisiamo" hidden>
       <p style="font-size:13px; color:var(--grey); margin-bottom:20px; max-width:600px;">Come per la Home: i campi mostrano già i testi pubblicati, modificali e premi "Pubblica" per aggiornarli.</p>
       <form id="az-chisiamo-form" style="max-width:640px; display:flex; flex-direction:column; gap:28px;">
+        <p class="az-group-label">Testi principali</p>
         <div>
           <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Hero</h3>
           <div id="az-cs-fields-hero" style="display:flex; flex-direction:column; gap:14px; margin-bottom:14px;"></div>
@@ -790,11 +799,14 @@
           <div id="az-cs-hero-framing" style="margin-top:10px;"></div>
         </div>
         <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Testo introduttivo</h3><div id="az-cs-fields-intro" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+        <p class="az-group-label">Video e contenuti</p>
         <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Sezione video</h3><div id="az-cs-fields-video" style="display:flex; flex-direction:column; gap:14px;"></div></div>
         <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Evoluzione contenuti</h3><div id="az-cs-fields-evoluzione" style="display:flex; flex-direction:column; gap:14px;"></div></div>
         <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Loghi del passato</h3><div id="az-cs-fields-loghi" style="display:flex; flex-direction:column; gap:14px;"></div></div>
+        <p class="az-group-label">Missione</p>
         <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Mission &amp; Vision</h3><div id="az-cs-fields-mv" style="display:flex; flex-direction:column; gap:14px;"></div></div>
 
+        <p class="az-group-label">Persone</p>
         <div>
           <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Fondatori</h3>
           <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Titolo sezione, e la lista delle persone mostrate — aggiungi, rimuovi o modifica.</p>
@@ -812,9 +824,11 @@
           <button type="button" class="az-mini-btn" id="az-cs-add-team-area">+ Aggiungi area</button>
         </div>
 
+        <p class="az-group-label">Call to action e social</p>
         <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">CTA "Vuoi entrare come staff"</h3><div id="az-cs-fields-cta" style="display:flex; flex-direction:column; gap:14px;"></div></div>
         <div><h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:12px;">Sezione social</h3><div id="az-cs-fields-social" style="display:flex; flex-direction:column; gap:14px;"></div></div>
 
+        <p class="az-group-label">Extra</p>
         <div>
           <h3 style="font-family:'Space Grotesk',sans-serif; font-size:15px; margin-bottom:4px;">Sezioni extra</h3>
           <p style="font-size:12px; color:var(--grey); margin-bottom:12px;">Aggiunte in un unico punto fisso, appena prima della newsletter.</p>
