@@ -2121,7 +2121,7 @@
           if (cmd === 'link'){
             var url = prompt('Indirizzo del link (es. https://growmi.it/eventi):');
             if (!url) return;
-            document.execCommand('createLink', false, url);
+            document.execCommand('createLink', false, normalizeNlUrl(url));
           } else {
             document.execCommand(cmd, false, null);
           }
@@ -2177,6 +2177,10 @@
       urlInput.value = block.url || '';
       labelInput.addEventListener('input', function(){ block.label = labelInput.value; });
       urlInput.addEventListener('input', function(){ block.url = urlInput.value; });
+      urlInput.addEventListener('blur', function(){
+        block.url = normalizeNlUrl(urlInput.value);
+        urlInput.value = block.url;
+      });
     } else if (block.type === 'spacer'){
       container.innerHTML =
         '<label style="font-size:11px; color:var(--grey);">Altezza: <span class="nl-block-spacer-val">' + (block.height || 24) + '</span>px</label>' +
@@ -2266,11 +2270,21 @@
 
   // Stesso stile inline già usato nel resto del sistema newsletter (coral #F86639 per i bottoni,
   // ink #1E0C2C per il testo) — nessun sistema di stile nuovo da mantenere.
+  // Senza protocollo, un href tipo "growmi.it" è RELATIVO — cliccato da una pagina già su
+  // growmi.it diventa "growmi.it/growmi.it" (si "somma" col dominio corrente) invece di aprire il
+  // sito. Chi scrive un link di solito non pensa a scrivere "https://" davanti, quindi lo si
+  // aggiunge qui invece di lasciare che l'errore arrivi fino alla mail inviata.
+  function normalizeNlUrl(url){
+    url = String(url || '').trim();
+    if (!url) return url;
+    if (/^(https?:|mailto:|tel:)/i.test(url)) return url;
+    return 'https://' + url;
+  }
   function nlBlockToHtml(b){
     if (b.type === 'heading') return b.text ? '<h2 style="font-family:Arial,sans-serif; font-size:20px; font-weight:800; color:#1E0C2C; margin:0 0 14px;">' + b.text + '</h2>' : '';
     if (b.type === 'text') return b.html ? '<div style="margin:0 0 14px; font-size:15px; color:#1E0C2C; line-height:1.6;">' + b.html + '</div>' : '';
     if (b.type === 'image') return b.key ? '<img src="' + mediaSrc(b.key) + '" alt="" style="width:' + (b.width || 100) + '%; display:block; border-radius:14px; object-position:' + (b.position || 'center') + '; margin:0 auto 14px;">' : '';
-    if (b.type === 'button') return b.url ? '<p style="text-align:center; margin:20px 0;"><a href="' + b.url + '" style="display:inline-block; background:#F86639; color:#fff; font-weight:700; text-decoration:none; padding:14px 28px; border-radius:10px;">' + esc(b.label || 'Scopri di più') + '</a></p>' : '';
+    if (b.type === 'button') return b.url ? '<p style="text-align:center; margin:20px 0;"><a href="' + normalizeNlUrl(b.url) + '" style="display:inline-block; background:#F86639; color:#fff; font-weight:700; text-decoration:none; padding:14px 28px; border-radius:10px;">' + esc(b.label || 'Scopri di più') + '</a></p>' : '';
     if (b.type === 'divider') return '<hr style="border:none; border-top:1.5px solid #E4D9EA; margin:20px 0;">';
     if (b.type === 'spacer') return '<div style="height:' + (b.height || 24) + 'px;"></div>';
     if (b.type === 'legacy') return b.html || '';
