@@ -2783,6 +2783,22 @@ function autoDraftHtmlFromEvent(event) {
     `<p><a href="${url}">Scopri di più e prendi il biglietto</a></p>`;
 }
 
+// Modello standard GrowMi (logo in cima, cornice, footer con i social) — avvolge il testo che
+// l'admin scrive nell'editor, così l'editor stesso resta pulito (solo il messaggio, niente logo/
+// footer da dover ricreare ogni volta) e il modello resta identico e coerente per ogni
+// newsletter, automatica o manuale che sia: per cambiarlo basta questa funzione, non ogni bozza.
+function newsletterStandardTemplateHtml(base, trackedBody){
+  return `<div style="max-width:560px; margin:0 auto; font-family:Arial,sans-serif;">` +
+    `<div style="text-align:center; padding:28px 0 20px;">` +
+      `<img src="${base}/assets/img/logo-growmi.png" alt="GrowMi" style="height:36px;">` +
+    `</div>` +
+    `<div style="background:#fff; border-radius:16px; padding:32px 28px; font-size:15px; color:#1E0C2C; line-height:1.6;">${trackedBody}</div>` +
+    `<div style="text-align:center; padding:28px 20px; font-size:12px; color:#6E6478;">` +
+      `<p style="margin-bottom:10px;">GrowMi · Milano · <a href="${base}" style="color:#6E6478;">growmi.it</a></p>` +
+    `</div>` +
+  `</div>`;
+}
+
 // Inserisce il pixel di apertura, riscrive i link per tracciare i click, e aggiunge in fondo il
 // link di disiscrizione obbligatorio — SEMPRE, per ogni email davvero inviata (mai facoltativo).
 function buildTrackedEmailHtml(bodyHtml, campaignId, subscriber, env) {
@@ -2793,8 +2809,8 @@ function buildTrackedEmailHtml(bodyHtml, campaignId, subscriber, env) {
   });
   const pixel = `<img src="${base}/api/newsletter-track-open?c=${encodeURIComponent(campaignId)}&e=${e}" width="1" height="1" alt="" style="display:block;border:0;">`;
   const unsubUrl = `${base}/newsletter-unsubscribe?token=${encodeURIComponent(subscriber.unsubscribeToken)}`;
-  return `<div style="font-family:Arial,sans-serif; font-size:15px; color:#1E0C2C; line-height:1.5;">${trackedBody}</div>` +
-    `<p style="font-size:12px; color:#6E6478; margin-top:32px; border-top:1px solid #eee; padding-top:16px;">Ricevi questa email perché sei iscritto alla newsletter di GrowMi. <a href="${unsubUrl}" style="color:#6E6478;">Disiscriviti</a></p>` +
+  return newsletterStandardTemplateHtml(base, trackedBody) +
+    `<p style="font-size:11px; color:#6E6478; text-align:center; margin-top:12px;">Ricevi questa email perché sei iscritto alla newsletter di GrowMi. <a href="${unsubUrl}" style="color:#6E6478;">Disiscriviti</a></p>` +
     pixel;
 }
 

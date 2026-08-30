@@ -1672,18 +1672,18 @@
       var row = document.createElement('div');
       row.style.cssText = 'border:1.5px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:10px; background:#fff;';
       var statusBadge = c.status === 'sent'
-        ? '<span class="az-pill newsletter">Inviata · ' + c.recipientCount + ' destinatari · ' + c.openCount + ' aperture · ' + c.clickCount + ' click</span>'
+        ? '<span class="az-pill newsletter">Inviata · ' + (c.sentAt ? new Date(c.sentAt).toLocaleDateString('it-IT') : '') + '</span>'
         : c.status === 'scheduled'
         ? '<span class="az-pill card">🕒 Programmata per ' + new Date(c.scheduledAt).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</span>'
         : '<span class="az-pill">Bozza</span>';
       row.innerHTML =
         '<div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">' +
-          '<div' + (c.status === 'sent' ? ' style="cursor:pointer;" data-toggle-stats' : '') + '><strong>' + esc(c.name) + '</strong><br><span style="font-size:12px; color:var(--grey);">' + esc(c.subject || 'Nessun oggetto') + '</span></div>' +
+          '<div><strong>' + esc(c.name) + '</strong><br><span style="font-size:12px; color:var(--grey);">' + esc(c.subject || 'Nessun oggetto') + '</span></div>' +
           '<div style="display:flex; align-items:center; gap:10px;">' + statusBadge +
             (c.status !== 'sent' ? '<button type="button" class="az-mini-btn" data-open="' + c.id + '">Modifica</button><button type="button" class="az-mini-btn danger" data-del="' + c.id + '">Elimina</button>' : '') +
           '</div>' +
         '</div>' +
-        (c.status === 'sent' ? '<div class="nl-stats-detail" hidden>' + nlStatsDetailHtml(c) + '</div>' : '');
+        (c.status === 'sent' ? nlStatsDetailHtml(c) : '');
       var openBtn = row.querySelector('[data-open]');
       if (openBtn) openBtn.addEventListener('click', function(){ openCampaignComposer(c); });
       var delBtn = row.querySelector('[data-del]');
@@ -1691,11 +1691,6 @@
         if (!confirm('Eliminare la bozza "' + c.name + '"?')) return;
         await fetch('/api/admin/newsletter-campaigns?id=' + encodeURIComponent(c.id), { method: 'DELETE' });
         await loadNlCampaigns();
-      });
-      var toggle = row.querySelector('[data-toggle-stats]');
-      if (toggle) toggle.addEventListener('click', function(){
-        var detail = row.querySelector('.nl-stats-detail');
-        detail.hidden = !detail.hidden;
       });
       wrap.appendChild(row);
     });
@@ -1790,16 +1785,33 @@
     updateRecipientCount();
   });
 
+  // Dopo il selettore file nativo (o comunque dopo un'attesa async, es. l'upload), il browser
+  // perde spesso il cursore/selezione dentro il contenteditable — focus() da solo non basta,
+  // riporta il focus sul div ma senza nessun punto dove inserire. Qui si ricrea un cursore in
+  // fondo al contenuto esistente quando serve, PRIMA di execCommand, così l'inserimento va
+  // sempre a buon fine invece di silenziosamente non fare niente.
+  function nlEditorEnsureCaret(){
+    var editor = document.getElementById('az-nl-camp-body');
+    editor.focus();
+    var sel = window.getSelection();
+    if (sel.rangeCount > 0 && editor.contains(sel.getRangeAt(0).startContainer)) return;
+    var range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
   document.querySelectorAll('.az-nl-editor-toolbar [data-cmd]').forEach(function(btn){
     btn.addEventListener('click', function(){
-      document.getElementById('az-nl-camp-body').focus();
+      nlEditorEnsureCaret();
       document.execCommand(btn.getAttribute('data-cmd'), false, null);
     });
   });
   document.getElementById('az-nl-camp-link-btn').addEventListener('click', function(){
     var url = prompt('Indirizzo del link (es. https://growmi.it/eventi):');
     if (!url) return;
-    document.getElementById('az-nl-camp-body').focus();
+    nlEditorEnsureCaret();
     document.execCommand('createLink', false, url);
   });
   document.getElementById('az-nl-camp-image-btn').addEventListener('click', function(){
@@ -1811,8 +1823,8 @@
     if (!file) return;
     try {
       var key = await uploadArtistMediaGeneric(file, 'image', 'newsletter', 'pages');
-      document.getElementById('az-nl-camp-body').focus();
-      document.execCommand('insertHTML', false, '<img src="' + mediaSrc(key) + '" alt="">');
+      nlEditorEnsureCaret();
+      document.execCommand('insertHTML', false, '<img src="' + mediaSrc(key) + '" alt="" style="max-width:100%;">');
     } catch (err) { alert(err.message); }
   });
 
