@@ -4621,7 +4621,11 @@ const IMAGE_CONTENT_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/we
 const VIDEO_CONTENT_TYPES = { "video/mp4": "mp4" };
 const MEDIA_CONTENT_TYPES = Object.assign({}, IMAGE_CONTENT_TYPES, VIDEO_CONTENT_TYPES);
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
-const MAX_VIDEO_BYTES = 60 * 1024 * 1024;
+// Un GIF convertito da uno screen recording può pesare molto più di un video mp4 compresso a
+// parità di durata (nessuna vera compressione inter-frame) — tetto alzato per questo.
+// 100MB è vicino al limite di richiesta di Cloudflare Workers stesso: oltre, il caricamento
+// fallirebbe comunque prima di arrivare qui, un tetto più alto non servirebbe a niente.
+const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 // Namespace di chiavi R2 ammessi per upload/cancellazione da pannello — "events/" e "artists/"
 // per contenuti legati a uno slug, "site/" solo per le fixedKey (es. hero di default).
 const MEDIA_KEY_PREFIXES = ["events/", "artists/", "pages/"];
