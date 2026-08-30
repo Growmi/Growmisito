@@ -328,6 +328,72 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    // Sistema newsletter interno (sostituisce MailerLite) — vedi upsertSubscriber più sotto.
+    if (url.pathname === "/api/newsletter-subscribe" && request.method === "POST") {
+      try {
+        return await handleNewsletterSubscribe(request, env);
+      } catch (err) {
+        console.log("Errore newsletter-subscribe:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+    if (url.pathname === "/newsletter-unsubscribe" && request.method === "GET") {
+      try {
+        return await handleNewsletterUnsubscribe(request, env);
+      } catch (err) {
+        console.log("Errore newsletter-unsubscribe:", err.stack || err.message);
+        return new Response("Errore, riprova più tardi.", { status: 500 });
+      }
+    }
+    if (url.pathname === "/api/admin/newsletter-subscribers" && request.method === "GET") {
+      try {
+        return await handleAdminListNewsletterSubscribers(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-subscribers:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+    if (url.pathname === "/api/admin/newsletter-import-mailerlite" && request.method === "POST") {
+      try {
+        return await handleAdminImportMailerlite(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-import-mailerlite:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+    if (url.pathname === "/api/admin/newsletter-groups" && request.method === "GET") {
+      try {
+        return await handleAdminListNewsletterGroups(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-groups GET:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+    if (url.pathname === "/api/admin/newsletter-groups" && request.method === "POST") {
+      try {
+        return await handleAdminCreateNewsletterGroup(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-groups POST:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+    if (url.pathname === "/api/admin/newsletter-groups" && request.method === "DELETE") {
+      try {
+        return await handleAdminDeleteNewsletterGroup(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-groups DELETE:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+    if (url.pathname === "/api/admin/newsletter-subscriber-groups" && request.method === "POST") {
+      try {
+        return await handleAdminSetSubscriberGroup(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-subscriber-groups:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     // Opzioni di default per la domanda "Cosa ti è piaciuto di più" del form feedback generico
     // (feedback.html senza ?slug=, o un evento senza opzioni proprie) — pubblica e di sola
     // lettura, stesso principio di feedbackOptions dentro /api/event-tiers. Con ?form=<id> legge
@@ -2353,28 +2419,202 @@ async function handleEventTiers(request, env) {
   return jsonResponse({ eventName: event.name, tiers, allSoldOut: !activeAssigned, feedbackOptions: event.feedbackOptions || [] });
 }
 
-// Iscrive alla newsletter MailerLite chi ha spuntato la relativa casella nel form di acquisto —
-// stessa lista usata dal popup newsletter del sito. Avvolta in try/catch e non awaitata dal
-// chiamante in modo bloccante sull'esito: se MailerLite non risponde o la chiave non è
-// configurata, la registrazione del biglietto deve comunque andare a buon fine.
-async function subscribeToMailerLite(env, email, name) {
-  if (!env.MAILERLITE_API_KEY) return;
-  try {
-    const body = { email, fields: { name: name || "" } };
-    if (env.MAILERLITE_GROUP_ID) body.groups = [env.MAILERLITE_GROUP_ID];
-    const res = await fetch("https://connect.mailerlite.com/api/subscribers", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${env.MAILERLITE_API_KEY}`,
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      },
-      body: JSON.stringify(body)
-    });
-    if (!res.ok) console.log("MailerLite subscribe error:", res.status, await res.text());
-  } catch (e) {
-    console.log("Errore iscrizione MailerLite:", e.message);
-  }
+// ============================================================================
+// Sistema newsletter interno (sostituisce MailerLite) — un record per persona in
+// "subscriber:<email>". Due concetti tenuti volutamente separati:
+// - eventGroups/manualGroups: SEGMENTAZIONE, a cosa è associata la persona (quali eventi ha
+//   comprato, quali gruppi manuali le sono stati assegnati) — si aggiorna sempre, anche se non
+//   ha mai dato consenso marketing, perché è solo organizzazione interna dei contatti.
+// - newsletterOptin: il vero PERMESSO a ricevere email di marketing — resta sempre una scelta
+//   esplicita della persona (checkbox al momento dell'iscrizione/acquisto), mai impostato a
+//   true solo perché è entrata in un gruppo. Le email si mandano solo a chi ha newsletterOptin
+//   true, indipendentemente dai gruppi di cui fa parte.
+// ============================================================================
+function isValidEmail(email) {
+  return typeof email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
+async function upsertSubscriber(env, opts) {
+  if (!env.TICKETS) return null;
+  const email = String(opts.email || "").trim().toLowerCase();
+  if (!isValidEmail(email)) return null;
+  const key = `subscriber:${email}`;
+  const raw = await env.TICKETS.get(key);
+  const existing = raw ? JSON.parse(raw) : null;
+  const eventGroups = new Set(existing?.eventGroups || []);
+  if (opts.eventSlug) eventGroups.add(opts.eventSlug);
+  const record = {
+    email,
+    name: (opts.name && String(opts.name).trim()) ? String(opts.name).trim().slice(0, 200) : (existing?.name || null),
+    newsletterOptin: opts.newsletterOptin === true ? true : !!existing?.newsletterOptin,
+    siteSignup: opts.siteSignup === true ? true : !!existing?.siteSignup,
+    eventGroups: Array.from(eventGroups),
+    manualGroups: existing?.manualGroups || [],
+    unsubscribed: existing?.unsubscribed || false,
+    unsubscribeToken: existing?.unsubscribeToken || crypto.randomUUID(),
+    stats: existing?.stats || { sent: 0, opens: 0, clicks: 0 },
+    source: existing?.source || opts.source || "unknown",
+    createdAt: existing?.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  await env.TICKETS.put(key, JSON.stringify(record));
+  return record;
+}
+
+// Form popup del sito (assets/newsletter.js intercetta il submit e chiama questa rotta invece
+// di mandare il form direttamente a MailerLite).
+async function handleNewsletterSubscribe(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  if (!isValidEmail(body.email)) return jsonResponse({ error: "email non valida" }, 400);
+  await upsertSubscriber(env, { email: body.email, name: body.name, siteSignup: true, newsletterOptin: true, source: "site-popup" });
+  return jsonResponse({ ok: true });
+}
+
+// Link "disiscriviti" obbligatorio in ogni email inviata (vedi buildNewsletterEmailHtml) — token
+// invece dell'email in chiaro nell'URL, non richiede login.
+async function handleNewsletterUnsubscribe(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const token = new URL(request.url).searchParams.get("token");
+  if (!token) return new Response("Link non valido.", { status: 400 });
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "subscriber:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      if (!raw) continue;
+      const sub = JSON.parse(raw);
+      if (sub.unsubscribeToken === token) {
+        sub.unsubscribed = true;
+        sub.newsletterOptin = false;
+        sub.updatedAt = new Date().toISOString();
+        await env.TICKETS.put(key.name, JSON.stringify(sub));
+        return new Response(
+          "<!DOCTYPE html><html lang=\"it\"><head><meta charset=\"UTF-8\"><title>Disiscritto — GrowMi</title></head><body style=\"font-family:sans-serif; max-width:480px; margin:80px auto; text-align:center; color:#1E0C2C;\"><h1>Fatto.</h1><p>Non riceverai più email da GrowMi. Se cambi idea, puoi iscriverti di nuovo dal sito quando vuoi.</p></body></html>",
+          { headers: { "Content-Type": "text/html; charset=utf-8" } }
+        );
+      }
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  return new Response("Link non valido o già usato.", { status: 404 });
+}
+
+async function handleAdminListNewsletterSubscribers(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const subscribers = [];
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "subscriber:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      if (raw) subscribers.push(JSON.parse(raw));
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  subscribers.sort(function(a, b){ return (b.createdAt || "").localeCompare(a.createdAt || ""); });
+  return jsonResponse({ subscribers });
+}
+
+// Importa gli iscritti già presenti su MailerLite (paginazione a cursore dell'API v2) — non
+// tocca/cancella nulla su MailerLite, legge soltanto. Idempotente: si può rilanciare senza
+// creare doppioni (upsertSubscriber fa merge su email).
+async function handleAdminImportMailerlite(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  if (!env.MAILERLITE_API_KEY) return jsonResponse({ error: "MAILERLITE_API_KEY non configurato" }, 400);
+  let imported = 0;
+  let cursor = null;
+  let guard = 0;
+  do {
+    const url = new URL("https://connect.mailerlite.com/api/subscribers");
+    url.searchParams.set("limit", "100");
+    if (cursor) url.searchParams.set("cursor", cursor);
+    const res = await fetch(url, { headers: { "Authorization": `Bearer ${env.MAILERLITE_API_KEY}`, "Accept": "application/json" } });
+    if (!res.ok) return jsonResponse({ error: "MailerLite ha risposto " + res.status, imported }, 502);
+    const data = await res.json();
+    const list = Array.isArray(data.data) ? data.data : [];
+    for (const s of list) {
+      if (!s.email) continue;
+      await upsertSubscriber(env, {
+        email: s.email,
+        name: (s.fields && (s.fields.name || s.fields.full_name)) || null,
+        siteSignup: true,
+        newsletterOptin: s.status === "active",
+        source: "mailerlite-import"
+      });
+      imported++;
+    }
+    cursor = (data.meta && data.meta.next_cursor) || null;
+    guard++;
+  } while (cursor && guard < 50);
+  return jsonResponse({ ok: true, imported });
+}
+
+async function handleAdminListNewsletterGroups(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const groups = [];
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "newslettergroup:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      if (raw) groups.push(JSON.parse(raw));
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  groups.sort(function(a, b){ return (a.name || "").localeCompare(b.name || ""); });
+  return jsonResponse({ groups });
+}
+
+async function handleAdminCreateNewsletterGroup(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const name = String(body.name || "").trim().slice(0, 100);
+  if (!name) return jsonResponse({ error: "nome obbligatorio" }, 400);
+  const emailType = String(body.emailType || "").trim().slice(0, 100);
+  const id = slugify(name).slice(0, 40) || crypto.randomUUID().slice(0, 8);
+  const group = { id, name, emailType, createdAt: new Date().toISOString() };
+  await env.TICKETS.put(`newslettergroup:${id}`, JSON.stringify(group));
+  return jsonResponse({ ok: true, group });
+}
+
+async function handleAdminDeleteNewsletterGroup(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const id = String(new URL(request.url).searchParams.get("id") || "").trim();
+  if (!id) return jsonResponse({ error: "id mancante" }, 400);
+  await env.TICKETS.delete(`newslettergroup:${id}`);
+  return jsonResponse({ ok: true });
+}
+
+// Aggiunge/rimuove UN iscritto da UN gruppo manuale — usato dalla tabella iscritti del pannello.
+async function handleAdminSetSubscriberGroup(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const email = String(body.email || "").trim().toLowerCase();
+  const groupId = String(body.groupId || "").trim();
+  const remove = body.action === "remove";
+  if (!isValidEmail(email) || !groupId) return jsonResponse({ error: "email o gruppo non validi" }, 400);
+  const raw = await env.TICKETS.get(`subscriber:${email}`);
+  if (!raw) return jsonResponse({ error: "iscritto non trovato" }, 404);
+  const sub = JSON.parse(raw);
+  const groups = new Set(sub.manualGroups || []);
+  if (remove) groups.delete(groupId); else groups.add(groupId);
+  sub.manualGroups = Array.from(groups);
+  sub.updatedAt = new Date().toISOString();
+  await env.TICKETS.put(`subscriber:${email}`, JSON.stringify(sub));
+  return jsonResponse({ ok: true, subscriber: sub });
 }
 
 // Salva i dati raccolti dal form "I tuoi dati" (nome/cognome/email/consensi) prima
@@ -2439,9 +2679,9 @@ async function handleRegister(request, env) {
     createdAt: new Date().toISOString()
   }));
 
-  if (newsletterOptin) {
-    await subscribeToMailerLite(env, email, name);
-  }
+  // Segmentazione (gruppo dell'evento) sempre, consenso marketing solo se ha spuntato la
+  // casella — vedi upsertSubscriber più sopra sul perché sono tenuti separati.
+  await upsertSubscriber(env, { email, name, eventSlug, newsletterOptin, source: "ticket-checkout" });
 
   return jsonResponse({ registrationId });
 }

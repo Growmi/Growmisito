@@ -378,6 +378,7 @@
         <p class="az-nav-group-label">Persone</p>
         <button type="button" class="az-nav-item" data-panel="clienti">🧑‍🤝‍🧑 Clienti</button>
         <button type="button" class="az-nav-item" data-panel="presenti">👥 Presenti</button>
+        <button type="button" class="az-nav-item" data-panel="newsletter">📧 Newsletter</button>
       </div>
       <div class="az-nav-group">
         <p class="az-nav-group-label">Contenuti</p>
@@ -470,6 +471,36 @@
         </table>
       </div>
       <p class="az-empty" id="az-attendees-empty" hidden>Nessun nominativo trovato.</p>
+    </div>
+
+    <!-- Newsletter -->
+    <div class="az-panel" data-panel-content="newsletter" hidden>
+      <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Gruppi</h3>
+      <p style="font-size:12px; color:var(--grey); margin-bottom:14px; max-width:600px;">I gruppi per evento si creano da soli quando qualcuno compra un biglietto. Qui puoi creare gruppi tuoi (es. "Sponsor", "Solo promozioni") e assegnarci gli iscritti dalla tabella qui sotto.</p>
+      <div id="az-nl-groups" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px;"></div>
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:28px; padding-bottom:24px; border-bottom:1.5px solid var(--line);">
+        <input type="text" id="az-nl-group-name" placeholder="Nome gruppo (es. Sponsor)" style="max-width:220px; padding:10px 13px; border-radius:10px; border:1.5px solid var(--line); font-family:'Inter',sans-serif; font-size:14px;">
+        <input type="text" id="az-nl-group-type" placeholder="Tipo di email (facoltativo, es. Promozioni)" style="max-width:240px; padding:10px 13px; border-radius:10px; border:1.5px solid var(--line); font-family:'Inter',sans-serif; font-size:14px;">
+        <button type="button" class="az-mini-btn" id="az-nl-group-add">+ Crea gruppo</button>
+      </div>
+
+      <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Iscritti</h3>
+      <p style="font-size:12px; color:var(--grey); margin-bottom:14px; max-width:600px;">Chi si iscrive dal popup del sito o spunta "newsletter" all'acquisto del biglietto finisce qui — non più su MailerLite.</p>
+      <div class="az-toolbar">
+        <input type="text" class="az-search" id="az-nl-search" placeholder="Cerca per email o nome...">
+        <div class="actions">
+          <span class="az-count" id="az-nl-count"></span>
+          <button type="button" class="az-mini-btn" id="az-nl-import-mailerlite">⬇️ Importa da MailerLite</button>
+        </div>
+      </div>
+      <p class="az-msg" id="az-nl-import-msg" hidden></p>
+      <div class="az-table-wrap">
+        <table class="az-table">
+          <thead><tr><th>Iscritto</th><th>Gruppi</th><th>Consenso</th><th>Inviate</th><th>Aperture</th><th>Click</th><th>Iscritto il</th><th></th></tr></thead>
+          <tbody id="az-nl-tbody"></tbody>
+        </table>
+      </div>
+      <p class="az-empty" id="az-nl-empty" hidden>Nessun iscritto ancora.</p>
     </div>
 
     <!-- Feedback -->
@@ -1367,6 +1398,134 @@
     btn.disabled = false;
     btn.textContent = '📧 Manda feedback a tutti';
   });
+
+  // ---- Newsletter (iscritti + gruppi) ----
+  var allSubscribers = [];
+  var allNlGroups = [];
+
+  function nlGroupLabel(id){
+    var g = allNlGroups.filter(function(g){ return g.id === id; })[0];
+    return g ? g.name : id;
+  }
+
+  function renderNlGroups(){
+    var wrap = document.getElementById('az-nl-groups');
+    if (!allNlGroups.length) { wrap.innerHTML = '<p style="font-size:12px; color:var(--grey);">Nessun gruppo manuale ancora.</p>'; return; }
+    wrap.innerHTML = '';
+    allNlGroups.forEach(function(g){
+      var chip = document.createElement('div');
+      chip.style.cssText = 'display:flex; align-items:center; gap:8px; background:#fff; border:1.5px solid var(--line); border-radius:20px; padding:6px 8px 6px 14px; font-size:13px;';
+      chip.innerHTML = '<span><strong>' + esc(g.name) + '</strong>' + (g.emailType ? ' <span style="color:var(--grey);">· ' + esc(g.emailType) + '</span>' : '') + '</span>' +
+        '<button type="button" class="az-mini-btn danger" style="padding:4px 10px; font-size:12px;">✕</button>';
+      chip.querySelector('button').addEventListener('click', async function(){
+        if (!confirm('Eliminare il gruppo "' + g.name + '"? Gli iscritti restano, escono solo da questo gruppo.')) return;
+        await fetch('/api/admin/newsletter-groups?id=' + encodeURIComponent(g.id), { method: 'DELETE' });
+        await loadNlGroups();
+        renderNlSubscribers();
+      });
+      wrap.appendChild(chip);
+    });
+  }
+
+  async function loadNlGroups(){
+    try {
+      var res = await fetch('/api/admin/newsletter-groups');
+      var data = await res.json();
+      allNlGroups = data.groups || [];
+      renderNlGroups();
+    } catch (err) { /* riprovabile ricaricando il pannello */ }
+  }
+
+  document.getElementById('az-nl-group-add').addEventListener('click', async function(){
+    var nameInput = document.getElementById('az-nl-group-name');
+    var typeInput = document.getElementById('az-nl-group-type');
+    var name = nameInput.value.trim();
+    if (!name) return;
+    var btn = this;
+    btn.disabled = true;
+    try {
+      var res = await fetch('/api/admin/newsletter-groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, emailType: typeInput.value.trim() })
+      });
+      if (res.ok) { nameInput.value = ''; typeInput.value = ''; await loadNlGroups(); }
+      else { var data = await res.json(); alert(data.error || 'Qualcosa è andato storto.'); }
+    } catch (err) { alert('Errore di connessione.'); }
+    btn.disabled = false;
+  });
+
+  function renderNlSubscribers(){
+    var q = document.getElementById('az-nl-search').value.trim().toLowerCase();
+    var items = allSubscribers.filter(function(s){
+      if (!q) return true;
+      return (s.email || '').toLowerCase().indexOf(q) !== -1 || (s.name || '').toLowerCase().indexOf(q) !== -1;
+    });
+    var tbody = document.getElementById('az-nl-tbody');
+    var empty = document.getElementById('az-nl-empty');
+    tbody.innerHTML = '';
+    empty.hidden = !!items.length;
+    document.getElementById('az-nl-count').textContent = items.length + (items.length === 1 ? ' iscritto' : ' iscritti');
+    items.forEach(function(s){
+      var tr = document.createElement('tr');
+      var groupBadges = (s.eventGroups || []).map(function(slug){ return '<span class="az-pill">' + esc(slug) + '</span>'; })
+        .concat((s.manualGroups || []).map(function(id){ return '<span class="az-pill newsletter">' + esc(nlGroupLabel(id)) + '</span>'; }))
+        .concat(s.siteSignup ? ['<span class="az-pill">sito</span>'] : []);
+      var stats = s.stats || { sent: 0, opens: 0, clicks: 0 };
+      var groupSelect = '<select class="nl-group-assign" style="font-size:12px; padding:4px 6px;"><option value="">+ aggiungi a gruppo</option>' +
+        allNlGroups.map(function(g){ return '<option value="' + g.id + '">' + esc(g.name) + '</option>'; }).join('') + '</select>';
+      tr.innerHTML =
+        '<td>' + esc(s.name || '—') + '<br><span style="color:var(--grey); font-size:12px;">' + esc(s.email) + '</span></td>' +
+        '<td style="display:flex; flex-wrap:wrap; gap:4px;">' + (groupBadges.join('') || '—') + '</td>' +
+        '<td>' + (s.newsletterOptin && !s.unsubscribed ? '<span class="az-pill newsletter">Sì</span>' : '<span class="az-pill no">No</span>') + '</td>' +
+        '<td>' + stats.sent + '</td>' +
+        '<td>' + stats.opens + '</td>' +
+        '<td>' + stats.clicks + '</td>' +
+        '<td>' + (s.createdAt ? new Date(s.createdAt).toLocaleDateString('it-IT') : '—') + '</td>' +
+        '<td>' + (allNlGroups.length ? groupSelect : '') + '</td>';
+      var select = tr.querySelector('.nl-group-assign');
+      if (select) {
+        select.addEventListener('change', async function(){
+          if (!select.value) return;
+          await fetch('/api/admin/newsletter-subscriber-groups', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: s.email, groupId: select.value, action: 'add' })
+          });
+          await loadNlSubscribers();
+        });
+      }
+      tbody.appendChild(tr);
+    });
+  }
+  document.getElementById('az-nl-search').addEventListener('input', renderNlSubscribers);
+
+  async function loadNlSubscribers(){
+    try {
+      var res = await fetch('/api/admin/newsletter-subscribers');
+      var data = await res.json();
+      allSubscribers = data.subscribers || [];
+      renderNlSubscribers();
+    } catch (err) { document.getElementById('az-nl-count').textContent = 'Errore di connessione.'; }
+  }
+
+  document.getElementById('az-nl-import-mailerlite').addEventListener('click', async function(){
+    var msg = document.getElementById('az-nl-import-msg');
+    msg.hidden = true;
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Importazione in corso...';
+    try {
+      var res = await fetch('/api/admin/newsletter-import-mailerlite', { method: 'POST' });
+      var data = await res.json();
+      if (res.ok) { showMsg(msg, 'Importati ' + data.imported + ' iscritti da MailerLite.', false); await loadNlSubscribers(); }
+      else showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+    } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
+    btn.disabled = false;
+    btn.textContent = '⬇️ Importa da MailerLite';
+  });
+
+  panelLoaders.newsletter = { loaded: false, load: function(){ loadNlGroups().then(loadNlSubscribers); } };
 
   // ---- Feedback (tabella) ----
   var allFeedback = [];

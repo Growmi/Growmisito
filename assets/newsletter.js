@@ -35,6 +35,36 @@
     popup.querySelectorAll('[data-nl-close]').forEach(function(el){
       el.addEventListener('click', function(){ closePopup(true); });
     });
+
+    // Il form (markup MailerLite lasciato invariato per non toccare i 20 file HTML del sito)
+    // viene intercettato qui invece di mandarlo davvero a MailerLite — così l'iscritto finisce
+    // nel sistema newsletter interno. Stesso comportamento di successo di prima (mostra il
+    // messaggio di grazie, salva il flag in localStorage).
+    var form = popup.querySelector('.ml-block-form');
+    if (form) {
+      form.addEventListener('submit', function(e){
+        e.preventDefault();
+        var emailInput = form.querySelector('input[name="fields[email]"]');
+        var email = emailInput ? emailInput.value.trim() : '';
+        if (!email) return;
+        var submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+        fetch('/api/newsletter-subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email })
+        }).then(function(){
+          try{ localStorage.setItem(SUBSCRIBED_KEY, '1'); }catch(err){}
+          var successBody = popup.querySelector('.row-success');
+          var formBody = popup.querySelector('.row-form');
+          if (successBody) successBody.style.display = '';
+          if (formBody) formBody.style.display = 'none';
+          window.setTimeout(function(){ closePopup(false); }, 2200);
+        }).catch(function(){
+          if (submitBtn) submitBtn.disabled = false;
+        });
+      });
+    }
     if(tab){
       tab.addEventListener('click', openPopup);
     }
