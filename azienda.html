@@ -659,6 +659,7 @@
         <h3 id="az-artist-form-title" style="font-family:'Space Grotesk',sans-serif; font-size:18px; margin:24px 0 16px;">Nuovo artista</h3>
         <form id="az-artist-form" style="max-width:600px; display:flex; flex-direction:column; gap:16px;">
           <input type="hidden" id="az-ar-slug">
+          <p class="az-group-label">Informazioni base</p>
           <div class="az-field"><label for="az-ar-name">Nome</label><input type="text" id="az-ar-name" required></div>
           <div class="az-field"><label for="az-ar-role">Ruolo (es. "DJ", "Cantante")</label><input type="text" id="az-ar-role" required></div>
           <div class="az-field">
@@ -667,6 +668,7 @@
             <p style="font-size:12px; color:var(--grey); margin-top:4px;">Numero più basso = più in alto/prima. Solo chi ha un numero salta l'ordine alfabetico, gli altri restano dove sono sempre stati.</p>
           </div>
 
+          <p class="az-group-label">Immagini</p>
           <div>
             <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Foto card</label>
             <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Mostrata nell'elenco artisti e come sfondo pagina se non c'è un'immagine hero.</p>
@@ -690,6 +692,7 @@
             <div id="az-ar-hero-framing"></div>
           </div>
 
+          <p class="az-group-label">Testi</p>
           <div>
             <label style="display:block; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; margin-bottom:4px;">Biografia</label>
             <p style="font-size:12px; color:var(--grey); margin-bottom:10px;">Un paragrafo per riquadro — aggiungi, rimuovi o riordina.</p>
@@ -707,6 +710,7 @@
             </div>
           </div>
 
+          <p class="az-group-label">Pubblicazione</p>
           <label style="display:flex; align-items:center; gap:10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; cursor:pointer;">
             <input type="checkbox" id="az-ar-published" style="width:18px; height:18px;">
             Pubblicato
