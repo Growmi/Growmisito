@@ -488,77 +488,81 @@
 
     <!-- Newsletter -->
     <div class="az-panel" data-panel-content="newsletter" hidden>
-      <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Gruppi</h3>
-      <p style="font-size:12px; color:var(--grey); margin-bottom:14px; max-width:600px;">I gruppi per evento si creano da soli quando qualcuno compra un biglietto. Qui puoi creare gruppi tuoi (es. "Sponsor", "Solo promozioni") e assegnarci gli iscritti dalla tabella qui sotto.</p>
-      <div id="az-nl-groups" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px;"></div>
-      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:28px; padding-bottom:24px; border-bottom:1.5px solid var(--line);">
-        <input type="text" id="az-nl-group-name" placeholder="Nome gruppo (es. Sponsor)" style="max-width:220px; padding:10px 13px; border-radius:10px; border:1.5px solid var(--line); font-family:'Inter',sans-serif; font-size:14px;">
-        <input type="text" id="az-nl-group-type" placeholder="Tipo di email (facoltativo, es. Promozioni)" style="max-width:240px; padding:10px 13px; border-radius:10px; border:1.5px solid var(--line); font-family:'Inter',sans-serif; font-size:14px;">
-        <button type="button" class="az-mini-btn" id="az-nl-group-add">+ Crea gruppo</button>
-      </div>
-
-      <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Iscritti</h3>
-      <p style="font-size:12px; color:var(--grey); margin-bottom:14px; max-width:600px;">Chi si iscrive dal popup del sito o spunta "newsletter" all'acquisto del biglietto finisce qui — non più su MailerLite.</p>
+      <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Campagne</h3>
+      <p style="font-size:12px; color:var(--grey); margin-bottom:16px; max-width:600px;">Lega una newsletter a un evento per una bozza già pronta (testo ed evento precompilati, tu aggiungi le foto), oppure parti da zero.</p>
       <div class="az-toolbar">
-        <input type="text" class="az-search" id="az-nl-search" placeholder="Cerca per email o nome...">
+        <span></span>
         <div class="actions">
-          <span class="az-count" id="az-nl-count"></span>
-          <button type="button" class="az-mini-btn" id="az-nl-import-mailerlite">⬇️ Importa da MailerLite</button>
+          <button type="button" class="primary" id="az-nl-camp-new">+ Nuova newsletter</button>
+          <button type="button" class="az-mini-btn" id="az-nl-import-mailerlite-campaigns">⬇️ Importa storico da MailerLite</button>
         </div>
       </div>
-      <p class="az-msg" id="az-nl-import-msg" hidden></p>
-      <div class="az-table-wrap">
-        <table class="az-table">
-          <thead><tr><th>Iscritto</th><th>Gruppi</th><th>Consenso</th><th>Inviate</th><th>Aperture</th><th>Click</th><th>Iscritto il</th><th></th></tr></thead>
-          <tbody id="az-nl-tbody"></tbody>
-        </table>
+      <p class="az-msg" id="az-nl-import-campaigns-msg" hidden></p>
+      <div id="az-nl-campaigns-list"></div>
+      <p class="az-empty" id="az-nl-campaigns-empty" hidden>Nessuna newsletter ancora.</p>
+
+      <div id="az-nl-composer-wrap" hidden style="margin-top:20px; max-width:640px;">
+        <h3 id="az-nl-composer-title" style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:16px;">Nuova newsletter</h3>
+        <div class="az-field" style="margin-bottom:14px;"><label>Nome interno (solo per te, non è pubblico)</label><input type="text" id="az-nl-camp-name"></div>
+        <div class="az-field" style="margin-bottom:14px;">
+          <label>Lega a un evento (facoltativo)</label>
+          <select id="az-nl-camp-event"><option value="">Nessuno — parti da zero</option></select>
+        </div>
+        <div class="az-field" style="margin-bottom:14px;"><label>Oggetto email</label><input type="text" id="az-nl-camp-subject"></div>
+        <div class="az-field" style="margin-bottom:14px;">
+          <label>Testo</label>
+          <div class="az-nl-editor-toolbar">
+            <button type="button" data-cmd="bold" title="Grassetto"><strong>B</strong></button>
+            <button type="button" data-cmd="italic" title="Corsivo"><em>I</em></button>
+            <button type="button" data-cmd="underline" title="Sottolineato"><u>U</u></button>
+            <button type="button" id="az-nl-camp-link-btn" title="Link">🔗</button>
+            <button type="button" id="az-nl-camp-image-btn" title="Inserisci immagine">🖼</button>
+            <input type="file" id="az-nl-camp-image-input" accept="image/jpeg,image/png,image/webp" hidden>
+          </div>
+          <div id="az-nl-camp-body" contenteditable="true" class="az-nl-editor-body"></div>
+        </div>
+        <div class="az-field" style="margin-bottom:6px;">
+          <label>Destinatari</label>
+          <div id="az-nl-camp-targets"></div>
+        </div>
+        <p style="font-size:12px; color:var(--grey); margin-bottom:16px;" id="az-nl-camp-recipient-count"></p>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <button type="button" class="az-mini-btn" id="az-nl-camp-save">Salva bozza</button>
+          <button type="button" class="az-submit" id="az-nl-camp-send" style="padding:12px 22px;">📤 Invia adesso</button>
+          <button type="button" class="az-mini-btn" id="az-nl-camp-close">Chiudi</button>
+        </div>
+        <p class="az-msg" id="az-nl-camp-msg" hidden></p>
       </div>
-      <p class="az-empty" id="az-nl-empty" hidden>Nessun iscritto ancora.</p>
 
       <div style="margin-top:36px; padding-top:28px; border-top:1.5px solid var(--line);">
-        <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Campagne</h3>
-        <p style="font-size:12px; color:var(--grey); margin-bottom:16px; max-width:600px;">Lega una newsletter a un evento per una bozza già pronta (testo ed evento precompilati, tu aggiungi le foto), oppure parti da zero.</p>
-        <div class="az-toolbar">
-          <span></span>
-          <div class="actions">
-            <button type="button" class="primary" id="az-nl-camp-new">+ Nuova newsletter</button>
-          </div>
+        <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Gruppi</h3>
+        <p style="font-size:12px; color:var(--grey); margin-bottom:14px; max-width:600px;">I gruppi per evento si creano da soli quando qualcuno compra un biglietto. Qui puoi creare gruppi tuoi (es. "Sponsor", "Solo promozioni") e assegnarci gli iscritti dalla tabella qui sotto.</p>
+        <div id="az-nl-groups" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px;"></div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <input type="text" id="az-nl-group-name" placeholder="Nome gruppo (es. Sponsor)" style="max-width:220px; padding:10px 13px; border-radius:10px; border:1.5px solid var(--line); font-family:'Inter',sans-serif; font-size:14px;">
+          <input type="text" id="az-nl-group-type" placeholder="Tipo di email (facoltativo, es. Promozioni)" style="max-width:240px; padding:10px 13px; border-radius:10px; border:1.5px solid var(--line); font-family:'Inter',sans-serif; font-size:14px;">
+          <button type="button" class="az-mini-btn" id="az-nl-group-add">+ Crea gruppo</button>
         </div>
-        <div id="az-nl-campaigns-list"></div>
-        <p class="az-empty" id="az-nl-campaigns-empty" hidden>Nessuna newsletter ancora.</p>
+      </div>
 
-        <div id="az-nl-composer-wrap" hidden style="margin-top:20px; max-width:640px;">
-          <h3 id="az-nl-composer-title" style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:16px;">Nuova newsletter</h3>
-          <div class="az-field" style="margin-bottom:14px;"><label>Nome interno (solo per te, non è pubblico)</label><input type="text" id="az-nl-camp-name"></div>
-          <div class="az-field" style="margin-bottom:14px;">
-            <label>Lega a un evento (facoltativo)</label>
-            <select id="az-nl-camp-event"><option value="">Nessuno — parti da zero</option></select>
+      <div style="margin-top:36px; padding-top:28px; border-top:1.5px solid var(--line);">
+        <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Iscritti</h3>
+        <p style="font-size:12px; color:var(--grey); margin-bottom:14px; max-width:600px;">Chi si iscrive dal popup del sito o spunta "newsletter" all'acquisto del biglietto finisce qui — non più su MailerLite.</p>
+        <div class="az-toolbar">
+          <input type="text" class="az-search" id="az-nl-search" placeholder="Cerca per email o nome...">
+          <div class="actions">
+            <span class="az-count" id="az-nl-count"></span>
+            <button type="button" class="az-mini-btn" id="az-nl-import-mailerlite">⬇️ Importa da MailerLite</button>
           </div>
-          <div class="az-field" style="margin-bottom:14px;"><label>Oggetto email</label><input type="text" id="az-nl-camp-subject"></div>
-          <div class="az-field" style="margin-bottom:14px;">
-            <label>Testo</label>
-            <div class="az-nl-editor-toolbar">
-              <button type="button" data-cmd="bold" title="Grassetto"><strong>B</strong></button>
-              <button type="button" data-cmd="italic" title="Corsivo"><em>I</em></button>
-              <button type="button" data-cmd="underline" title="Sottolineato"><u>U</u></button>
-              <button type="button" id="az-nl-camp-link-btn" title="Link">🔗</button>
-              <button type="button" id="az-nl-camp-image-btn" title="Inserisci immagine">🖼</button>
-              <input type="file" id="az-nl-camp-image-input" accept="image/jpeg,image/png,image/webp" hidden>
-            </div>
-            <div id="az-nl-camp-body" contenteditable="true" class="az-nl-editor-body"></div>
-          </div>
-          <div class="az-field" style="margin-bottom:6px;">
-            <label>Destinatari</label>
-            <div id="az-nl-camp-targets"></div>
-          </div>
-          <p style="font-size:12px; color:var(--grey); margin-bottom:16px;" id="az-nl-camp-recipient-count"></p>
-          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <button type="button" class="az-mini-btn" id="az-nl-camp-save">Salva bozza</button>
-            <button type="button" class="az-submit" id="az-nl-camp-send" style="padding:12px 22px;">📤 Invia adesso</button>
-            <button type="button" class="az-mini-btn" id="az-nl-camp-close">Chiudi</button>
-          </div>
-          <p class="az-msg" id="az-nl-camp-msg" hidden></p>
         </div>
+        <p class="az-msg" id="az-nl-import-msg" hidden></p>
+        <div class="az-table-wrap">
+          <table class="az-table">
+            <thead><tr><th>Iscritto</th><th>Gruppi</th><th>Consenso</th><th>Inviate</th><th>Aperture</th><th>Click</th><th>Iscritto il</th><th></th></tr></thead>
+            <tbody id="az-nl-tbody"></tbody>
+          </table>
+        </div>
+        <p class="az-empty" id="az-nl-empty" hidden>Nessun iscritto ancora.</p>
       </div>
     </div>
 
@@ -1582,6 +1586,22 @@
     } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
     btn.disabled = false;
     btn.textContent = '⬇️ Importa da MailerLite';
+  });
+
+  document.getElementById('az-nl-import-mailerlite-campaigns').addEventListener('click', async function(){
+    var msg = document.getElementById('az-nl-import-campaigns-msg');
+    msg.hidden = true;
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Importazione in corso...';
+    try {
+      var res = await fetch('/api/admin/newsletter-import-mailerlite-campaigns', { method: 'POST' });
+      var data = await res.json();
+      if (res.ok) { showMsg(msg, 'Importate ' + data.imported + ' newsletter passate da MailerLite.', false); await loadNlCampaigns(); }
+      else showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+    } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
+    btn.disabled = false;
+    btn.textContent = '⬇️ Importa storico da MailerLite';
   });
 
   // ---- Newsletter: campagne (composer) ----

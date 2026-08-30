@@ -361,6 +361,14 @@ async function handleFetch(request, env, ctx) {
         return jsonResponse({ error: err.message }, 500);
       }
     }
+    if (url.pathname === "/api/admin/newsletter-import-mailerlite-campaigns" && request.method === "POST") {
+      try {
+        return await handleAdminImportMailerliteCampaigns(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-import-mailerlite-campaigns:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
     if (url.pathname === "/api/admin/newsletter-groups" && request.method === "GET") {
       try {
         return await handleAdminListNewsletterGroups(request, env);
@@ -2600,6 +2608,56 @@ async function handleAdminImportMailerlite(request, env) {
         newsletterOptin: s.status === "active",
         source: "mailerlite-import"
       });
+      imported++;
+    }
+    cursor = (data.meta && data.meta.next_cursor) || null;
+    guard++;
+  } while (cursor && guard < 50);
+  return jsonResponse({ ok: true, imported });
+}
+
+// Storico campagne già inviate su MailerLite (testo, oggetto, statistiche) — salvate come
+// newslettercampaign:mailerlite-<id> con status "sent" fin da subito: sono storia, non bozze da
+// poter re-inviare per sbaglio. I nomi esatti dei campi statistiche possono variare secondo la
+// versione dell'account MailerLite — presi con più alias possibili, 0 se nessuno combacia
+// (meglio un numero a zero visibile che un errore che blocca tutto l'import).
+async function handleAdminImportMailerliteCampaigns(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  if (!env.MAILERLITE_API_KEY) return jsonResponse({ error: "MAILERLITE_API_KEY non configurato" }, 400);
+  let imported = 0;
+  let cursor = null;
+  let guard = 0;
+  do {
+    const url = new URL("https://connect.mailerlite.com/api/campaigns");
+    url.searchParams.set("filter[status]", "sent");
+    url.searchParams.set("limit", "50");
+    if (cursor) url.searchParams.set("cursor", cursor);
+    const res = await fetch(url, { headers: { "Authorization": `Bearer ${env.MAILERLITE_API_KEY}`, "Accept": "application/json" } });
+    if (!res.ok) return jsonResponse({ error: "MailerLite ha risposto " + res.status, imported }, 502);
+    const data = await res.json();
+    const list = Array.isArray(data.data) ? data.data : [];
+    for (const c of list) {
+      const id = `mailerlite-${c.id}`;
+      const email0 = (c.emails && c.emails[0]) || {};
+      const stats = c.stats || {};
+      const campaign = {
+        id,
+        name: c.name || email0.subject || "Newsletter importata",
+        eventSlug: null,
+        subject: email0.subject || c.name || "",
+        bodyHtml: email0.content || email0.html || "<p><em>Contenuto non disponibile dall'importazione — solo oggetto e statistiche.</em></p>",
+        targetGroups: [],
+        status: "sent",
+        createdAt: c.created_at || new Date().toISOString(),
+        sentAt: c.finished_at || c.created_at || null,
+        recipientCount: stats.sent || stats.recipients_count || stats.total_recipients || 0,
+        openCount: stats.opened_count || stats.opens_count || stats.open_count || 0,
+        clickCount: stats.clicked_count || stats.clicks_count || stats.click_count || 0,
+        importedFromMailerlite: true
+      };
+      await env.TICKETS.put(`newslettercampaign:${id}`, JSON.stringify(campaign));
       imported++;
     }
     cursor = (data.meta && data.meta.next_cursor) || null;
