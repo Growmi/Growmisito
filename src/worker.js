@@ -2523,7 +2523,14 @@ async function upsertSubscriber(env, opts) {
     manualGroups: existing?.manualGroups || [],
     unsubscribed: existing?.unsubscribed || false,
     unsubscribeToken: existing?.unsubscribeToken || crypto.randomUUID(),
-    stats: existing?.stats || { sent: 0, opens: 0, clicks: 0 },
+    // opts.stats (es. importato da MailerLite) prende il posto di quello che c'è solo se dice
+    // "ho numeri più alti" per ciascun campo — un'email mandata da questo sistema DOPO
+    // l'importazione non deve mai vedersi azzerare il contatore da un reimport successivo.
+    stats: opts.stats ? {
+      sent: Math.max(opts.stats.sent || 0, existing?.stats?.sent || 0),
+      opens: Math.max(opts.stats.opens || 0, existing?.stats?.opens || 0),
+      clicks: Math.max(opts.stats.clicks || 0, existing?.stats?.clicks || 0)
+    } : (existing?.stats || { sent: 0, opens: 0, clicks: 0 }),
     source: existing?.source || opts.source || "unknown",
     createdAt: existing?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString()
@@ -2610,12 +2617,20 @@ async function handleAdminImportMailerlite(request, env) {
     const list = Array.isArray(data.data) ? data.data : [];
     for (const s of list) {
       if (!s.email) continue;
+      // Come per le campagne, MailerLite non è documentato con certezza su questi nomi di campo
+      // per gli iscritti — provo diversi alias possibili, 0 se nessuno combacia.
+      const stats = {
+        sent: s.sent_count || s.sent || (s.stats && (s.stats.sent || s.stats.sent_count)) || 0,
+        opens: s.opens_count || s.open_count || s.opened_count || (s.stats && (s.stats.opens_count || s.stats.open_count || s.stats.opened_count)) || 0,
+        clicks: s.clicks_count || s.click_count || s.clicked_count || (s.stats && (s.stats.clicks_count || s.stats.click_count || s.stats.clicked_count)) || 0
+      };
       await upsertSubscriber(env, {
         email: s.email,
         name: (s.fields && (s.fields.name || s.fields.full_name)) || null,
         siteSignup: true,
         newsletterOptin: s.status === "active",
-        source: "mailerlite-import"
+        source: "mailerlite-import",
+        stats: (stats.sent || stats.opens || stats.clicks) ? stats : null
       });
       imported++;
     }
@@ -2783,25 +2798,55 @@ function autoDraftHtmlFromEvent(event) {
     `<p><a href="${url}">Scopri di più e prendi il biglietto</a></p>`;
 }
 
-// Modello standard GrowMi (logo in cima, cornice, footer con i social) — avvolge il testo che
-// l'admin scrive nell'editor, così l'editor stesso resta pulito (solo il messaggio, niente logo/
-// footer da dover ricreare ogni volta) e il modello resta identico e coerente per ogni
-// newsletter, automatica o manuale che sia: per cambiarlo basta questa funzione, non ogni bozza.
-function newsletterStandardTemplateHtml(base, trackedBody){
-  return `<div style="max-width:560px; margin:0 auto; font-family:Arial,sans-serif;">` +
-    `<div style="text-align:center; padding:28px 0 20px;">` +
-      `<img src="${base}/assets/img/logo-growmi.png" alt="GrowMi" style="height:36px;">` +
+// Modello standard GrowMi — logo + menu, foto hero (facoltativa, inquadrabile come le altre foto
+// del sito), titolo grande, testo libero, bottone se ce n'è uno nel testo, footer viola con
+// social e disiscrizione. Avvolge il contenuto che l'admin scrive nell'editor, così l'editor
+// stesso resta pulito (solo messaggio + titolo + foto, niente logo/footer da ricreare ogni
+// volta) e il modello resta identico per ogni newsletter, automatica o manuale: per cambiarlo
+// basta questa funzione, non ogni bozza già salvata.
+function newsletterStandardTemplateHtml(opts){
+  const base = opts.base;
+  const heroImg = opts.heroImageUrl
+    ? `<img src="${opts.heroImageUrl}" alt="" style="width:100%; display:block; border-radius:14px; object-position:${opts.heroImagePosition || "center"}; margin-bottom:28px;">`
+    : "";
+  const title = opts.title ? `<h1 style="font-family:Arial,sans-serif; font-size:28px; font-weight:800; color:#1E0C2C; text-align:center; margin-bottom:20px;">${opts.title}</h1>` : "";
+  return `<div style="max-width:560px; margin:0 auto; font-family:Arial,sans-serif; background:#FBF6F0; border-radius:20px; overflow:hidden;">` +
+    `<div style="padding:32px 28px 8px;">` +
+      `<div style="text-align:center; padding-bottom:20px;">` +
+        `<img src="${base}/assets/img/logo-growmi.png" alt="GrowMi" style="height:34px;">` +
+      `</div>` +
+      `<div style="text-align:center; padding-bottom:28px; font-size:13px;">` +
+        `<a href="${base}/chi-siamo" style="color:#1E0C2C; text-decoration:none; margin:0 12px;">Chi siamo</a>` +
+        `<a href="https://www.instagram.com/growmiii/" style="color:#1E0C2C; text-decoration:none; margin:0 12px;">Instagram</a>` +
+        `<a href="https://www.tiktok.com/@growmii_" style="color:#1E0C2C; text-decoration:none; margin:0 12px;">TikTok</a>` +
+      `</div>` +
+      heroImg +
+      title +
+      `<div style="font-size:15px; color:#1E0C2C; line-height:1.6;">${opts.trackedBody}</div>` +
     `</div>` +
-    `<div style="background:#fff; border-radius:16px; padding:32px 28px; font-size:15px; color:#1E0C2C; line-height:1.6;">${trackedBody}</div>` +
-    `<div style="text-align:center; padding:28px 20px; font-size:12px; color:#6E6478;">` +
-      `<p style="margin-bottom:10px;">GrowMi · Milano · <a href="${base}" style="color:#6E6478;">growmi.it</a></p>` +
+    `<div style="background:#2C0943; color:#fff; padding:28px; margin-top:16px;">` +
+      `<table role="presentation" width="100%"><tr>` +
+        `<td style="vertical-align:top;">` +
+          `<p style="font-weight:700; margin-bottom:6px;">GrowMi</p>` +
+          `<p style="font-size:12px; color:#C9BFE0; margin-bottom:14px;">Milano, Italia</p>` +
+          `<a href="https://www.instagram.com/growmiii/" style="color:#fff; text-decoration:none; margin-right:10px; font-size:12px;">Instagram</a>` +
+          `<a href="https://www.tiktok.com/@growmii_" style="color:#fff; text-decoration:none; margin-right:10px; font-size:12px;">TikTok</a>` +
+          `<a href="https://www.linkedin.com/company/growmiagency/" style="color:#fff; text-decoration:none; font-size:12px;">LinkedIn</a>` +
+        `</td>` +
+        `<td style="vertical-align:top; text-align:right; font-size:12px; color:#C9BFE0;">` +
+          `<p>Ricevi questa email perché sei iscritto alla newsletter di GrowMi.</p>` +
+          `<a href="${opts.unsubUrl}" style="color:#fff; text-decoration:underline;">Disiscriviti</a>` +
+        `</td>` +
+      `</tr></table>` +
     `</div>` +
   `</div>`;
 }
 
-// Inserisce il pixel di apertura, riscrive i link per tracciare i click, e aggiunge in fondo il
-// link di disiscrizione obbligatorio — SEMPRE, per ogni email davvero inviata (mai facoltativo).
-function buildTrackedEmailHtml(bodyHtml, campaignId, subscriber, env) {
+// Bottone (link stilizzato come un pulsante) da inserire nel testo dal pannello — vedi anche
+// "+ Bottone" nell'editor della newsletter. Riconosciuto qui solo per convertire il colore in
+// coral come il resto del sito quando arriva "as-is" dal contenteditable (già coral di suo,
+// questa funzione serve più che altro a isolare lo stile in un solo posto).
+function buildTrackedEmailHtml(bodyHtml, campaignId, subscriber, env, extra) {
   const base = newsletterBaseUrl(env);
   const e = encodeURIComponent(subscriber.email);
   const trackedBody = String(bodyHtml || "").replace(/href="(https?:\/\/[^"]+)"/g, function(match, url){
@@ -2809,9 +2854,12 @@ function buildTrackedEmailHtml(bodyHtml, campaignId, subscriber, env) {
   });
   const pixel = `<img src="${base}/api/newsletter-track-open?c=${encodeURIComponent(campaignId)}&e=${e}" width="1" height="1" alt="" style="display:block;border:0;">`;
   const unsubUrl = `${base}/newsletter-unsubscribe?token=${encodeURIComponent(subscriber.unsubscribeToken)}`;
-  return newsletterStandardTemplateHtml(base, trackedBody) +
-    `<p style="font-size:11px; color:#6E6478; text-align:center; margin-top:12px;">Ricevi questa email perché sei iscritto alla newsletter di GrowMi. <a href="${unsubUrl}" style="color:#6E6478;">Disiscriviti</a></p>` +
-    pixel;
+  const heroImageUrl = extra && extra.heroImageKey ? mediaUrl(extra.heroImageKey) : null;
+  return newsletterStandardTemplateHtml({
+    base, trackedBody, unsubUrl, heroImageUrl,
+    heroImagePosition: extra && extra.heroImagePosition,
+    title: extra && extra.title
+  }) + pixel;
 }
 
 // Crea da sola una bozza di newsletter appena si salva un evento NUOVO (vedi
@@ -2831,8 +2879,12 @@ async function autoCreateDraftCampaignForEvent(env, slug, event) {
     const id = crypto.randomUUID();
     const campaign = {
       id, name: `Newsletter — ${event.name}`, eventSlug: slug,
-      subject: event.name,
+      subject: event.name, title: event.name,
       bodyHtml: autoDraftHtmlFromEvent(event).replace("EVENT_URL_PLACEHOLDER", `${newsletterBaseUrl(env)}/evento/${slug}`),
+      // Foto già pronta: riusa la copertina/hero dell'evento se c'è, così la bozza automatica ha
+      // subito una vera immagine invece di restare vuota finché l'admin non ne carica una.
+      heroImageKey: event.coverImageKey || event.heroImageKey || null,
+      heroImagePosition: event.heroPosition || "center",
       targetGroups: [`event:${slug}`],
       status: "draft", createdAt: new Date().toISOString(), sentAt: null, scheduledAt: null,
       recipientCount: 0, openCount: 0, clickCount: 0
@@ -2869,7 +2921,10 @@ async function handleAdminCreateNewsletterCampaign(request, env) {
   const name = String(body.name || "").trim().slice(0, 200) || "Nuova newsletter";
   const id = crypto.randomUUID();
   let subject = String(body.subject || "").trim().slice(0, 200);
+  let title = String(body.title || "").trim().slice(0, 200);
   let bodyHtml = typeof body.bodyHtml === "string" ? body.bodyHtml.slice(0, 20000) : "";
+  let heroImageKey = (body.heroImageKey && String(body.heroImageKey).trim()) || null;
+  let heroImagePosition = String(body.heroImagePosition || "center").trim().slice(0, 30);
   let eventSlug = null;
   let targetGroups = [];
   if (body.eventSlug) {
@@ -2877,12 +2932,14 @@ async function handleAdminCreateNewsletterCampaign(request, env) {
     if (event) {
       eventSlug = String(body.eventSlug);
       if (!subject) subject = event.name;
+      if (!title) title = event.name;
       if (!bodyHtml) bodyHtml = autoDraftHtmlFromEvent(event).replace("EVENT_URL_PLACEHOLDER", `${newsletterBaseUrl(env)}/evento/${eventSlug}`);
+      if (!heroImageKey) heroImageKey = event.coverImageKey || event.heroImageKey || null;
       targetGroups = [`event:${eventSlug}`];
     }
   }
   const campaign = {
-    id, name, eventSlug, subject, bodyHtml,
+    id, name, eventSlug, subject, title, bodyHtml, heroImageKey, heroImagePosition,
     targetGroups: Array.isArray(body.targetGroups) && body.targetGroups.length ? body.targetGroups : targetGroups,
     status: "draft", createdAt: new Date().toISOString(), sentAt: null, scheduledAt: null,
     recipientCount: 0, openCount: 0, clickCount: 0
@@ -2904,7 +2961,12 @@ async function handleAdminSaveNewsletterCampaign(request, env) {
   if (campaign.status === "sent") return jsonResponse({ error: "questa newsletter è già stata inviata, non è più modificabile" }, 400);
   campaign.name = String(body.name || campaign.name || "").trim().slice(0, 200);
   campaign.subject = typeof body.subject === "string" ? body.subject.trim().slice(0, 200) : campaign.subject;
+  campaign.title = typeof body.title === "string" ? body.title.trim().slice(0, 200) : campaign.title;
   campaign.bodyHtml = typeof body.bodyHtml === "string" ? body.bodyHtml.slice(0, 20000) : campaign.bodyHtml;
+  if (Object.prototype.hasOwnProperty.call(body, "heroImageKey")) {
+    campaign.heroImageKey = (body.heroImageKey && String(body.heroImageKey).trim()) || null;
+  }
+  if (typeof body.heroImagePosition === "string") campaign.heroImagePosition = body.heroImagePosition.trim().slice(0, 30);
   if (Array.isArray(body.targetGroups)) campaign.targetGroups = body.targetGroups;
   // Programmazione: un datetime-local valido pianifica l'invio (status "scheduled", se ne
   // occupa il cron ogni 15 minuti — vedi runScheduledNewsletters). Stringa vuota/assente riporta
@@ -2951,7 +3013,9 @@ async function sendNewsletterCampaignNow(env, campaign) {
   let sent = 0, failed = 0;
   for (const sub of recipients) {
     try {
-      const html = buildTrackedEmailHtml(campaign.bodyHtml, id, sub, env);
+      const html = buildTrackedEmailHtml(campaign.bodyHtml, id, sub, env, {
+        title: campaign.title, heroImageKey: campaign.heroImageKey, heroImagePosition: campaign.heroImagePosition
+      });
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { "Authorization": `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },

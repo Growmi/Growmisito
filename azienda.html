@@ -509,6 +509,14 @@
           <select id="az-nl-camp-event"><option value="">Nessuno — parti da zero</option></select>
         </div>
         <div class="az-field" style="margin-bottom:14px;"><label>Oggetto email</label><input type="text" id="az-nl-camp-subject"></div>
+        <div class="az-field" style="margin-bottom:14px;"><label>Titolo grande nella mail (facoltativo)</label><input type="text" id="az-nl-camp-title"></div>
+        <div class="az-field" style="margin-bottom:14px;">
+          <label>Foto in cima (facoltativa)</label>
+          <div class="az-image-preview" id="az-nl-camp-hero-preview" style="aspect-ratio:16/9;">Nessuna immagine</div>
+          <input type="file" accept="image/jpeg,image/png,image/webp" id="az-nl-camp-hero-input">
+          <button type="button" class="az-mini-btn danger" id="az-nl-camp-hero-remove" style="margin-top:6px;">Rimuovi</button>
+          <div id="az-nl-camp-hero-framing" style="margin-top:10px;"></div>
+        </div>
         <div class="az-field" style="margin-bottom:14px;">
           <label>Testo</label>
           <div class="az-nl-editor-toolbar">
@@ -516,6 +524,7 @@
             <button type="button" data-cmd="italic" title="Corsivo"><em>I</em></button>
             <button type="button" data-cmd="underline" title="Sottolineato"><u>U</u></button>
             <button type="button" id="az-nl-camp-link-btn" title="Link">🔗</button>
+            <button type="button" id="az-nl-camp-button-btn" title="Inserisci bottone" style="width:auto; padding:0 10px; font-size:12px;">+ Bottone</button>
             <button type="button" id="az-nl-camp-image-btn" title="Inserisci immagine">🖼</button>
             <input type="file" id="az-nl-camp-image-input" accept="image/jpeg,image/png,image/webp" hidden>
           </div>
@@ -560,6 +569,14 @@
             <option value="">Consenso: tutti</option>
             <option value="yes">Consenso: sì</option>
             <option value="no">Consenso: no</option>
+          </select>
+          <select id="az-nl-sort">
+            <option value="date-desc">Iscritto il: più recenti</option>
+            <option value="date-asc">Iscritto il: meno recenti</option>
+            <option value="name-asc">Nome: A → Z</option>
+            <option value="name-desc">Nome: Z → A</option>
+            <option value="opens-desc">Aperture: più alte</option>
+            <option value="clicks-desc">Click: più alti</option>
           </select>
           <div class="actions">
             <span class="az-count" id="az-nl-count"></span>
@@ -1555,6 +1572,15 @@
       if (consentFilter === 'no' && hasConsent) return false;
       return true;
     });
+    var sortBy = document.getElementById('az-nl-sort').value;
+    items.sort(function(a, b){
+      if (sortBy === 'name-asc') return (a.name || a.email || '').localeCompare(b.name || b.email || '');
+      if (sortBy === 'name-desc') return (b.name || b.email || '').localeCompare(a.name || a.email || '');
+      if (sortBy === 'opens-desc') return ((b.stats && b.stats.opens) || 0) - ((a.stats && a.stats.opens) || 0);
+      if (sortBy === 'clicks-desc') return ((b.stats && b.stats.clicks) || 0) - ((a.stats && a.stats.clicks) || 0);
+      if (sortBy === 'date-asc') return (a.createdAt || '').localeCompare(b.createdAt || '');
+      return (b.createdAt || '').localeCompare(a.createdAt || ''); // date-desc, default
+    });
     var tbody = document.getElementById('az-nl-tbody');
     var empty = document.getElementById('az-nl-empty');
     tbody.innerHTML = '';
@@ -1595,6 +1621,7 @@
   document.getElementById('az-nl-search').addEventListener('input', renderNlSubscribers);
   document.getElementById('az-nl-filter-group').addEventListener('change', renderNlSubscribers);
   document.getElementById('az-nl-filter-consent').addEventListener('change', renderNlSubscribers);
+  document.getElementById('az-nl-sort').addEventListener('change', renderNlSubscribers);
 
   async function loadNlSubscribers(){
     try {
@@ -1749,19 +1776,50 @@
     } catch (err) { el.textContent = ''; }
   }
 
+  var nlCampHeroKey = null;
+  var nlCampHeroFraming = { position: 'center', zoom: 1 };
+  function renderNlCampHeroPreview(){
+    var box = document.getElementById('az-nl-camp-hero-preview');
+    if (nlCampHeroKey) {
+      box.innerHTML = '<img src="' + mediaSrc(nlCampHeroKey) + '" alt="">';
+      renderFramingControls(document.getElementById('az-nl-camp-hero-framing'), box.querySelector('img'), nlCampHeroFraming);
+    } else {
+      box.innerHTML = 'Nessuna immagine';
+      document.getElementById('az-nl-camp-hero-framing').innerHTML = '';
+    }
+  }
+
   function openCampaignComposer(campaign){
     currentCampaignId = campaign ? campaign.id : null;
     document.getElementById('az-nl-composer-title').textContent = campaign ? 'Modifica newsletter' : 'Nuova newsletter';
     document.getElementById('az-nl-camp-name').value = campaign ? campaign.name : '';
     document.getElementById('az-nl-camp-event').value = campaign ? (campaign.eventSlug || '') : '';
     document.getElementById('az-nl-camp-subject').value = campaign ? campaign.subject : '';
+    document.getElementById('az-nl-camp-title').value = campaign ? (campaign.title || '') : '';
     document.getElementById('az-nl-camp-body').innerHTML = campaign ? campaign.bodyHtml : '';
     document.getElementById('az-nl-camp-schedule').value = (campaign && campaign.scheduledAt) ? campaign.scheduledAt.slice(0, 16) : '';
+    nlCampHeroKey = campaign ? (campaign.heroImageKey || null) : null;
+    nlCampHeroFraming = { position: (campaign && campaign.heroImagePosition) || 'center', zoom: 1 };
+    renderNlCampHeroPreview();
     renderNlTargets(campaign ? campaign.targetGroups : []);
     updateRecipientCount();
     document.getElementById('az-nl-composer-wrap').hidden = false;
     document.getElementById('az-nl-composer-wrap').scrollIntoView({ behavior: 'smooth' });
   }
+
+  document.getElementById('az-nl-camp-hero-input').addEventListener('change', async function(){
+    var file = this.files[0];
+    this.value = '';
+    if (!file) return;
+    try {
+      nlCampHeroKey = await uploadArtistMediaGeneric(file, 'hero', 'newsletter', 'pages');
+      renderNlCampHeroPreview();
+    } catch (err) { alert(err.message); }
+  });
+  document.getElementById('az-nl-camp-hero-remove').addEventListener('click', function(){
+    nlCampHeroKey = null;
+    renderNlCampHeroPreview();
+  });
 
   document.getElementById('az-nl-camp-new').addEventListener('click', function(){ openCampaignComposer(null); });
   document.getElementById('az-nl-camp-close').addEventListener('click', function(){
@@ -1775,11 +1833,17 @@
     var event = allNlEvents.filter(function(e){ return e.slug === slug; })[0];
     if (!event) return;
     if (!document.getElementById('az-nl-camp-subject').value) document.getElementById('az-nl-camp-subject').value = event.name;
+    if (!document.getElementById('az-nl-camp-title').value) document.getElementById('az-nl-camp-title').value = event.name;
     if (!document.getElementById('az-nl-camp-body').innerHTML.trim()) {
       document.getElementById('az-nl-camp-body').innerHTML =
         '<p>Ciao,</p><p>' + (event.teaser || 'Ti aspettiamo al prossimo evento GrowMi!') + '</p>' +
         '<p><strong>' + event.name + '</strong><br>' + (event.dateDisplay || '') + (event.location ? ' · ' + event.location : '') + '</p>' +
         '<p><a href="' + location.origin + '/evento/' + slug + '">Scopri di più e prendi il biglietto</a></p>';
+    }
+    if (!nlCampHeroKey && (event.coverImageKey || event.heroImageKey)) {
+      nlCampHeroKey = event.coverImageKey || event.heroImageKey;
+      nlCampHeroFraming = { position: event.heroPosition || 'center', zoom: 1 };
+      renderNlCampHeroPreview();
     }
     renderNlTargets(['event:' + slug]);
     updateRecipientCount();
@@ -1814,6 +1878,14 @@
     nlEditorEnsureCaret();
     document.execCommand('createLink', false, url);
   });
+  document.getElementById('az-nl-camp-button-btn').addEventListener('click', function(){
+    var url = prompt('Indirizzo del link del bottone (es. https://growmi.it/eventi):');
+    if (!url) return;
+    var label = prompt('Testo del bottone:', 'Scopri di più') || 'Scopri di più';
+    nlEditorEnsureCaret();
+    document.execCommand('insertHTML', false,
+      '<p style="text-align:center; margin:20px 0;"><a href="' + url + '" style="display:inline-block; background:#F86639; color:#fff; font-weight:700; text-decoration:none; padding:14px 28px; border-radius:10px;">' + label + '</a></p>');
+  });
   document.getElementById('az-nl-camp-image-btn').addEventListener('click', function(){
     document.getElementById('az-nl-camp-image-input').click();
   });
@@ -1833,7 +1905,10 @@
       name: document.getElementById('az-nl-camp-name').value.trim() || 'Nuova newsletter',
       eventSlug: document.getElementById('az-nl-camp-event').value || null,
       subject: document.getElementById('az-nl-camp-subject').value.trim(),
+      title: document.getElementById('az-nl-camp-title').value.trim(),
       bodyHtml: document.getElementById('az-nl-camp-body').innerHTML,
+      heroImageKey: nlCampHeroKey,
+      heroImagePosition: nlCampHeroFraming.position,
       targetGroups: collectNlTargets(),
       scheduledAt: document.getElementById('az-nl-camp-schedule').value || null
     };
