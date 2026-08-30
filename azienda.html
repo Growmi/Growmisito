@@ -542,6 +542,7 @@
           <p style="font-size:11px; color:var(--grey); margin-top:4px;">Lascia vuoto per inviare subito. Se lo compili, il pulsante qui sotto programma l'invio invece di mandarlo adesso — parte da solo entro 15 minuti dall'orario scelto.</p>
         </div>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <button type="button" class="az-preview-btn" id="az-nl-camp-preview">👁 Anteprima</button>
           <button type="button" class="az-mini-btn" id="az-nl-camp-save">Salva bozza</button>
           <button type="button" class="az-submit" id="az-nl-camp-send" style="padding:12px 22px;">📤 Invia adesso</button>
           <button type="button" class="az-mini-btn" id="az-nl-camp-close">Chiudi</button>
@@ -582,6 +583,8 @@
           <div class="actions">
             <span class="az-count" id="az-nl-count"></span>
             <button type="button" class="az-mini-btn" id="az-nl-import-mailerlite">⬇️ Importa da MailerLite</button>
+            <button type="button" class="az-mini-btn" id="az-nl-import-csv-btn">📁 Importa CSV (Sent/Opens/Click)</button>
+            <input type="file" id="az-nl-import-csv-input" accept=".csv,.tsv,text/csv,text/tab-separated-values" hidden>
           </div>
         </div>
         <p class="az-msg" id="az-nl-import-msg" hidden></p>
@@ -592,6 +595,20 @@
           </table>
         </div>
         <p class="az-empty" id="az-nl-empty" hidden>Nessun iscritto ancora.</p>
+      </div>
+
+      <div style="margin-top:36px; padding-top:28px; border-top:1.5px solid var(--line);">
+        <h3 style="font-family:'Space Grotesk',sans-serif; font-size:16px; margin-bottom:4px;">Link nelle email</h3>
+        <p style="font-size:12px; color:var(--grey); margin-bottom:14px; max-width:600px;">Usati nell'intestazione e nel footer del modello standard, per ogni newsletter. I social restano gli stessi per tutte le email: si cambiano qui una volta sola, non nella singola newsletter.</p>
+        <div style="display:flex; flex-wrap:wrap; gap:14px; max-width:640px;">
+          <div class="az-field" style="flex:1 1 260px;"><label>Indirizzo (footer)</label><input type="text" id="az-nl-set-address"></div>
+          <div class="az-field" style="flex:1 1 260px;"><label>Link "Chi siamo"</label><input type="text" id="az-nl-set-about"></div>
+          <div class="az-field" style="flex:1 1 260px;"><label>Link Instagram</label><input type="text" id="az-nl-set-instagram"></div>
+          <div class="az-field" style="flex:1 1 260px;"><label>Link TikTok</label><input type="text" id="az-nl-set-tiktok"></div>
+          <div class="az-field" style="flex:1 1 260px;"><label>Link LinkedIn</label><input type="text" id="az-nl-set-linkedin"></div>
+        </div>
+        <button type="button" class="az-mini-btn" id="az-nl-set-save" style="margin-top:12px;">Salva link</button>
+        <p class="az-msg" id="az-nl-set-msg" hidden></p>
       </div>
     </div>
 
@@ -1650,6 +1667,89 @@
     btn.textContent = '⬇️ Importa da MailerLite';
   });
 
+  // Parser minimo per il file esportato da MailerLite (pannello iscritti → esporta): tab o virgola
+  // come separatore (rilevato dalla prima riga), campi tra virgolette gestiti per le date/location
+  // che contengono spazi. Più affidabile dell'importazione via API perché legge esattamente quello
+  // che MailerLite mostra a video (Sent/Opens/Clicks), niente nomi di campo indovinati.
+  function parseDelimitedText(text){
+    var lines = text.split(/\r\n|\r|\n/).filter(function(l){ return l.length > 0; });
+    if (!lines.length) return [];
+    var delim = lines[0].indexOf('\t') !== -1 ? '\t' : ',';
+    function parseLine(line){
+      var fields = [];
+      var cur = '';
+      var inQuotes = false;
+      for (var i = 0; i < line.length; i++){
+        var ch = line[i];
+        if (inQuotes){
+          if (ch === '"'){ if (line[i+1] === '"'){ cur += '"'; i++; } else { inQuotes = false; } }
+          else cur += ch;
+        } else {
+          if (ch === '"') inQuotes = true;
+          else if (ch === delim){ fields.push(cur); cur = ''; }
+          else cur += ch;
+        }
+      }
+      fields.push(cur);
+      return fields;
+    }
+    var header = parseLine(lines[0]).map(function(h){ return h.trim().toLowerCase(); });
+    var idx = {
+      email: header.indexOf('subscriber'),
+      sent: header.indexOf('sent'),
+      opens: header.indexOf('opens'),
+      clicks: header.indexOf('clicks'),
+      subscribed: header.indexOf('subscribed')
+    };
+    if (idx.email === -1) idx.email = 0;
+    var rows = [];
+    for (var i = 1; i < lines.length; i++){
+      var f = parseLine(lines[i]);
+      var email = (f[idx.email] || '').trim();
+      if (!email) continue;
+      rows.push({
+        email: email,
+        sent: idx.sent !== -1 ? Number(f[idx.sent]) || 0 : 0,
+        opens: idx.opens !== -1 ? Number(f[idx.opens]) || 0 : 0,
+        clicks: idx.clicks !== -1 ? Number(f[idx.clicks]) || 0 : 0,
+        subscribedAt: idx.subscribed !== -1 ? (f[idx.subscribed] || '').trim() : ''
+      });
+    }
+    return rows;
+  }
+
+  document.getElementById('az-nl-import-csv-btn').addEventListener('click', function(){
+    document.getElementById('az-nl-import-csv-input').click();
+  });
+  document.getElementById('az-nl-import-csv-input').addEventListener('change', async function(){
+    var file = this.files[0];
+    this.value = '';
+    if (!file) return;
+    var msg = document.getElementById('az-nl-import-msg');
+    msg.hidden = true;
+    try {
+      var text = await file.text();
+      var rows = parseDelimitedText(text);
+      if (!rows.length) { showMsg(msg, 'Nessuna riga valida trovata nel file.', true); return; }
+      showMsg(msg, 'Importazione di ' + rows.length + ' iscritti in corso...', false);
+      var totalImported = 0, totalSkipped = 0;
+      var chunkSize = 200;
+      for (var i = 0; i < rows.length; i += chunkSize){
+        var chunk = rows.slice(i, i + chunkSize);
+        var res = await fetch('/api/admin/newsletter-import-csv-stats', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscribers: chunk })
+        });
+        var data = await res.json();
+        if (!res.ok) { showMsg(msg, data.error || 'Qualcosa è andato storto.', true); return; }
+        totalImported += data.imported || 0;
+        totalSkipped += data.skipped || 0;
+      }
+      showMsg(msg, 'Importati/aggiornati ' + totalImported + ' iscritti' + (totalSkipped ? ' (' + totalSkipped + ' righe con email non valida ignorate)' : '') + '.', false);
+      await loadNlSubscribers();
+    } catch (err) { showMsg(msg, 'Errore nella lettura del file.', true); }
+  });
+
   document.getElementById('az-nl-import-mailerlite-campaigns').addEventListener('click', async function(){
     var msg = document.getElementById('az-nl-import-campaigns-msg');
     msg.hidden = true;
@@ -1934,6 +2034,24 @@
     };
   }
 
+  document.getElementById('az-nl-camp-preview').addEventListener('click', async function(){
+    // Finestra aperta PRIMA della fetch (sincrono), altrimenti il browser blocca il popup perché
+    // arriverebbe da un callback asincrono invece che direttamente dal click.
+    var win = window.open('', '_blank');
+    try {
+      var payload = collectCampaignPayload();
+      var res = await fetch('/api/admin/newsletter-preview', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      var html = await res.text();
+      if (win) { win.document.open(); win.document.write(html); win.document.close(); }
+    } catch (err) {
+      if (win) win.close();
+      alert('Errore nella generazione dell\'anteprima.');
+    }
+  });
+
   document.getElementById('az-nl-camp-save').addEventListener('click', async function(){
     var msg = document.getElementById('az-nl-camp-msg');
     msg.hidden = true;
@@ -2011,9 +2129,45 @@
     btn.textContent = document.getElementById('az-nl-camp-schedule').value ? '🕒 Programma invio' : '📤 Invia adesso';
   });
 
+  async function loadNlSettings(){
+    try {
+      var res = await fetch('/api/admin/newsletter-settings');
+      var data = await res.json();
+      var s = data.settings || {};
+      document.getElementById('az-nl-set-address').value = s.address || '';
+      document.getElementById('az-nl-set-about').value = s.aboutUrl || '';
+      document.getElementById('az-nl-set-instagram').value = s.instagramUrl || '';
+      document.getElementById('az-nl-set-tiktok').value = s.tiktokUrl || '';
+      document.getElementById('az-nl-set-linkedin').value = s.linkedinUrl || '';
+    } catch (err) { /* i campi restano vuoti, l'admin può comunque salvarne di nuovi */ }
+  }
+  document.getElementById('az-nl-set-save').addEventListener('click', async function(){
+    var msg = document.getElementById('az-nl-set-msg');
+    msg.hidden = true;
+    var btn = this;
+    btn.disabled = true;
+    try {
+      var res = await fetch('/api/admin/newsletter-settings', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address: document.getElementById('az-nl-set-address').value.trim(),
+          aboutUrl: document.getElementById('az-nl-set-about').value.trim(),
+          instagramUrl: document.getElementById('az-nl-set-instagram').value.trim(),
+          tiktokUrl: document.getElementById('az-nl-set-tiktok').value.trim(),
+          linkedinUrl: document.getElementById('az-nl-set-linkedin').value.trim()
+        })
+      });
+      var data = await res.json();
+      if (res.ok) showMsg(msg, 'Link salvati.', false);
+      else showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+    } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
+    btn.disabled = false;
+  });
+
   panelLoaders.newsletter = { loaded: false, load: function(){
     loadNlGroups().then(loadNlSubscribers);
     loadNlEventsForComposer().then(loadNlCampaigns);
+    loadNlSettings();
   } };
 
   // ---- Feedback (tabella) ----

@@ -464,6 +464,38 @@ async function handleFetch(request, env, ctx) {
     if (url.pathname === "/api/newsletter-track-click" && request.method === "GET") {
       return await handleNewsletterTrackClick(request, env);
     }
+    if (url.pathname === "/api/admin/newsletter-settings" && request.method === "GET") {
+      try {
+        return await handleAdminGetNewsletterSettings(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-settings GET:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+    if (url.pathname === "/api/admin/newsletter-settings" && request.method === "PUT") {
+      try {
+        return await handleAdminSaveNewsletterSettings(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-settings PUT:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+    if (url.pathname === "/api/admin/newsletter-preview" && request.method === "POST") {
+      try {
+        return await handleAdminPreviewNewsletterCampaign(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-preview:", err.stack || err.message);
+        return new Response("Errore nell'anteprima: " + err.message, { status: 500 });
+      }
+    }
+    if (url.pathname === "/api/admin/newsletter-import-csv-stats" && request.method === "POST") {
+      try {
+        return await handleAdminImportCsvStats(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-import-csv-stats:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
 
     // Opzioni di default per la domanda "Cosa ti è piaciuto di più" del form feedback generico
     // (feedback.html senza ?slug=, o un evento senza opzioni proprie) — pubblica e di sola
@@ -2532,7 +2564,7 @@ async function upsertSubscriber(env, opts) {
       clicks: Math.max(opts.stats.clicks || 0, existing?.stats?.clicks || 0)
     } : (existing?.stats || { sent: 0, opens: 0, clicks: 0 }),
     source: existing?.source || opts.source || "unknown",
-    createdAt: existing?.createdAt || new Date().toISOString(),
+    createdAt: existing?.createdAt || opts.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
   await env.TICKETS.put(key, JSON.stringify(record));
@@ -2638,6 +2670,44 @@ async function handleAdminImportMailerlite(request, env) {
     guard++;
   } while (cursor && guard < 50);
   return jsonResponse({ ok: true, imported });
+}
+
+// Import da file CSV esportato a mano da MailerLite (pannello iscritti → esporta) invece che
+// dall'API — più affidabile dei nomi di campo indovinati in handleAdminImportMailerlite perché i
+// nomi delle colonne (Subscriber/Sent/Opens/Clicks/Subscribed) sono quelli che si vedono
+// nell'export vero. Il parsing del CSV/TSV avviene lato client (azienda.html), qui arriva già
+// come JSON — stesso merge "prendi il numero più alto" di upsertSubscriber, quindi si può
+// rilanciare più volte senza rischi.
+async function handleAdminImportCsvStats(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const rows = Array.isArray(body.subscribers) ? body.subscribers : [];
+  let imported = 0, skipped = 0;
+  for (const row of rows) {
+    if (!isValidEmail(row.email)) { skipped++; continue; }
+    const stats = {
+      sent: Number(row.sent) || 0,
+      opens: Number(row.opens) || 0,
+      clicks: Number(row.clicks) || 0
+    };
+    let createdAt = null;
+    if (row.subscribedAt) {
+      const parsed = new Date(row.subscribedAt);
+      if (!isNaN(parsed.getTime())) createdAt = parsed.toISOString();
+    }
+    await upsertSubscriber(env, {
+      email: row.email,
+      siteSignup: true,
+      newsletterOptin: true,
+      source: "mailerlite-csv",
+      stats,
+      createdAt
+    });
+    imported++;
+  }
+  return jsonResponse({ ok: true, imported, skipped });
 }
 
 // Storico campagne già inviate su MailerLite (testo, oggetto, statistiche) — salvate come
@@ -2789,6 +2859,51 @@ function newsletterBaseUrl(env) {
   return env.SITE_URL || "https://growmisito.grow-mi.workers.dev";
 }
 
+// Link usati nell'intestazione e nel footer del modello standard — un solo posto da modificare
+// dal pannello (card "Link nelle email"), non dentro ogni singola newsletter. I social restano
+// identici per tutte le email (per scelta di Carlo), ma restano comunque modificabili qui invece
+// che scritti a mano nel codice.
+const NEWSLETTER_DEFAULT_SETTINGS = {
+  address: "Milano, Italia",
+  aboutUrl: "/chi-siamo",
+  instagramUrl: "https://www.instagram.com/growmiii/",
+  tiktokUrl: "https://www.tiktok.com/@growmii_",
+  linkedinUrl: "https://www.linkedin.com/company/growmiagency/"
+};
+
+async function getNewsletterSettings(env) {
+  if (!env.TICKETS) return NEWSLETTER_DEFAULT_SETTINGS;
+  const raw = await env.TICKETS.get("newsletter:settings");
+  if (!raw) return NEWSLETTER_DEFAULT_SETTINGS;
+  try {
+    return Object.assign({}, NEWSLETTER_DEFAULT_SETTINGS, JSON.parse(raw));
+  } catch (err) {
+    return NEWSLETTER_DEFAULT_SETTINGS;
+  }
+}
+
+async function handleAdminGetNewsletterSettings(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  return jsonResponse({ settings: await getNewsletterSettings(env) });
+}
+
+async function handleAdminSaveNewsletterSettings(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const settings = {
+    address: String(body.address || "").trim().slice(0, 200) || NEWSLETTER_DEFAULT_SETTINGS.address,
+    aboutUrl: String(body.aboutUrl || "").trim().slice(0, 400) || NEWSLETTER_DEFAULT_SETTINGS.aboutUrl,
+    instagramUrl: String(body.instagramUrl || "").trim().slice(0, 400) || NEWSLETTER_DEFAULT_SETTINGS.instagramUrl,
+    tiktokUrl: String(body.tiktokUrl || "").trim().slice(0, 400) || NEWSLETTER_DEFAULT_SETTINGS.tiktokUrl,
+    linkedinUrl: String(body.linkedinUrl || "").trim().slice(0, 400) || NEWSLETTER_DEFAULT_SETTINGS.linkedinUrl
+  };
+  await env.TICKETS.put("newsletter:settings", JSON.stringify(settings));
+  return jsonResponse({ ok: true, settings });
+}
+
 // Bozza automatica: nome/data/luogo/teaser dell'evento già dentro un template pronto, l'admin
 // aggiunge solo foto e ritocca il testo se vuole (vedi handleAdminCreateNewsletterCampaign).
 function autoDraftHtmlFromEvent(event) {
@@ -2806,6 +2921,8 @@ function autoDraftHtmlFromEvent(event) {
 // basta questa funzione, non ogni bozza già salvata.
 function newsletterStandardTemplateHtml(opts){
   const base = opts.base;
+  const settings = opts.settings || NEWSLETTER_DEFAULT_SETTINGS;
+  const aboutHref = /^https?:\/\//i.test(settings.aboutUrl) ? settings.aboutUrl : `${base}${settings.aboutUrl}`;
   const heroImg = opts.heroImageUrl
     ? `<img src="${opts.heroImageUrl}" alt="" style="width:100%; display:block; border-radius:14px; object-position:${opts.heroImagePosition || "center"}; margin-bottom:28px;">`
     : "";
@@ -2816,9 +2933,9 @@ function newsletterStandardTemplateHtml(opts){
         `<img src="${base}/assets/img/logo-growmi.png" alt="GrowMi" style="height:34px;">` +
       `</div>` +
       `<div style="text-align:center; padding-bottom:28px; font-size:13px;">` +
-        `<a href="${base}/chi-siamo" style="color:#1E0C2C; text-decoration:none; margin:0 12px;">Chi siamo</a>` +
-        `<a href="https://www.instagram.com/growmiii/" style="color:#1E0C2C; text-decoration:none; margin:0 12px;">Instagram</a>` +
-        `<a href="https://www.tiktok.com/@growmii_" style="color:#1E0C2C; text-decoration:none; margin:0 12px;">TikTok</a>` +
+        `<a href="${aboutHref}" style="color:#1E0C2C; text-decoration:none; margin:0 12px;">Chi siamo</a>` +
+        `<a href="${settings.instagramUrl}" style="color:#1E0C2C; text-decoration:none; margin:0 12px;">Instagram</a>` +
+        `<a href="${settings.tiktokUrl}" style="color:#1E0C2C; text-decoration:none; margin:0 12px;">TikTok</a>` +
       `</div>` +
       heroImg +
       title +
@@ -2828,10 +2945,10 @@ function newsletterStandardTemplateHtml(opts){
       `<table role="presentation" width="100%"><tr>` +
         `<td style="vertical-align:top;">` +
           `<p style="font-weight:700; margin-bottom:6px;">GrowMi</p>` +
-          `<p style="font-size:12px; color:#C9BFE0; margin-bottom:14px;">Milano, Italia</p>` +
-          `<a href="https://www.instagram.com/growmiii/" style="color:#fff; text-decoration:none; margin-right:10px; font-size:12px;">Instagram</a>` +
-          `<a href="https://www.tiktok.com/@growmii_" style="color:#fff; text-decoration:none; margin-right:10px; font-size:12px;">TikTok</a>` +
-          `<a href="https://www.linkedin.com/company/growmiagency/" style="color:#fff; text-decoration:none; font-size:12px;">LinkedIn</a>` +
+          `<p style="font-size:12px; color:#C9BFE0; margin-bottom:14px;">${settings.address}</p>` +
+          `<a href="${settings.instagramUrl}" style="color:#fff; text-decoration:none; margin-right:10px; font-size:12px;">Instagram</a>` +
+          `<a href="${settings.tiktokUrl}" style="color:#fff; text-decoration:none; margin-right:10px; font-size:12px;">TikTok</a>` +
+          `<a href="${settings.linkedinUrl}" style="color:#fff; text-decoration:none; font-size:12px;">LinkedIn</a>` +
         `</td>` +
         `<td style="vertical-align:top; text-align:right; font-size:12px; color:#C9BFE0;">` +
           `<p>Ricevi questa email perché sei iscritto alla newsletter di GrowMi.</p>` +
@@ -2854,11 +2971,14 @@ function buildTrackedEmailHtml(bodyHtml, campaignId, subscriber, env, extra) {
   });
   const pixel = `<img src="${base}/api/newsletter-track-open?c=${encodeURIComponent(campaignId)}&e=${e}" width="1" height="1" alt="" style="display:block;border:0;">`;
   const unsubUrl = `${base}/newsletter-unsubscribe?token=${encodeURIComponent(subscriber.unsubscribeToken)}`;
-  const heroImageUrl = extra && extra.heroImageKey ? mediaUrl(extra.heroImageKey) : null;
+  // Assoluto, non relativo: mediaUrl() da solo torna "/media/<key>", che non risolve dentro un
+  // client email (nessun documento/base a cui è relativo) — qui invece serve funzionare in Gmail ecc.
+  const heroImageUrl = extra && extra.heroImageKey ? `${base}${mediaUrl(extra.heroImageKey)}` : null;
   return newsletterStandardTemplateHtml({
     base, trackedBody, unsubUrl, heroImageUrl,
     heroImagePosition: extra && extra.heroImagePosition,
-    title: extra && extra.title
+    title: extra && extra.title,
+    settings: extra && extra.settings
   }) + pixel;
 }
 
@@ -3004,17 +3124,43 @@ async function handleAdminPreviewNewsletterRecipients(request, env) {
   return jsonResponse({ count: recipients.length });
 }
 
+// Anteprima della bozza così com'è nel composer, senza salvarla né inviarla — usa lo stesso
+// modello standard/link/impostazioni di un invio vero, ma senza tracking (nessun destinatario
+// reale) e con un link disiscrizione finto (# ) dato che non c'è nessun iscritto per cui generarlo.
+async function handleAdminPreviewNewsletterCampaign(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  const body = await request.json();
+  const base = newsletterBaseUrl(env);
+  const settings = await getNewsletterSettings(env);
+  const heroImageUrl = body.heroImageKey ? `${base}${mediaUrl(body.heroImageKey)}` : null;
+  const html = newsletterStandardTemplateHtml({
+    base, settings, heroImageUrl,
+    heroImagePosition: body.heroImagePosition,
+    title: body.title,
+    trackedBody: body.bodyHtml || "",
+    unsubUrl: "#"
+  });
+  const safeTitle = String(body.subject || "Anteprima newsletter").replace(/[<>&]/g, function(c){ return c === "<" ? "&lt;" : c === ">" ? "&gt;" : "&amp;"; });
+  return new Response(
+    `<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>${safeTitle}</title><meta name="viewport" content="width=device-width, initial-scale=1"></head>` +
+    `<body style="margin:0; padding:32px 16px; background:#EFE7DC;">${html}</body></html>`,
+    { headers: { "Content-Type": "text/html; charset=utf-8" } }
+  );
+}
+
 // Invio vero e proprio — condiviso tra la rotta manuale ("Invia adesso") e il cron che manda le
 // campagne programmate (vedi runScheduledNewsletters). Il chiamante ha già controllato che la
 // campagna esista e non sia già stata inviata.
 async function sendNewsletterCampaignNow(env, campaign) {
   const id = campaign.id;
   const recipients = await resolveCampaignRecipients(env, campaign.targetGroups);
+  const settings = await getNewsletterSettings(env);
   let sent = 0, failed = 0;
   for (const sub of recipients) {
     try {
       const html = buildTrackedEmailHtml(campaign.bodyHtml, id, sub, env, {
-        title: campaign.title, heroImageKey: campaign.heroImageKey, heroImagePosition: campaign.heroImagePosition
+        title: campaign.title, heroImageKey: campaign.heroImageKey, heroImagePosition: campaign.heroImagePosition, settings
       });
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
