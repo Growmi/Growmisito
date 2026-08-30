@@ -606,6 +606,12 @@
           <input type="text" id="az-nl-group-name" placeholder="Nome gruppo (es. Sponsor)" style="max-width:220px; padding:10px 13px; border-radius:10px; border:1.5px solid var(--line); font-family:'Inter',sans-serif; font-size:14px;">
           <input type="text" id="az-nl-group-type" placeholder="Tipo di email (facoltativo, es. Promozioni)" style="max-width:240px; padding:10px 13px; border-radius:10px; border:1.5px solid var(--line); font-family:'Inter',sans-serif; font-size:14px;">
           <button type="button" class="az-mini-btn" id="az-nl-group-add">+ Crea gruppo</button>
+          <button type="button" class="az-mini-btn" id="az-nl-group-toggle-members">+ Seleziona iscritti</button>
+        </div>
+        <div id="az-nl-group-members-wrap" hidden style="margin-top:12px; max-width:480px;">
+          <input type="text" class="az-search" id="az-nl-group-members-search" placeholder="Cerca per email o nome..." style="width:100%; margin-bottom:8px;">
+          <div id="az-nl-group-members-list" style="max-height:240px; overflow-y:auto; border:1.5px solid var(--line); border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:4px;"></div>
+          <p style="font-size:12px; color:var(--grey); margin-top:6px;"><span id="az-nl-group-members-count">0</span> selezionati — verranno aggiunti al gruppo appena lo crei.</p>
         </div>
         <p class="az-msg" id="az-nl-group-msg" hidden></p>
       </div>
@@ -1623,6 +1629,37 @@
     } catch (err) { /* riprovabile ricaricando il pannello */ }
   }
 
+  // Selezione iscritti da aggiungere subito al gruppo appena creato — facoltativa, il gruppo si
+  // può ancora creare vuoto e popolare dopo dalla tabella qui sotto come già si poteva fare.
+  var selectedGroupMembers = new Set();
+  function renderGroupMembersChecklist(){
+    var list = document.getElementById('az-nl-group-members-list');
+    var q = document.getElementById('az-nl-group-members-search').value.trim().toLowerCase();
+    var items = allSubscribers.filter(function(s){
+      if (!q) return true;
+      return (s.email || '').toLowerCase().indexOf(q) !== -1 || (s.name || '').toLowerCase().indexOf(q) !== -1;
+    });
+    list.innerHTML = items.length ? '' : '<p style="font-size:12px; color:var(--grey);">Nessun iscritto trovato.</p>';
+    items.forEach(function(s){
+      var row = document.createElement('label');
+      row.style.cssText = 'display:flex; align-items:center; gap:8px; font-size:13px; padding:3px 0;';
+      var checked = selectedGroupMembers.has(s.email) ? ' checked' : '';
+      row.innerHTML = '<input type="checkbox" class="nl-group-member-cb" value="' + esc(s.email) + '"' + checked + '> ' +
+        (s.name ? esc(s.name) + ' — ' : '') + '<span style="color:var(--grey);">' + esc(s.email) + '</span>';
+      row.querySelector('input').addEventListener('change', function(){
+        if (this.checked) selectedGroupMembers.add(s.email); else selectedGroupMembers.delete(s.email);
+        document.getElementById('az-nl-group-members-count').textContent = selectedGroupMembers.size;
+      });
+      list.appendChild(row);
+    });
+  }
+  document.getElementById('az-nl-group-toggle-members').addEventListener('click', function(){
+    var wrap = document.getElementById('az-nl-group-members-wrap');
+    wrap.hidden = !wrap.hidden;
+    if (!wrap.hidden) renderGroupMembersChecklist();
+  });
+  document.getElementById('az-nl-group-members-search').addEventListener('input', renderGroupMembersChecklist);
+
   document.getElementById('az-nl-group-add').addEventListener('click', async function(){
     var nameInput = document.getElementById('az-nl-group-name');
     var typeInput = document.getElementById('az-nl-group-type');
@@ -1638,7 +1675,25 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name, emailType: typeInput.value.trim() })
       });
-      if (res.ok) { nameInput.value = ''; typeInput.value = ''; showMsg(msg, 'Gruppo creato.', false); await loadNlGroups(); }
+      if (res.ok) {
+        var data0 = await res.json();
+        var memberEmails = Array.from(selectedGroupMembers);
+        if (memberEmails.length) {
+          for (var i = 0; i < memberEmails.length; i++) {
+            await fetch('/api/admin/newsletter-subscriber-groups', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: memberEmails[i], groupId: data0.group.id, action: 'add' })
+            });
+          }
+        }
+        nameInput.value = ''; typeInput.value = '';
+        selectedGroupMembers.clear();
+        document.getElementById('az-nl-group-members-wrap').hidden = true;
+        document.getElementById('az-nl-group-members-count').textContent = '0';
+        showMsg(msg, 'Gruppo creato' + (memberEmails.length ? ' con ' + memberEmails.length + ' iscritti.' : '.'), false);
+        await loadNlGroups();
+        await loadNlSubscribers();
+      }
       else { var data = await res.json(); showMsg(msg, data.error || 'Qualcosa è andato storto.', true); }
     } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
     btn.disabled = false;
@@ -1733,6 +1788,7 @@
       allSubscribers = data.subscribers || [];
       populateNlGroupFilter();
       renderNlSubscribers();
+      if (!document.getElementById('az-nl-group-members-wrap').hidden) renderGroupMembersChecklist();
     } catch (err) { document.getElementById('az-nl-count').textContent = 'Errore di connessione.'; }
   }
 
@@ -1887,12 +1943,14 @@
       var pendingCount = Array.isArray(c.pendingRecipients) ? c.pendingRecipients.length : 0;
       var statusBadge = c.status === 'sent'
         ? '<span class="az-pill newsletter">Inviata · ' + (c.sentAt ? new Date(c.sentAt).toLocaleDateString('it-IT') : '') + '</span>'
+        : c.status === 'sending'
+        ? '<span class="az-pill card">📤 Invio in corso...</span>'
         : c.status === 'partial'
         ? '<span class="az-pill card">⏳ ' + pendingCount + ' in sospeso</span>'
         : c.status === 'scheduled'
         ? '<span class="az-pill card">🕒 Programmata per ' + new Date(c.scheduledAt).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</span>'
         : '<span class="az-pill">Bozza</span>';
-      var canEdit = c.status !== 'sent' && c.status !== 'partial';
+      var canEdit = c.status !== 'sent' && c.status !== 'partial' && c.status !== 'sending';
       row.innerHTML =
         '<div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">' +
           '<div><strong>' + esc(c.name) + '</strong><br><span style="font-size:12px; color:var(--grey);">' + esc(c.subject || 'Nessun oggetto') + '</span></div>' +
@@ -1900,6 +1958,7 @@
             (canEdit ? '<button type="button" class="az-mini-btn" data-open="' + c.id + '">Modifica</button><button type="button" class="az-mini-btn danger" data-del="' + c.id + '">Elimina</button>' : '') +
             (c.status === 'partial' ? '<button type="button" class="az-mini-btn" data-retry="' + c.id + '">🔁 Riprova ai rimasti</button>' : '') +
             ((c.status === 'sent' || c.status === 'partial') ? '<button type="button" class="az-mini-btn" data-manual="' + c.id + '">✉️ Invia a lista</button>' : '') +
+            (c.status === 'draft' ? '<button type="button" class="az-mini-btn" data-mark-sent="' + c.id + '" title="Usa solo se sai già (es. da Resend) che questa newsletter è stata inviata davvero">✅ Segna come già inviata</button>' : '') +
           '</div>' +
         '</div>' +
         ((c.status === 'sent' || c.status === 'partial') ? nlStatsDetailHtml(c) : '') +
@@ -1921,14 +1980,14 @@
       var retryBtn = row.querySelector('[data-retry]');
       if (retryBtn) retryBtn.addEventListener('click', async function(){
         retryBtn.disabled = true;
-        retryBtn.textContent = 'Invio in corso...';
+        retryBtn.textContent = 'Avvio...';
         try {
           var res = await fetch('/api/admin/newsletter-send', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: c.id })
           });
           var data = await res.json();
-          if (res.ok) alert('Fatto: ' + data.sent + ' inviate, ' + data.failed + ' fallite di nuovo, ' + data.pending + ' ancora in sospeso.');
+          if (res.ok) { alert('Invio avviato per ' + data.total + ' persone in sospeso — gira in background.'); pollNlCampaignUntilSettled(c.id); }
           else alert(data.error || 'Qualcosa è andato storto.');
           await loadNlCampaigns();
         } catch (err) { alert('Errore di connessione.'); retryBtn.disabled = false; retryBtn.textContent = '🔁 Riprova ai rimasti'; }
@@ -1952,10 +2011,24 @@
             body: JSON.stringify({ id: c.id, emails: emails })
           });
           var data = await res.json();
-          if (res.ok) { showMsg(msg, 'Inviate ' + data.sent + ' su ' + data.matched + ' email valide trovate (di ' + data.requested + ' incollate).', false); textarea.value = ''; await loadNlCampaigns(); }
+          if (res.ok) { showMsg(msg, 'Invio avviato per ' + data.matched + ' email valide trovate (di ' + data.requested + ' incollate) — gira in background.', false); textarea.value = ''; pollNlCampaignUntilSettled(c.id); }
           else showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
         } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
         sendManualBtn.disabled = false;
+      });
+      var markSentBtn = row.querySelector('[data-mark-sent]');
+      if (markSentBtn) markSentBtn.addEventListener('click', async function(){
+        if (!confirm('Segnare "' + c.name + '" come già inviata? Non manda nessuna email — usalo solo se sei già sicuro (es. da Resend) che è partita davvero. Dopo non sarà più modificabile né inviabile da qui.')) return;
+        markSentBtn.disabled = true;
+        try {
+          var res = await fetch('/api/admin/newsletter-mark-sent', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: c.id })
+          });
+          var data = await res.json();
+          if (res.ok) await loadNlCampaigns();
+          else { alert(data.error || 'Qualcosa è andato storto.'); markSentBtn.disabled = false; }
+        } catch (err) { alert('Errore di connessione.'); markSentBtn.disabled = false; }
       });
       wrap.appendChild(row);
     });
@@ -1968,6 +2041,19 @@
       allNlCampaigns = data.campaigns || [];
       renderNlCampaigns();
     } catch (err) { /* riprovabile ricaricando il pannello */ }
+  }
+
+  // L'invio vero gira in background lato server (vedi worker) — qui si ricarica la lista ogni
+  // pochi secondi finché questa campagna non esce dallo stato "sending", così si vede il risultato
+  // reale senza dover premere aggiorna a mano. Si ferma da sola dopo ~2 minuti in ogni caso.
+  function pollNlCampaignUntilSettled(id){
+    var attempts = 0;
+    var interval = setInterval(async function(){
+      attempts++;
+      await loadNlCampaigns();
+      var c = allNlCampaigns.filter(function(x){ return x.id === id; })[0];
+      if (!c || c.status !== 'sending' || attempts >= 24) clearInterval(interval);
+    }, 5000);
   }
 
   async function loadNlEventsForComposer(){
@@ -2448,16 +2534,18 @@
         currentCampaignId = null;
         await loadNlCampaigns();
       } else {
+        var sendingId = currentCampaignId;
         var res = await fetch('/api/admin/newsletter-send', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: currentCampaignId })
+          body: JSON.stringify({ id: sendingId })
         });
         var data = await res.json();
         if (res.ok) {
-          alert('Fatto: inviata a ' + data.sent + ' persone su ' + data.total + ' (' + data.failed + ' fallite).');
+          alert('Invio avviato per ' + data.total + ' persone — gira in background, la lista qui sotto si aggiorna da sola col risultato tra poco.');
           document.getElementById('az-nl-composer-wrap').hidden = true;
           currentCampaignId = null;
           await loadNlCampaigns();
+          pollNlCampaignUntilSettled(sendingId);
         } else showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
       }
     } catch (err) { showMsg(msg, 'Errore di connessione.', true); }

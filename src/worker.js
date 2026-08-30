@@ -452,7 +452,7 @@ async function handleFetch(request, env, ctx) {
     }
     if (url.pathname === "/api/admin/newsletter-send" && request.method === "POST") {
       try {
-        return await handleAdminSendNewsletterCampaign(request, env);
+        return await handleAdminSendNewsletterCampaign(request, env, ctx);
       } catch (err) {
         console.log("Errore admin/newsletter-send:", err.stack || err.message);
         return jsonResponse({ error: err.message }, 500);
@@ -460,9 +460,17 @@ async function handleFetch(request, env, ctx) {
     }
     if (url.pathname === "/api/admin/newsletter-send-to-list" && request.method === "POST") {
       try {
-        return await handleAdminSendNewsletterCampaignToList(request, env);
+        return await handleAdminSendNewsletterCampaignToList(request, env, ctx);
       } catch (err) {
         console.log("Errore admin/newsletter-send-to-list:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+    if (url.pathname === "/api/admin/newsletter-mark-sent" && request.method === "POST") {
+      try {
+        return await handleAdminMarkNewsletterCampaignSent(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-mark-sent:", err.stack || err.message);
         return jsonResponse({ error: err.message }, 500);
       }
     }
@@ -3302,7 +3310,14 @@ async function runScheduledNewsletters(env) {
   } while (cursor);
 }
 
-async function handleAdminSendNewsletterCampaign(request, env) {
+// Manda in background (ctx.waitUntil) invece di far aspettare la richiesta HTTP del pannello fino
+// alla fine del loop — con tanti destinatari (~200) l'invio uno per uno con la pausa tra un
+// invio e l'altro può durare più della finestra di esecuzione di una richiesta normale, col rischio
+// che il Worker venga interrotto PRIMA di salvare lo stato finale della campagna: le email
+// partivano comunque (successo lato Resend) ma il pannello restava fermo a "Bozza" per sempre,
+// esattamente quello che è successo con l'invio che ha scoperto questo bug. Lo stato "sending" si
+// vede subito, il risultato vero arriva quando la lista si ricarica.
+async function handleAdminSendNewsletterCampaign(request, env, ctx) {
   const auth = await requireStaffAccount(request, env);
   if (auth.error) return auth.error;
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
@@ -3313,25 +3328,29 @@ async function handleAdminSendNewsletterCampaign(request, env) {
   const raw = await env.TICKETS.get(`newslettercampaign:${id}`);
   if (!raw) return jsonResponse({ error: "campagna non trovata" }, 404);
   const campaign = JSON.parse(raw);
-  if (campaign.status === "sent") return jsonResponse({ error: "già inviata in precedenza" }, 400);
+  if (campaign.status === "sent" || campaign.status === "sending") return jsonResponse({ error: "già inviata (o invio già in corso)" }, 400);
   if (!campaign.subject || !campaign.bodyHtml) return jsonResponse({ error: "oggetto e testo obbligatori prima di inviare" }, 400);
 
   // "partial": un invio precedente si è fermato a metà (limite di Resend) — questo pulsante deve
   // riprovare SOLO chi è rimasto in sospeso, mai rifare l'invio completo (rimanderebbe la stessa
   // newsletter anche a chi l'ha già ricevuta).
-  const overrideRecipients = (campaign.status === "partial" && Array.isArray(campaign.pendingRecipients) && campaign.pendingRecipients.length)
+  const recipients = (campaign.status === "partial" && Array.isArray(campaign.pendingRecipients) && campaign.pendingRecipients.length)
     ? await resolveRecipientsByEmail(env, campaign.pendingRecipients)
-    : undefined;
+    : await resolveCampaignRecipients(env, campaign.targetGroups);
 
-  const { sent, failed, total, pending } = await sendNewsletterCampaignNow(env, campaign, overrideRecipients);
-  return jsonResponse({ ok: true, sent, failed, total, pending });
+  campaign.status = "sending";
+  await env.TICKETS.put(`newslettercampaign:${id}`, JSON.stringify(campaign));
+  ctx.waitUntil(sendNewsletterCampaignNow(env, campaign, recipients).catch(function(err){
+    console.log("Errore invio newsletter (background)", id, err.stack || err.message);
+  }));
+  return jsonResponse({ ok: true, started: true, total: recipients.length });
 }
 
 // Recupero manuale: manda questa campagna a una lista di email specifiche, indipendentemente
 // dallo status (anche se già "sent") — per quando Resend ha fallito degli invii che il sistema non
 // aveva ancora modo di tracciare uno per uno (vedi nlsent: aggiunto dopo), e la lista di chi non
 // ha ricevuto arriva da fuori (es. il pannello di Resend stesso).
-async function handleAdminSendNewsletterCampaignToList(request, env) {
+async function handleAdminSendNewsletterCampaignToList(request, env, ctx) {
   const auth = await requireStaffAccount(request, env);
   if (auth.error) return auth.error;
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
@@ -3347,10 +3366,35 @@ async function handleAdminSendNewsletterCampaignToList(request, env) {
   if (!emails.length) return jsonResponse({ error: "nessuna email valida nella lista" }, 400);
   const recipients = await resolveRecipientsByEmail(env, emails);
   if (!recipients.length) return jsonResponse({ error: "nessuno di questi indirizzi risulta iscritto con consenso attivo" }, 400);
+  // In background per lo stesso motivo del pulsante "Invia adesso" — vedi handleAdminSendNewsletterCampaign.
   // sendNewsletterCampaignNow calcola già status/pendingRecipients/salvataggio in base a QUESTO
-  // tentativo (chi di questa lista è passato, chi no) — niente altro da aggiornare qui sopra.
-  const { sent, failed, total, pending } = await sendNewsletterCampaignNow(env, campaign, recipients);
-  return jsonResponse({ ok: true, sent, failed, total, pending, requested: emails.length, matched: recipients.length });
+  // tentativo (chi di questa lista è passato, chi no) quando finisce.
+  ctx.waitUntil(sendNewsletterCampaignNow(env, campaign, recipients).catch(function(err){
+    console.log("Errore invio newsletter a lista (background)", id, err.stack || err.message);
+  }));
+  return jsonResponse({ ok: true, started: true, requested: emails.length, matched: recipients.length });
+}
+
+// Riparazione manuale: una campagna può restare bloccata su "Bozza" (o "sending") anche se le
+// email sono già davvero partite — succedeva quando il Worker veniva interrotto per timeout PRIMA
+// di salvare lo stato finale (il bug che ha causato tutto questo: vedi handleAdminSendNewsletterCampaign
+// più sopra, ora corretto). Segna solo lo stato, non manda nessuna email — usato quando l'admin ha
+// già la conferma altrove (es. il pannello di Resend) che è stata inviata davvero.
+async function handleAdminMarkNewsletterCampaignSent(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const id = String(body.id || "").trim();
+  if (!id) return jsonResponse({ error: "id mancante" }, 400);
+  const raw = await env.TICKETS.get(`newslettercampaign:${id}`);
+  if (!raw) return jsonResponse({ error: "campagna non trovata" }, 404);
+  const campaign = JSON.parse(raw);
+  campaign.status = "sent";
+  campaign.sentAt = campaign.sentAt || new Date().toISOString();
+  campaign.scheduledAt = null;
+  await env.TICKETS.put(`newslettercampaign:${id}`, JSON.stringify(campaign));
+  return jsonResponse({ ok: true, campaign });
 }
 
 // Pixel 1x1 trasparente (GIF più corto possibile in base64) — ogni apertura reale carica questa
