@@ -1353,7 +1353,7 @@ ${(darkTheme && (event.accentColor || event.accentColor2 || event.bgColor || eve
 </header>
 
 ${darkTheme ? `
-<section class="ed-dark-hero">
+<section class="ed-dark-hero${darkHeroImg ? " has-photo" : ""}">
   ${darkHeroImg}
   <div class="wrap ed-dark-wrap">
     ${advisoryBadge}
