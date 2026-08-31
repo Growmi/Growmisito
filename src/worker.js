@@ -1423,10 +1423,20 @@ ${galleryBlock}
 // chiamante può lasciar cadere la richiesta sul normale 404 statico invece di inventarne uno qui.
 async function handleEventPage(request, env) {
   if (!env.TICKETS) return null;
-  const slug = new URL(request.url).pathname.replace(/^\/evento\//, "").replace(/\/$/, "");
+  const url = new URL(request.url);
+  const slug = url.pathname.replace(/^\/evento\//, "").replace(/\/$/, "");
   if (!slug) return null;
   const event = await getEvent(env, slug);
-  if (!event || !isEventPublished(event)) return null;
+  if (!event) return null;
+  if (!isEventPublished(event)) {
+    // Bozza non pubblicata: normalmente 404, MA il pulsante "Preview pagina evento" del pannello
+    // deve poterla vedere prima di pubblicarla — solo con sessione staff valida (mai a un
+    // visitatore qualsiasi che indovina lo slug) e solo quando la richiesta arriva davvero
+    // dall'anteprima (?_preview=..., già aggiunto da openPreview() nel pannello).
+    if (!url.searchParams.has("_preview")) return null;
+    const auth = await requireStaffAccount(request, env);
+    if (auth.error) return null;
+  }
   return new Response(eventPageHTML(event, slug), { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
 
@@ -5312,10 +5322,18 @@ function artistPageHTML(artist, slug) {
 
 async function handleArtistPage(request, env) {
   if (!env.TICKETS) return null;
-  const slug = new URL(request.url).pathname.replace(/^\/artista\//, "").replace(/\/$/, "");
+  const url = new URL(request.url);
+  const slug = url.pathname.replace(/^\/artista\//, "").replace(/\/$/, "");
   if (!slug) return null;
   const artist = await getArtist(env, slug);
-  if (!artist || !isArtistPublished(artist)) return null;
+  if (!artist) return null;
+  if (!isArtistPublished(artist)) {
+    // Stesso principio della preview eventi (vedi handleEventPage) — bozza visibile solo allo
+    // staff loggato dall'anteprima del pannello, mai a un visitatore qualsiasi.
+    if (!url.searchParams.has("_preview")) return null;
+    const auth = await requireStaffAccount(request, env);
+    if (auth.error) return null;
+  }
   return new Response(artistPageHTML(artist, slug), { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
 
