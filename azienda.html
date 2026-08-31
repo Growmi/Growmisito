@@ -3394,7 +3394,7 @@
       card.className = 'az-ev-card';
       var tierRows = ev.tiers.map(function(t){
         var sold = (ev.soldByTier && ev.soldByTier[t.id]) || 0;
-        var optsLabel = t.options.map(function(o){ return o.label + ' ' + euro(o.priceCents); }).join(' · ');
+        var optsLabel = t.options.map(function(o){ return o.label + ' ' + ((o.priceCents === null || o.priceCents === undefined) ? '(prezzo da definire)' : euro(o.priceCents)); }).join(' · ');
         return '<div class="az-ev-tierrow"><span>' + esc(t.name) + ' — ' + sold + '/' + t.capacity + '</span><span class="opts">' + esc(optsLabel) + '</span></div>';
       }).join('');
       var isPublished = ev.published !== false;
@@ -5206,10 +5206,10 @@
     row.setAttribute('data-option-id', (opt && opt.id) || '');
     row.innerHTML =
       '<input type="text" class="opt-label" placeholder="Etichetta (es. Solo ingresso)" required>' +
-      '<input type="text" class="opt-price" placeholder="Prezzo netto € (senza commissione)" required>' +
+      '<input type="text" class="opt-price" placeholder="Prezzo netto € (vuoto = non ancora deciso)">' +
       '<button type="button" class="az-mini-btn danger">✕</button>';
     row.querySelector('.opt-label').value = opt ? opt.label : '';
-    row.querySelector('.opt-price').value = opt ? centsToEuros(opt.priceCents) : '';
+    row.querySelector('.opt-price').value = (opt && opt.priceCents !== null && opt.priceCents !== undefined) ? centsToEuros(opt.priceCents) : '';
     row.querySelector('.danger').addEventListener('click', function(){ row.remove(); });
     tierBlock.querySelector('.az-opts').appendChild(row);
   }
@@ -5479,8 +5479,11 @@
       var options = [];
       for (var j = 0; j < optRows.length; j++) {
         var or_ = optRows[j];
-        var priceCents = eurosToCents(or_.querySelector('.opt-price').value);
-        if (priceCents === null) { showMsg(msg, 'Prezzo non valido in una delle opzioni.', true); return; }
+        var priceRaw = or_.querySelector('.opt-price').value.trim();
+        // Vuoto = prezzo non ancora deciso, va bene (si può pubblicare la pagina prima di sapere
+        // quanto costerà una fascia) — solo un valore compilato ma non valido blocca il salvataggio.
+        var priceCents = priceRaw === '' ? null : eurosToCents(priceRaw);
+        if (priceRaw !== '' && priceCents === null) { showMsg(msg, 'Prezzo non valido in una delle opzioni.', true); return; }
         options.push({
           id: or_.getAttribute('data-option-id') || '',
           label: or_.querySelector('.opt-label').value.trim(),

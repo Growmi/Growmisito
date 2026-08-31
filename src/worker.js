@@ -2619,13 +2619,21 @@ async function handleEventTiers(request, env) {
       else if (alreadyClosed) { soldOut = true; forceUpcoming = false; }
       else { soldOut = sold >= t.capacity; forceUpcoming = false; }
     }
+    // Una fascia pubblicata senza ancora un prezzo deciso (opzioni salvate con prezzo vuoto, vedi
+    // validateEventPayload) non è mai vendibile, qualunque sia lo stato/finestra oraria impostati —
+    // si può pubblicare la pagina prima di sapere i prezzi, mostrando "Presto in vendita" finché
+    // non si torna a compilarli.
+    const hasPricedOption = t.options.some(function(o){ return o.priceCents !== null && o.priceCents !== undefined; });
+    if (!hasPricedOption) { soldOut = false; forceUpcoming = true; }
     soldOutById[t.id] = soldOut;
     const active = !soldOut && !forceUpcoming && !activeAssigned;
     if (active) activeAssigned = true;
     // priceCents resta il prezzo netto configurato nel pannello (quanto vogliamo incassare);
     // grossCents/feeCents sono calcolati qui cosi' il sito mostra sempre a schermo lo stesso
-    // prezzo che poi verrà davvero addebitato al checkout — mai due numeri diversi.
-    const options = t.options.map(function(o){
+    // prezzo che poi verrà davvero addebitato al checkout — mai due numeri diversi. Un'opzione
+    // senza prezzo ancora deciso non compare mai come bottone acquistabile, anche se il resto
+    // della fascia è attiva (es. "Solo ingresso" già prezzato, "+ Birra e panzerotto" ancora no).
+    const options = t.options.filter(function(o){ return o.priceCents !== null && o.priceCents !== undefined; }).map(function(o){
       const fee = addStripeFee(o.priceCents);
       return { id: o.id, label: o.label, priceCents: o.priceCents, feeCents: fee.feeCents, grossCents: fee.grossCents };
     });
@@ -4788,9 +4796,15 @@ function validateEventPayload(body, existingTiers, sold) {
       if (seenOptionIds.has(optionId)) return { ok: false, error: `id opzione duplicato nella fascia "${tierName}": "${optionId}"` };
       seenOptionIds.add(optionId);
 
-      const priceCents = parseInt(rawOption.priceCents, 10);
-      if (!Number.isInteger(priceCents) || priceCents < 0) {
-        return { ok: false, error: `prezzo non valido per "${label}" (in centesimi, es. 1200 = 12,00€)` };
+      // Prezzo facoltativo: si può pubblicare la pagina con le fasce/opzioni già definite ma senza
+      // ancora sapere quanto costeranno — un'opzione senza prezzo resta visibile ma mai vendibile
+      // (vedi handleEventTiers) finché non si torna a compilarlo.
+      let priceCents = null;
+      if (rawOption.priceCents !== null && rawOption.priceCents !== undefined && rawOption.priceCents !== "") {
+        priceCents = parseInt(rawOption.priceCents, 10);
+        if (!Number.isInteger(priceCents) || priceCents < 0) {
+          return { ok: false, error: `prezzo non valido per "${label}" (in centesimi, es. 1200 = 12,00€)` };
+        }
       }
       options.push({ id: optionId, label, priceCents });
     }
