@@ -1234,7 +1234,7 @@ function eventPageHTML(event, slug) {
     ? `<img class="ed-dark-hero-photo" src="${mediaUrl(event.heroImageKey)}" alt="" style="${photoFramingStyle(event.heroPosition, event.heroZoom)}">`
     : "";
   const coverBlock = event.coverImageKey
-    ? `<section class="ed-section-tight"><div class="wrap"><div class="ed-poster-feature"><img class="ed-poster-img" src="${mediaUrl(event.coverImageKey)}" alt="${event.name}" style="${photoFramingStyle(event.coverPosition, event.coverZoom)}"></div></div></section>`
+    ? `<section class="ed-section-tight"><div class="wrap"><div class="ed-poster-feature"><img class="ed-poster-img" src="${mediaUrl(event.coverImageKey)}" alt="${event.name}"></div></div></section>`
     : "";
   const galleryItems = (event.gallery || []).map(function(key){
     return `<div class="ed-gallery-item"><img src="${mediaUrl(key)}" alt="${event.name}" loading="lazy"></div>`;
