@@ -18,7 +18,7 @@
 var GROWMI_EVENTS = [
   {
     slug: "miseducation",
-    draft: false,
+    draft: true,
     title: "The Miseducation of GrowMI",
     date: "2026-09-10",
     tag: "GIO 10 SETT 2026 · APERTURA 19:00",
