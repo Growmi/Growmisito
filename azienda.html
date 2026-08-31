@@ -870,6 +870,11 @@
           </div>
 
           <p class="az-group-label">Biglietti e feedback</p>
+          <div class="az-field">
+            <label for="az-ev-ticketbgcolor">Colore sfondo box prezzi</label>
+            <input type="color" id="az-ev-ticketbgcolor" value="#3E0D5D" style="width:100%; height:40px; padding:2px; border-radius:8px; border:1.5px solid var(--line);">
+            <p class="az-u-hint10">Sfondo della sezione biglietti — di default il viola del sito, con testo sempre chiaro sopra.</p>
+          </div>
           <div>
             <label class="az-u-label13">Fasce biglietti</label>
             <p class="az-u-hint10">I prezzi qui sotto sono netti (quello che incassi tu) — sul sito il cliente paga un po' di più, la commissione Stripe stimata si aggiunge in automatico al checkout. Puoi lasciare il prezzo di un'opzione vuoto: la fascia resta pubblicabile e mostra "Presto in vendita" finché non torni a compilarlo.</p>
@@ -5579,6 +5584,7 @@
     document.getElementById('az-ev-accent2').value = (event && event.accentColor2) || '#2452FF';
     document.getElementById('az-ev-bgcolor').value = (event && event.bgColor) || '#0A0A0A';
     document.getElementById('az-ev-leadcolor').value = (event && event.leadColor) || '#C9C4CF';
+    document.getElementById('az-ev-ticketbgcolor').value = (event && event.ticketBgColor) || '#3E0D5D';
     eventBlocks = (event && Array.isArray(event.contentBlocks)) ? event.contentBlocks.map(function(b){ return Object.assign({ id: 'eb' + (++evBlockIdSeq) + '_' + Date.now() }, b); }) : [];
     renderEventBlocks();
   }
@@ -5658,6 +5664,7 @@
       accentColor2: document.getElementById('az-ev-accent2').value,
       bgColor: document.getElementById('az-ev-bgcolor').value,
       leadColor: document.getElementById('az-ev-leadcolor').value,
+      ticketBgColor: document.getElementById('az-ev-ticketbgcolor').value,
       contentBlocks: eventBlocks
     };
     var slug = document.getElementById('az-ev-slug').value;

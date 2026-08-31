@@ -1383,7 +1383,7 @@ ${coverBlock}
 
 ${contentBlocksHtml}
 
-<section class="ed-section-tight" id="biglietti" style="background:var(--purple-deep); color:var(--cream);">
+<section class="ed-section-tight" id="biglietti" style="background:${event.ticketBgColor || "var(--purple-deep)"}; color:var(--cream);">
   <div class="wrap">
     <div class="ed-head">
       <p class="ed-eyebrow">Biglietti</p>
@@ -4909,6 +4909,7 @@ function validateEventPayload(body, existingTiers, sold) {
   const accentColor2 = isHex(body.accentColor2) ? body.accentColor2 : "";
   const bgColor = isHex(body.bgColor) ? body.bgColor : "";
   const leadColor = isHex(body.leadColor) ? body.leadColor : "";
+  const ticketBgColor = isHex(body.ticketBgColor) ? body.ticketBgColor : "";
   const inputBlocks = Array.isArray(body.contentBlocks) ? body.contentBlocks : [];
   const contentBlocks = [];
   for (const raw of inputBlocks) {
@@ -4953,7 +4954,7 @@ function validateEventPayload(body, existingTiers, sold) {
     }
   }
 
-  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder, darkTheme, advisoryLabel, advisorySub, doorsTime, dressCode, accentColor, accentColor2, bgColor, leadColor, contentBlocks } };
+  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder, darkTheme, advisoryLabel, advisorySub, doorsTime, dressCode, accentColor, accentColor2, bgColor, leadColor, ticketBgColor, contentBlocks } };
 }
 
 // image/gif incluso apposta per le newsletter: un GIF animato è l'unico modo che parte da solo e
