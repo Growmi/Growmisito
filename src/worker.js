@@ -1222,6 +1222,7 @@ async function handlePublicEvents(request, env) {
 // grow-with-us.html) — copiati qui una volta sola così una pagina evento generata dal pannello
 // è visivamente indistinguibile dalle altre, senza duplicare template altrove.
 function eventPageHTML(event, slug) {
+  const darkTheme = event.darkTheme === true;
   const heroImg = event.heroImageKey
     ? `<img class="ed-hero-photo" src="${mediaUrl(event.heroImageKey)}" alt="" style="${photoFramingStyle(event.heroPosition, event.heroZoom)}"><div class="ed-hero-video-overlay"></div>`
     : "";
@@ -1234,6 +1235,41 @@ function eventPageHTML(event, slug) {
   const galleryBlock = galleryItems
     ? `<section class="ed-section-tight"><div class="wrap"><div class="ed-gallery">${galleryItems}</div></div></section>`
     : "";
+  const advisoryBadge = (darkTheme && event.advisoryLabel)
+    ? `<div class="ed-advisory"><b>${event.advisoryLabel}</b>${event.advisorySub ? `<span>${event.advisorySub}</span>` : ""}</div>`
+    : "";
+  // Sezioni extra a blocchi (vedi validateEventPayload/azienda.html) — le fasce "lineup"
+  // consecutive vengono raggruppate in un'unica griglia .ed-lineup, esattamente come sulla pagina
+  // statica the-miseducation-of-growmi.html; heading/text restano semplici elementi di testo.
+  const contentBlocksHtml = (function(){
+    const blocks = Array.isArray(event.contentBlocks) ? event.contentBlocks : [];
+    if (!blocks.length) return "";
+    let html = "";
+    let lineupBuffer = [];
+    function flushLineup(){
+      if (!lineupBuffer.length) return;
+      html += `<div class="ed-lineup">${lineupBuffer.join("")}</div>`;
+      lineupBuffer = [];
+    }
+    for (const b of blocks) {
+      if (b.type === "lineup") {
+        lineupBuffer.push(
+          `<div class="ed-lineup-card">` +
+            (b.role ? `<span class="role">${b.role}</span>` : "") +
+            `<h3>${b.name}</h3>` +
+            (b.time ? `<span class="time">${b.time}</span>` : "") +
+            (b.desc ? `<p>${b.desc}</p>` : "") +
+          `</div>`
+        );
+      } else {
+        flushLineup();
+        if (b.type === "heading") html += `<div class="ed-head"><h2>${b.text}</h2></div>`;
+        else if (b.type === "text") html += `<p>${b.text}</p>`;
+      }
+    }
+    flushLineup();
+    return `<section class="${darkTheme ? "ed-dark-section" : "ed-section-tight"}"><div class="wrap">${html}</div></section>`;
+  })();
 
   return `<!DOCTYPE html>
 <html lang="it">
@@ -1289,6 +1325,16 @@ function eventPageHTML(event, slug) {
   </nav>
 </header>
 
+${darkTheme ? `
+<section class="ed-dark-hero">
+  <div class="wrap ed-dark-wrap">
+    ${advisoryBadge}
+    <p class="ed-dark-eyebrow">${event.dateDisplay} · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">${event.location}</a></p>
+    <h1 class="ed-dark-title">${event.name}</h1>
+    ${event.teaser ? `<p class="ed-dark-lead">${event.teaser}</p>` : ""}
+  </div>
+</section>
+` : `
 <section class="ed-hero" style="padding:110px 0 80px;">
   ${heroImg}
   <div class="wrap ed-wrap">
@@ -1297,8 +1343,11 @@ function eventPageHTML(event, slug) {
     ${event.teaser ? `<p class="ed-lead">${event.teaser}</p>` : ""}
   </div>
 </section>
+`}
 
 ${coverBlock}
+
+${contentBlocksHtml}
 
 <section class="ed-section-tight" style="background:var(--purple-deep); color:var(--cream);">
   <div class="wrap">
@@ -4795,7 +4844,38 @@ function validateEventPayload(body, existingTiers, sold) {
     ? null
     : (Number.isFinite(Number(body.sortOrder)) ? Number(body.sortOrder) : null);
 
-  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder } };
+  // Tema "scuro" opzionale (checkbox nel pannello) + badge advisory + sezioni extra a blocchi
+  // (vedi assets/event-tickets.css .ed-dark-* ed eventPageHTML) — stesso concetto del builder a
+  // blocchi delle newsletter: contentBlocks viene salvato così com'è (staff già autenticato, stesso
+  // livello di fiducia di bodyHtml delle newsletter) e renderizzato lato server a ogni richiesta.
+  const darkTheme = body.darkTheme === true;
+  const advisoryLabel = String(body.advisoryLabel || "").trim().slice(0, 60);
+  const advisorySub = String(body.advisorySub || "").trim().slice(0, 100);
+  const inputBlocks = Array.isArray(body.contentBlocks) ? body.contentBlocks : [];
+  const contentBlocks = [];
+  for (const raw of inputBlocks) {
+    if (contentBlocks.length >= 30) break;
+    const type = String((raw && raw.type) || "");
+    if (type === "lineup") {
+      const name = String(raw.name || "").trim().slice(0, 100);
+      if (!name) continue;
+      contentBlocks.push({
+        type: "lineup",
+        role: String(raw.role || "").trim().slice(0, 60),
+        name,
+        time: String(raw.time || "").trim().slice(0, 100),
+        desc: String(raw.desc || "").trim().slice(0, 500)
+      });
+    } else if (type === "heading") {
+      const text = String(raw.text || "").trim().slice(0, 200);
+      if (text) contentBlocks.push({ type: "heading", text });
+    } else if (type === "text") {
+      const text = String(raw.text || "").trim().slice(0, 1000);
+      if (text) contentBlocks.push({ type: "text", text });
+    }
+  }
+
+  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder, darkTheme, advisoryLabel, advisorySub, contentBlocks } };
 }
 
 // image/gif incluso apposta per le newsletter: un GIF animato è l'unico modo che parte da solo e

@@ -827,6 +827,29 @@
             <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-ev-gallery-input" multiple>
           </div>
 
+          <p class="az-group-label">Stile pagina</p>
+          <label style="display:flex; align-items:center; gap:10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; cursor:pointer;">
+            <input type="checkbox" id="az-ev-darktheme" style="width:18px; height:18px;">
+            Usa lo stile scuro con texture (evento speciale/moodboard)
+          </label>
+          <p class="az-u-hint10" style="margin-top:-10px;">Sfondo nero con texture e titolo effetto glitch, invece del layout chiaro standard — es. "The Miseducation of GrowMi".</p>
+          <div id="az-ev-darktheme-fields" hidden style="display:flex; flex-direction:column; gap:16px;">
+            <div class="az-field"><label for="az-ev-advisory-label">Badge advisory — testo principale</label><input type="text" id="az-ev-advisory-label" placeholder='es. "GROWMI ADVISORY"'></div>
+            <div class="az-field"><label for="az-ev-advisory-sub">Badge advisory — sottotesto</label><input type="text" id="az-ev-advisory-sub" placeholder='es. "HIP HOP NIGHT · EXPLICIT VIBES"'></div>
+            <p class="az-u-hint10">Lascia vuoto il testo principale per non mostrare nessun badge.</p>
+
+            <div>
+              <label class="az-u-label13">Sezioni extra (lineup, titoli, testo)</label>
+              <p class="az-u-hint10">Compaiono tra l'immagine di copertina e i biglietti — stesso sistema a blocchi riordinabili della newsletter. Più schede "Lineup" una dopo l'altra si raggruppano automaticamente in un'unica griglia.</p>
+              <div id="az-ev-blocks" class="az-nl-blocks"></div>
+              <div class="az-u-row10" style="margin-top:10px;">
+                <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="lineup">+ Artista lineup</button>
+                <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="heading">+ Titolo</button>
+                <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="text">+ Testo</button>
+              </div>
+            </div>
+          </div>
+
           <p class="az-group-label">Pubblicazione</p>
           <label style="display:flex; align-items:center; gap:10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; cursor:pointer;">
             <input type="checkbox" id="az-ev-published" style="width:18px; height:18px;">
@@ -5231,6 +5254,122 @@
     document.getElementById('az-ev-feedback-options').appendChild(row);
   }
 
+  // ---- Builder a blocchi per le sezioni extra della pagina evento (stesso pattern del composer
+  // newsletter più sopra: lista riordinabile col drag, un tipo di card per blocco) — lineup, titolo,
+  // testo. Il rendering finale (raggruppamento delle card lineup consecutive in una griglia) avviene
+  // lato server in eventPageHTML(), qui serve solo modificare/riordinare i dati grezzi.
+  var eventBlocks = [];
+  var evBlockIdSeq = 0;
+  var evDragFromIndex = null;
+  var EV_BLOCK_LABELS = { lineup: 'Artista lineup', heading: 'Titolo', text: 'Testo' };
+
+  function evNewBlock(type){
+    var id = 'eb' + (++evBlockIdSeq) + '_' + Date.now();
+    if (type === 'lineup') return { id: id, type: 'lineup', role: '', name: '', time: '', desc: '' };
+    if (type === 'heading') return { id: id, type: 'heading', text: '' };
+    return { id: id, type: 'text', text: '' };
+  }
+
+  function renderEvBlockBody(container, block){
+    if (block.type === 'lineup') {
+      container.innerHTML =
+        '<div class="az-u-row10">' +
+          '<input type="text" class="ev-block-role" placeholder=\'Ruolo (es. "Live graffiti")\' style="flex:1; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<input type="text" class="ev-block-time" placeholder="Orario (es. 19:00 – 23:30)" style="flex:1; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+        '</div>' +
+        '<input type="text" class="ev-block-name az-u-mt10" placeholder="Nome artista" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+        '<textarea class="ev-block-desc az-u-mt10" placeholder="Descrizione (facoltativa)" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line); min-height:60px; font-family:inherit; resize:vertical;"></textarea>';
+      var roleI = container.querySelector('.ev-block-role'), nameI = container.querySelector('.ev-block-name'), timeI = container.querySelector('.ev-block-time'), descI = container.querySelector('.ev-block-desc');
+      roleI.value = block.role || ''; nameI.value = block.name || ''; timeI.value = block.time || ''; descI.value = block.desc || '';
+      roleI.addEventListener('input', function(){ block.role = roleI.value; });
+      nameI.addEventListener('input', function(){ block.name = nameI.value; });
+      timeI.addEventListener('input', function(){ block.time = timeI.value; });
+      descI.addEventListener('input', function(){ block.desc = descI.value; });
+    } else if (block.type === 'heading') {
+      container.innerHTML = '<input type="text" class="ev-block-heading" placeholder="Titolo sezione (es. Chi sale sul palco)" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">';
+      var hInput = container.querySelector('input');
+      hInput.value = block.text || '';
+      hInput.addEventListener('input', function(){ block.text = hInput.value; });
+    } else {
+      container.innerHTML = '<textarea class="ev-block-text" placeholder="Testo del paragrafo" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line); min-height:70px; font-family:inherit; resize:vertical;"></textarea>';
+      var tArea = container.querySelector('textarea');
+      tArea.value = block.text || '';
+      tArea.addEventListener('input', function(){ block.text = tArea.value; });
+    }
+  }
+
+  function renderEventBlocks(){
+    var wrap = document.getElementById('az-ev-blocks');
+    wrap.innerHTML = '';
+    eventBlocks.forEach(function(block, index){
+      var card = document.createElement('div');
+      card.className = 'az-nl-block';
+      card.draggable = true;
+
+      var head = document.createElement('div');
+      head.className = 'az-nl-block-head';
+      head.innerHTML =
+        '<span class="az-nl-block-handle">⠿</span>' +
+        '<span class="az-nl-block-label">' + esc(EV_BLOCK_LABELS[block.type] || block.type) + '</span>' +
+        '<span class="az-nl-block-actions">' +
+          '<button type="button" data-act="up" title="Sposta su">↑</button>' +
+          '<button type="button" data-act="down" title="Sposta giù">↓</button>' +
+          '<button type="button" data-act="delete" class="danger" title="Elimina">✕</button>' +
+        '</span>';
+      card.appendChild(head);
+
+      var body = document.createElement('div');
+      card.appendChild(body);
+      renderEvBlockBody(body, block);
+
+      head.querySelector('[data-act="up"]').addEventListener('click', function(){
+        if (index === 0) return;
+        eventBlocks.splice(index - 1, 0, eventBlocks.splice(index, 1)[0]);
+        renderEventBlocks();
+      });
+      head.querySelector('[data-act="down"]').addEventListener('click', function(){
+        if (index === eventBlocks.length - 1) return;
+        eventBlocks.splice(index + 1, 0, eventBlocks.splice(index, 1)[0]);
+        renderEventBlocks();
+      });
+      head.querySelector('[data-act="delete"]').addEventListener('click', function(){
+        eventBlocks.splice(index, 1);
+        renderEventBlocks();
+      });
+
+      card.addEventListener('dragstart', function(e){
+        evDragFromIndex = index;
+        card.classList.add('az-nl-block-dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      card.addEventListener('dragend', function(){ card.classList.remove('az-nl-block-dragging'); });
+      card.addEventListener('dragover', function(e){ e.preventDefault(); card.classList.add('az-nl-block-dragover'); });
+      card.addEventListener('dragleave', function(){ card.classList.remove('az-nl-block-dragover'); });
+      card.addEventListener('drop', function(e){
+        e.preventDefault();
+        card.classList.remove('az-nl-block-dragover');
+        if (evDragFromIndex === null || evDragFromIndex === index) return;
+        var moved = eventBlocks.splice(evDragFromIndex, 1)[0];
+        eventBlocks.splice(index, 0, moved);
+        evDragFromIndex = null;
+        renderEventBlocks();
+      });
+
+      wrap.appendChild(card);
+    });
+  }
+
+  document.querySelectorAll('.az-ev-add-block-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      eventBlocks.push(evNewBlock(btn.getAttribute('data-block-type')));
+      renderEventBlocks();
+    });
+  });
+
+  var evDarkThemeCheckbox = document.getElementById('az-ev-darktheme');
+  var evDarkThemeFields = document.getElementById('az-ev-darktheme-fields');
+  evDarkThemeCheckbox.addEventListener('change', function(){ evDarkThemeFields.hidden = !evDarkThemeCheckbox.checked; });
+
   function openEventForm(event){
     document.getElementById('az-event-form-wrap').hidden = false;
     document.getElementById('az-events-list').hidden = true;
@@ -5267,6 +5406,13 @@
     // considera pubblicato — stessa regola di isEventPublished() lato server, per non far
     // sembrare "in bozza" un evento già live. Uno nuovo invece nasce sempre non pubblicato.
     document.getElementById('az-ev-published').checked = event ? (event.published !== false) : false;
+
+    evDarkThemeCheckbox.checked = !!(event && event.darkTheme);
+    evDarkThemeFields.hidden = !evDarkThemeCheckbox.checked;
+    document.getElementById('az-ev-advisory-label').value = event ? (event.advisoryLabel || '') : '';
+    document.getElementById('az-ev-advisory-sub').value = event ? (event.advisorySub || '') : '';
+    eventBlocks = (event && Array.isArray(event.contentBlocks)) ? event.contentBlocks.map(function(b){ return Object.assign({ id: 'eb' + (++evBlockIdSeq) + '_' + Date.now() }, b); }) : [];
+    renderEventBlocks();
   }
   function closeEventForm(){
     document.getElementById('az-event-form-wrap').hidden = true;
@@ -5331,7 +5477,11 @@
       heroZoom: evHeroFraming.zoom,
       coverImageKey: evCoverKey,
       gallery: evGallery,
-      published: document.getElementById('az-ev-published').checked
+      published: document.getElementById('az-ev-published').checked,
+      darkTheme: evDarkThemeCheckbox.checked,
+      advisoryLabel: document.getElementById('az-ev-advisory-label').value.trim(),
+      advisorySub: document.getElementById('az-ev-advisory-sub').value.trim(),
+      contentBlocks: eventBlocks
     };
     var slug = document.getElementById('az-ev-slug').value;
     var isEdit = !!slug;
