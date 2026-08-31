@@ -140,6 +140,7 @@ const GROWMI_I18N = {
     tier_fascia3_name:"Terza fascia", tier_fascia3_sub:"Ultimo scaglione",
     tier_btn_plain:"Solo ingresso", tier_btn_food:"+ Birra e panzerotto",
     ev1_tickets_stripe_note:"Il pagamento avviene su Stripe, in una nuova scheda. Riceverai il biglietto via email.",
+    et_soldout:"Esauriti", et_unavailable:"Presto in vendita",
 
     nl_eyebrow:"Newsletter", nl_title:"Non perderti i prossimi eventi",
     nl_lead:"Iscriviti alla newsletter di GrowMi: eventi, artisti e novità via email, senza spam.",
@@ -297,6 +298,7 @@ const GROWMI_I18N = {
     tier_fascia3_name:"Third tier", tier_fascia3_sub:"Last price step",
     tier_btn_plain:"Entry only", tier_btn_food:"+ Beer and panzerotto",
     ev1_tickets_stripe_note:"Payment happens on Stripe, in a new tab. You'll get your ticket by email.",
+    et_soldout:"Sold out", et_unavailable:"Coming soon",
 
     nl_eyebrow:"Newsletter", nl_title:"Don't miss the next events",
     nl_lead:"Subscribe to the GrowMi newsletter: events, artists and news by email, no spam.",

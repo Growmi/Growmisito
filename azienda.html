@@ -3579,8 +3579,9 @@
   // ---- Eventi passati (assets/events-data.js, non collegati al KV) — le 3 voci già live sul
   // sito, usate come stato iniziale finché non viene salvato un override. draft/url non sono
   // modificabili qui (sono legati al codice/alla pagina HTML della pagina).
+  // "miseducation" TOLTO da qui apposta: non è un evento passato, è quello nuovo del 10 settembre
+  // — si gestisce dal pannello Eventi normale (dove ha già la spunta Pubblicato), non da qui.
   var LEGACY_EVENTS_DEFAULTS = [
-    { slug: 'miseducation', draft: true, title: 'The Miseducation of GrowMI', tag: 'GIO 10 SETT 2026 · APERTURA 19:00', location: 'Art Mall Milano · Milano', dateIso: '2026-09-10', coverKey: null },
     { slug: 'art-mall', draft: false, title: 'The Art of Being Yourself', tag: '4 GIUGNO 2026', location: 'Art Mall · Milano', dateIso: '2026-06-04', coverKey: 'assets/img/eventi/art-mall-collab/01.jpg' },
     { slug: 'grow-with-us', draft: false, title: 'Grow With Us', tag: '6 MAGGIO 2025', location: 'Black (by Mixum) · Milano', dateIso: '2025-05-06', coverKey: 'assets/img/eventi/grow-with-us/01.jpg' }
   ];

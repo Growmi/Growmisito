@@ -36,6 +36,17 @@
     return "€" + (cents / 100).toLocaleString("it-IT", { minimumFractionDigits: cents % 100 ? 2 : 0, maximumFractionDigits: 2 });
   }
 
+  // Il testo dei bottoni/badge è generato da JS (non è markup statico con data-i18n già in
+  // pagina), quindi va tradotto a mano qui — legge la lingua corrente esattamente come fa
+  // growmiApplyLang() in assets/i18n.js. Aggiunge comunque data-i18n sull'elemento creato, così
+  // un cambio lingua DOPO che i biglietti sono già stati disegnati li aggiorna lo stesso, senza
+  // dover ridisegnare la lista.
+  function et_t(key, fallback){
+    var lang = document.documentElement.getAttribute("lang") || "it";
+    var dict = (typeof GROWMI_I18N !== "undefined" && GROWMI_I18N[lang]) || {};
+    return dict[key] !== undefined ? dict[key] : fallback;
+  }
+
   function initOne(root){
     var slug = root.dataset.event;
     var tierList = root.querySelector("[data-et-tier-list]");
@@ -57,19 +68,16 @@
       data.tiers.forEach(function(tier){
         var row = document.createElement("div");
         // Le tre fasce restano sempre visibili (mai nascoste dalla lista): quella esaurita
-        // mostra "Esauriti", quelle future sono visibili ma non selezionabili e senza prezzo
-        // (si sblocca prezzo + acquisto solo quando diventano la fascia attiva).
+        // mostra "Esauriti"/"Sold out", quelle future "Non disponibile"/"Not available" — stesso
+        // badge singolo per tutta la riga in entrambi i casi, invece di un bottone disabilitato
+        // per ogni opzione con solo un trattino al posto del prezzo.
         var optionsHtml;
         if (tier.soldOut) {
           row.className = "et-tier-row et-sold-out";
-          optionsHtml = '<span class="et-sold-out-badge">Esauriti</span>';
+          optionsHtml = '<span class="et-sold-out-badge" data-i18n="et_soldout">' + et_t("et_soldout", "Esauriti") + '</span>';
         } else if (!tier.active) {
           row.className = "et-tier-row et-upcoming";
-          optionsHtml = tier.options.map(function(o){
-            return '<button type="button" class="et-tier-btn" disabled>' +
-              '<span class="et-tier-btn-label">' + o.label + '</span><span class="et-tier-btn-price">&mdash;</span>' +
-            '</button>';
-          }).join("");
+          optionsHtml = '<span class="et-sold-out-badge" data-i18n="et_unavailable">' + et_t("et_unavailable", "Presto in vendita") + '</span>';
         } else {
           row.className = "et-tier-row";
           optionsHtml = tier.options.map(function(o){
