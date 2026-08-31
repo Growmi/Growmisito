@@ -1300,7 +1300,7 @@ function eventPageHTML(event, slug) {
 
 ${coverBlock}
 
-<section class="ed-section-tight">
+<section class="ed-section-tight" style="background:var(--purple-deep); color:var(--cream);">
   <div class="wrap">
     <div class="ed-head">
       <p class="ed-eyebrow">Biglietti</p>
@@ -6222,6 +6222,11 @@ async function trackPageView(env, pathname) {
     const key = `analytics:day:${day}`;
     const raw = await env.TICKETS.get(key);
     const rec = raw ? JSON.parse(raw) : { total: 0, pages: {} };
+    // Marca il record come "campionato" — i giorni scritti PRIMA che esistesse il campionamento
+    // (o mai toccati oggi) non hanno questo campo, e in lettura NON vanno moltiplicati per 4: sono
+    // già un conteggio vero. Senza questa distinzione, un giorno vecchio da 72 visite reali
+    // risultava mostrato come 288 (72×4) — bug scoperto proprio da un numero che non tornava.
+    rec.sampled = true;
     rec.total = (rec.total || 0) + 1;
     if (rec.pages[pathname] !== undefined || Object.keys(rec.pages).length < ANALYTICS_MAX_PATHS_PER_DAY) {
       rec.pages[pathname] = (rec.pages[pathname] || 0) + 1;
@@ -6250,18 +6255,19 @@ async function handleAdminGetAnalytics(request, env) {
 
   const records = await Promise.all(dates.map(function(date){ return env.TICKETS.get(`analytics:day:${date}`); }));
   const pageTotals = {};
-  // Riscalato per il campionamento (vedi ANALYTICS_SAMPLE_RATE) — quello salvato è 1 visita su 4,
-  // qui si stima il vero totale moltiplicando per 4, arrotondato.
+  // Riscalato SOLO sui giorni marcati "sampled" (vedi trackPageView) — un giorno vecchio, scritto
+  // prima che esistesse il campionamento, è già un conteggio vero e non va moltiplicato per 4.
   const daysOut = dates.map(function(date, i){
     const rec = records[i] ? JSON.parse(records[i]) : { total: 0, pages: {} };
+    const scale = rec.sampled ? (1 / ANALYTICS_SAMPLE_RATE) : 1;
     for (const path of Object.keys(rec.pages || {})) {
-      pageTotals[path] = (pageTotals[path] || 0) + rec.pages[path];
+      pageTotals[path] = (pageTotals[path] || 0) + Math.round(rec.pages[path] * scale);
     }
-    return { date, total: Math.round((rec.total || 0) / ANALYTICS_SAMPLE_RATE) };
+    return { date, total: Math.round((rec.total || 0) * scale) };
   });
 
   const topPages = Object.keys(pageTotals)
-    .map(function(path){ return { path, count: Math.round(pageTotals[path] / ANALYTICS_SAMPLE_RATE) }; })
+    .map(function(path){ return { path, count: pageTotals[path] }; })
     .sort(function(a, b){ return b.count - a.count; })
     .slice(0, 15);
 

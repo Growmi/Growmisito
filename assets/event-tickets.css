@@ -12,19 +12,19 @@
   width:100%; padding:13px 15px; border-radius:10px; border:1.5px solid rgba(255,255,255,.18);
   background:rgba(255,255,255,.05); color:#fff; font-family:var(--font-body); font-size:14.5px;
 }
-.et-reg-field input:focus{ outline:none; border-color:#E7222E; }
+.et-reg-field input:focus{ outline:none; border-color:var(--coral); }
 .et-reg-phone-group{ display:flex; gap:8px; }
 .et-reg-phone-group select{
   flex:0 0 110px; padding:13px 8px; border-radius:10px; border:1.5px solid rgba(255,255,255,.18);
   background:rgba(255,255,255,.05); color:#fff; font-family:var(--font-body); font-size:14.5px;
 }
-.et-reg-phone-group select:focus{ outline:none; border-color:#E7222E; }
+.et-reg-phone-group select:focus{ outline:none; border-color:var(--coral); }
 .et-reg-phone-group input{ flex:1; min-width:0; }
 .et-reg-checkbox{ display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#C9C4D1; line-height:1.5; }
-.et-reg-checkbox input{ margin-top:3px; flex-shrink:0; width:16px; height:16px; accent-color:#E7222E; }
+.et-reg-checkbox input{ margin-top:3px; flex-shrink:0; width:16px; height:16px; accent-color:var(--coral); }
 .et-reg-checkbox strong{ color:#fff; }
 .et-reg-status{ font-family:var(--font-body); font-size:13.5px; color:#7CE38B; margin:0; }
-.et-reg-status.is-error{ color:#E7222E; }
+.et-reg-status.is-error{ color:var(--coral); }
 
 .et-tier-list{ display:flex; flex-direction:column; gap:12px; max-width:640px; margin-top:14px; }
 .et-tier-row{
@@ -39,15 +39,15 @@
 .et-tier-options{ display:flex; gap:10px; flex-wrap:wrap; }
 .et-tier-btn{
   display:flex; flex-direction:column; align-items:flex-start; gap:2px; padding:10px 16px;
-  border-radius:10px; border:none; background:#E7222E; cursor:pointer; transition:background .15s ease, transform .15s ease;
+  border-radius:10px; border:none; background:var(--coral); cursor:pointer; transition:background .15s ease, transform .15s ease;
 }
-.et-tier-btn:hover{ background:#c81a25; transform:translateY(-2px); }
+.et-tier-btn:hover{ background:#E0552B; transform:translateY(-2px); }
 .et-tier-btn:disabled{ background:rgba(255,255,255,.08); cursor:default; transform:none; }
 .et-tier-btn-label{ font-family:var(--font-body); font-weight:600; font-size:13px; color:#fff; }
 .et-tier-btn-price{ font-family:var(--font-heading); font-weight:700; font-size:15px; color:#fff; }
 .et-sold-out-badge{
   font-family:var(--font-heading); font-weight:700; font-size:12px; text-transform:uppercase;
-  letter-spacing:.04em; color:#E7222E; padding:8px 14px;
+  letter-spacing:.04em; color:var(--coral); padding:8px 14px;
 }
 .et-tickets-note{ font-family:var(--font-body); font-size:13px; color:#9C96A6; margin-top:16px; }
 
