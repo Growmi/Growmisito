@@ -3,12 +3,14 @@
 
 /* Tema "scuro" opzionale per la pagina evento (checkbox "darkTheme" nel pannello) — stesso stile
    Y2K/graffiti nato per "the-miseducation-of-growmi.html" (assets/event-miseducation.css), portato
-   qui con classi generiche così qualsiasi evento dinamico può usarlo, non solo quella pagina. I
-   colori (rosso/blu/giallo) sono voluti così come sono, non i colori standard del brand — è lo
-   stile "moodboard" specifico di questo tipo di evento. */
+   qui con classi generiche così qualsiasi evento dinamico può usarlo, non solo quella pagina. I due
+   colori accento (rosso/blu di default) sono personalizzabili per evento — vedi --ed-accent1/2,
+   impostate da eventPageHTML() in un <style> in testa alla pagina quando l'evento ha
+   accentColor/accentColor2 salvati, altrimenti restano questi default. Giallo (label/eyebrow) e
+   bianco/nero restano fissi: sono la base strutturale del tema, non il suo "mood" variabile. */
 .ed-dark-hero{
   background:#0A0A0A; color:#fff; position:relative; overflow:hidden;
-  padding:100px 0 90px; border-bottom:6px solid #E7222E;
+  padding:100px 0 90px; border-bottom:6px solid var(--ed-accent1, #E7222E);
   min-height:100vh; min-height:100dvh; display:flex; align-items:center; box-sizing:border-box;
 }
 .ed-dark-hero > .wrap{ width:100%; }
@@ -20,8 +22,8 @@
 .ed-dark-hero::after{
   content:""; position:absolute; top:-40%; right:-10%; width:60%; height:180%;
   background:
-    linear-gradient(120deg, transparent 40%, rgba(37,82,255,0.35) 41%, rgba(37,82,255,0.35) 46%, transparent 47%),
-    linear-gradient(120deg, transparent 55%, rgba(231,34,46,0.35) 56%, rgba(231,34,46,0.35) 61%, transparent 62%);
+    linear-gradient(120deg, transparent 40%, color-mix(in srgb, var(--ed-accent2, #2452FF) 35%, transparent) 41%, color-mix(in srgb, var(--ed-accent2, #2452FF) 35%, transparent) 46%, transparent 47%),
+    linear-gradient(120deg, transparent 55%, color-mix(in srgb, var(--ed-accent1, #E7222E) 35%, transparent) 56%, color-mix(in srgb, var(--ed-accent1, #E7222E) 35%, transparent) 61%, transparent 62%);
   pointer-events:none;
 }
 .ed-dark-wrap{ position:relative; z-index:2; }
@@ -38,7 +40,7 @@
 .ed-dark-title{
   font-family:var(--font-heading); font-weight:700; text-transform:uppercase;
   font-size:clamp(38px,7.4vw,92px); line-height:0.96; letter-spacing:-0.01em;
-  max-width:900px; color:#fff; text-shadow:4px 4px 0 #E7222E, 8px 8px 0 #2452FF;
+  max-width:900px; color:#fff; text-shadow:4px 4px 0 var(--ed-accent1, #E7222E), 8px 8px 0 var(--ed-accent2, #2452FF);
 }
 .ed-dark-lead{ color:#C9C4CF; max-width:520px; margin-top:14px; font-size:16px; }
 .ed-dark-actions{ display:flex; gap:14px; margin-top:34px; flex-wrap:wrap; }
@@ -55,7 +57,7 @@
 @media (max-width:460px){ .ed-dark-infobar .wrap{ grid-template-columns:1fr; } }
 
 .ed-dark-section{ background:#0A0A0A; color:#fff; padding:80px 0; }
-.ed-dark-section .ed-eyebrow{ color:#E7222E; }
+.ed-dark-section .ed-eyebrow{ color:var(--ed-accent1, #E7222E); }
 .ed-dark-section h2{ color:#fff; }
 .ed-dark-section p{ color:#C9C4CF; }
 
@@ -67,7 +69,7 @@
 }
 .ed-lineup-card h3{ color:#fff; margin-bottom:4px; }
 .ed-lineup-card .time{
-  font-family:var(--font-heading); font-weight:700; font-size:13px; color:#E7222E;
+  font-family:var(--font-heading); font-weight:700; font-size:13px; color:var(--ed-accent1, #E7222E);
   margin-bottom:10px; display:block;
 }
 .ed-lineup-card p{ color:#C9C4CF; font-size:14px; margin:0; }

@@ -1302,6 +1302,7 @@ function eventPageHTML(event, slug) {
 <link rel="stylesheet" href="/assets/redesign.css">
 <link rel="stylesheet" href="/assets/interactive.css">
 <link rel="stylesheet" href="/assets/event-tickets.css">
+${(darkTheme && (event.accentColor || event.accentColor2)) ? `<style>:root{ ${event.accentColor ? `--ed-accent1:${event.accentColor};` : ""} ${event.accentColor2 ? `--ed-accent2:${event.accentColor2};` : ""} }</style>` : ""}
 </head>
 <body>
 
@@ -4873,6 +4874,12 @@ function validateEventPayload(body, existingTiers, sold) {
   const advisorySub = String(body.advisorySub || "").trim().slice(0, 100);
   const doorsTime = String(body.doorsTime || "").trim().slice(0, 30);
   const dressCode = String(body.dressCode || "").trim().slice(0, 60);
+  // Colori accento del tema scuro (glitch titolo, bordo hero, orario lineup) — facoltativi,
+  // ricadono sul rosso/blu originali se non impostati o non un colore esadecimale valido (mai
+  // passare un valore non validato dentro un <style>, anche se qui è solo staff autenticato).
+  const isHex = function(v){ return /^#[0-9a-fA-F]{6}$/.test(String(v || "")); };
+  const accentColor = isHex(body.accentColor) ? body.accentColor : "";
+  const accentColor2 = isHex(body.accentColor2) ? body.accentColor2 : "";
   const inputBlocks = Array.isArray(body.contentBlocks) ? body.contentBlocks : [];
   const contentBlocks = [];
   for (const raw of inputBlocks) {
@@ -4897,7 +4904,7 @@ function validateEventPayload(body, existingTiers, sold) {
     }
   }
 
-  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder, darkTheme, advisoryLabel, advisorySub, doorsTime, dressCode, contentBlocks } };
+  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder, darkTheme, advisoryLabel, advisorySub, doorsTime, dressCode, accentColor, accentColor2, contentBlocks } };
 }
 
 // image/gif incluso apposta per le newsletter: un GIF animato è l'unico modo che parte da solo e
