@@ -5287,7 +5287,7 @@
 
   function evNewBlock(type){
     var id = 'eb' + (++evBlockIdSeq) + '_' + Date.now();
-    if (type === 'lineup') return { id: id, type: 'lineup', role: '', name: '', time: '', desc: '', photoKey: null, color: '' };
+    if (type === 'lineup') return { id: id, type: 'lineup', role: '', name: '', time: '', desc: '', photoKey: null, roleColor: '', timeColor: '' };
     if (type === 'heading') return { id: id, type: 'heading', text: '', color: '' };
     if (type === 'image') return { id: id, type: 'image', key: null, width: 100 };
     if (type === 'button') return { id: id, type: 'button', label: 'Scopri di più', url: '', color: '' };
@@ -5311,7 +5311,8 @@
           '<input type="file" class="ev-block-photo-input" accept="image/jpeg,image/png,image/webp,image/gif">' +
           (block.photoKey ? '<button type="button" class="az-mini-btn danger ev-block-photo-remove" style="margin-top:6px;">Rimuovi</button>' : '') +
         '</div>' +
-        evColorFieldHtml('ev-block-color', 'Colore ruolo/orario (facoltativo)');
+        evColorFieldHtml('roleColor', 'Colore ruolo (facoltativo)') +
+        evColorFieldHtml('timeColor', 'Colore orario (facoltativo)');
       var roleI = container.querySelector('.ev-block-role'), nameI = container.querySelector('.ev-block-name'), timeI = container.querySelector('.ev-block-time'), descI = container.querySelector('.ev-block-desc');
       roleI.value = block.role || ''; nameI.value = block.name || ''; timeI.value = block.time || ''; descI.value = block.desc || '';
       roleI.addEventListener('input', function(){ block.role = roleI.value; });
@@ -5329,15 +5330,16 @@
       });
       var removeBtn = container.querySelector('.ev-block-photo-remove');
       if (removeBtn) removeBtn.addEventListener('click', function(){ block.photoKey = null; renderEvBlockBody(container, block); });
-      wireEvColorField(container, block);
+      wireEvColorField(container, block, 'roleColor');
+      wireEvColorField(container, block, 'timeColor');
     } else if (block.type === 'heading') {
       container.innerHTML =
         '<input type="text" class="ev-block-heading" placeholder="Titolo sezione (es. Chi sale sul palco)" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
-        evColorFieldHtml('ev-block-color', 'Colore titolo (facoltativo)');
+        evColorFieldHtml('color', 'Colore titolo (facoltativo)');
       var hInput = container.querySelector('input.ev-block-heading');
       hInput.value = block.text || '';
       hInput.addEventListener('input', function(){ block.text = hInput.value; });
-      wireEvColorField(container, block);
+      wireEvColorField(container, block, 'color');
     } else if (block.type === 'text') {
       container.innerHTML =
         '<div class="az-nl-editor-toolbar">' +
@@ -5347,7 +5349,7 @@
           '<button type="button" data-cmd="link" title="Link">🔗</button>' +
         '</div>' +
         '<div class="az-nl-block-text ev-block-text" contenteditable="true"></div>' +
-        evColorFieldHtml('ev-block-color', 'Colore testo (facoltativo)');
+        evColorFieldHtml('color', 'Colore testo (facoltativo)');
       var editor = container.querySelector('.ev-block-text');
       editor.innerHTML = block.html || '';
       editor.addEventListener('input', function(){ block.html = editor.innerHTML; });
@@ -5365,7 +5367,7 @@
           block.html = editor.innerHTML;
         });
       });
-      wireEvColorField(container, block);
+      wireEvColorField(container, block, 'color');
     } else if (block.type === 'image') {
       var widthOptions = [[100, 'Larghezza intera'], [50, 'Metà'], [33, 'Un terzo']];
       container.innerHTML =
@@ -5405,7 +5407,7 @@
           '<input type="text" class="ev-block-btn-label" placeholder="Testo del bottone" style="flex:1; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
           '<input type="text" class="ev-block-btn-url" placeholder="https://growmi.it/..." style="flex:1; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
         '</div>' +
-        evColorFieldHtml('ev-block-color', 'Colore bottone (facoltativo)');
+        evColorFieldHtml('color', 'Colore bottone (facoltativo)');
       var labelInput = container.querySelector('.ev-block-btn-label');
       var urlInput = container.querySelector('.ev-block-btn-url');
       labelInput.value = block.label || '';
@@ -5413,7 +5415,7 @@
       labelInput.addEventListener('input', function(){ block.label = labelInput.value; });
       urlInput.addEventListener('input', function(){ block.url = urlInput.value; });
       urlInput.addEventListener('blur', function(){ block.url = normalizeNlUrl(urlInput.value); urlInput.value = block.url; });
-      wireEvColorField(container, block);
+      wireEvColorField(container, block, 'color');
     } else if (block.type === 'spacer') {
       container.innerHTML =
         '<label style="font-size:11px; color:var(--grey);">Altezza: <span class="ev-spacer-val">' + (block.height || 24) + '</span>px</label>' +
@@ -5429,18 +5431,21 @@
     }
   }
 
-  function evColorFieldHtml(cls, label){
+  // field: nome della proprietà su block (es. 'color', 'roleColor', 'timeColor') — un blocco può
+  // averne più di uno (il lineup ha ruolo e orario colorabili separatamente), quindi ogni coppia
+  // di controlli è scoperta tramite classi unite al nome del campo, non una classe fissa condivisa.
+  function evColorFieldHtml(field, label){
     return '<div class="az-u-row10 az-u-mt10" style="align-items:center;">' +
       '<label style="font-size:11px; color:var(--grey); flex:1;">' + label + '</label>' +
-      '<input type="color" class="' + cls + '" style="width:44px; height:32px; padding:2px; border-radius:6px; border:1.5px solid var(--line);">' +
-      '<button type="button" class="az-mini-btn ev-block-color-clear">Predefinito</button>' +
+      '<input type="color" class="ev-color-' + field + '" style="width:44px; height:32px; padding:2px; border-radius:6px; border:1.5px solid var(--line);">' +
+      '<button type="button" class="az-mini-btn ev-color-clear-' + field + '">Predefinito</button>' +
     '</div>';
   }
-  function wireEvColorField(container, block){
-    var colorInput = container.querySelector('.ev-block-color');
-    colorInput.value = block.color || '#ffffff';
-    colorInput.addEventListener('input', function(){ block.color = colorInput.value; });
-    container.querySelector('.ev-block-color-clear').addEventListener('click', function(){ block.color = ''; renderEvBlockBody(container, block); });
+  function wireEvColorField(container, block, field){
+    var colorInput = container.querySelector('.ev-color-' + field);
+    colorInput.value = block[field] || '#ffffff';
+    colorInput.addEventListener('input', function(){ block[field] = colorInput.value; });
+    container.querySelector('.ev-color-clear-' + field).addEventListener('click', function(){ block[field] = ''; renderEvBlockBody(container, block); });
   }
 
   function renderEventBlocks(){

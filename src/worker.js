@@ -1277,9 +1277,9 @@ function eventPageHTML(event, slug) {
         lineupBuffer.push(
           `<div class="ed-lineup-card">` +
             (b.photoKey ? `<div class="ed-lineup-photo"><img src="${mediaUrl(b.photoKey)}" alt="${b.name}" loading="lazy"></div>` : "") +
-            (b.role ? `<span class="role"${b.color ? ` style="color:${b.color};"` : ""}>${b.role}</span>` : "") +
+            (b.role ? `<span class="role"${b.roleColor ? ` style="color:${b.roleColor};"` : ""}>${b.role}</span>` : "") +
             `<h3>${b.name}</h3>` +
-            (b.time ? `<span class="time"${b.color ? ` style="color:${b.color};"` : ""}>${b.time}</span>` : "") +
+            (b.time ? `<span class="time"${b.timeColor ? ` style="color:${b.timeColor};"` : ""}>${b.time}</span>` : "") +
             (b.desc ? `<p>${b.desc}</p>` : "") +
           `</div>`
         );
@@ -4921,7 +4921,8 @@ function validateEventPayload(body, existingTiers, sold) {
         time: String(raw.time || "").trim().slice(0, 100),
         desc: String(raw.desc || "").trim().slice(0, 500),
         photoKey: String(raw.photoKey || "").trim() || null,
-        color: isHex(raw.color) ? raw.color : null
+        roleColor: isHex(raw.roleColor) ? raw.roleColor : null,
+        timeColor: isHex(raw.timeColor) ? raw.timeColor : null
       });
     } else if (type === "heading") {
       const text = String(raw.text || "").trim().slice(0, 200);
