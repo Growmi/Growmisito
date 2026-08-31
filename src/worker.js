@@ -1211,6 +1211,7 @@ async function handlePublicEvents(request, env) {
       slug, name: event.name, dateDisplay: event.dateDisplay, dateIso: event.dateIso,
       location: event.location, teaser: event.teaser || "",
       heroImageUrl: mediaUrl(event.heroImageKey), coverImageUrl: mediaUrl(event.coverImageKey),
+      coverImagePosition: event.coverPosition || "center", coverImageZoom: event.coverZoom || 1,
       sortOrder: typeof event.sortOrder === "number" ? event.sortOrder : null,
       pageUrl: `/evento/${slug}`
     });
@@ -1233,7 +1234,7 @@ function eventPageHTML(event, slug) {
     ? `<img class="ed-dark-hero-photo" src="${mediaUrl(event.heroImageKey)}" alt="" style="${photoFramingStyle(event.heroPosition, event.heroZoom)}">`
     : "";
   const coverBlock = event.coverImageKey
-    ? `<section class="ed-section-tight"><div class="wrap"><div class="ed-poster-feature"><img class="ed-poster-img" src="${mediaUrl(event.coverImageKey)}" alt="${event.name}"></div></div></section>`
+    ? `<section class="ed-section-tight"><div class="wrap"><div class="ed-poster-feature"><img class="ed-poster-img" src="${mediaUrl(event.coverImageKey)}" alt="${event.name}" style="${photoFramingStyle(event.coverPosition, event.coverZoom)}"></div></div></section>`
     : "";
   const galleryItems = (event.gallery || []).map(function(key){
     return `<div class="ed-gallery-item"><img src="${mediaUrl(key)}" alt="${event.name}" loading="lazy"></div>`;
@@ -4877,6 +4878,8 @@ function validateEventPayload(body, existingTiers, sold) {
   const heroPosition = String(body.heroPosition || "center").trim().slice(0, 30);
   const heroZoom = clampImageZoom(body.heroZoom);
   const coverImageKey = String(body.coverImageKey || "").trim() || null;
+  const coverPosition = String(body.coverPosition || "center").trim().slice(0, 30);
+  const coverZoom = clampImageZoom(body.coverZoom);
   const gallery = Array.isArray(body.gallery)
     ? body.gallery.map(function(k){ return String(k || "").trim(); }).filter(Boolean).slice(0, 40)
     : [];
@@ -4959,7 +4962,7 @@ function validateEventPayload(body, existingTiers, sold) {
     }
   }
 
-  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder, darkTheme, advisoryLabel, advisorySub, doorsTime, dressCode, accentColor, accentColor2, bgColor, leadColor, ticketBgColor, textureDots, textureStripes, contentBlocks } };
+  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder, darkTheme, advisoryLabel, advisorySub, doorsTime, dressCode, accentColor, accentColor2, bgColor, leadColor, ticketBgColor, textureDots, textureStripes, contentBlocks, coverPosition, coverZoom } };
 }
 
 // image/gif incluso apposta per le newsletter: un GIF animato è l'unico modo che parte da solo e

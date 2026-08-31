@@ -803,6 +803,7 @@
             <div class="az-image-preview" id="az-ev-cover-preview">Nessuna immagine</div>
             <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-ev-cover-input">
             <button type="button" class="az-mini-btn danger" id="az-ev-cover-remove" hidden>Rimuovi</button>
+            <div id="az-ev-cover-framing"></div>
           </div>
 
           <div>
@@ -3083,6 +3084,7 @@
   var evHeroKey = null;
   var evHeroFraming = { position: 'center', zoom: 1 };
   var evCoverKey = null;
+  var evCoverFraming = { position: 'center', zoom: 1 };
   var evGallery = [];
 
   function imagePreviewHTML(key){
@@ -3097,8 +3099,12 @@
     else framingWrap.innerHTML = '';
   }
   function renderCoverPreview(){
-    document.getElementById('az-ev-cover-preview').innerHTML = imagePreviewHTML(evCoverKey);
+    var box = document.getElementById('az-ev-cover-preview');
+    box.innerHTML = imagePreviewHTML(evCoverKey);
     document.getElementById('az-ev-cover-remove').hidden = !evCoverKey;
+    var framingWrap = document.getElementById('az-ev-cover-framing');
+    if (evCoverKey) renderFramingControls(framingWrap, box.querySelector('img'), evCoverFraming);
+    else framingWrap.innerHTML = '';
   }
   function renderGalleryGrid(){
     var grid = document.getElementById('az-ev-gallery');
@@ -5575,6 +5581,7 @@
     evHeroKey = event ? (event.heroImageKey || null) : null;
     evHeroFraming = { position: (event && event.heroPosition) || 'center', zoom: (event && event.heroZoom) || 1 };
     evCoverKey = event ? (event.coverImageKey || null) : null;
+    evCoverFraming = { position: (event && event.coverPosition) || 'center', zoom: (event && event.coverZoom) || 1 };
     evGallery = event ? (event.gallery || []).slice() : [];
     renderHeroPreview();
     renderCoverPreview();
@@ -5665,6 +5672,8 @@
       heroPosition: evHeroFraming.position,
       heroZoom: evHeroFraming.zoom,
       coverImageKey: evCoverKey,
+      coverPosition: evCoverFraming.position,
+      coverZoom: evCoverFraming.zoom,
       gallery: evGallery,
       published: document.getElementById('az-ev-published').checked,
       darkTheme: evDarkThemeCheckbox.checked,
