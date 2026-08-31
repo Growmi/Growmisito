@@ -5291,18 +5291,35 @@
   function renderEvBlockBody(container, block){
     if (block.type === 'lineup') {
       container.innerHTML =
-        '<div class="az-u-row10">' +
+        '<input type="text" class="ev-block-name" placeholder="Nome artista" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+        '<div class="az-u-row10 az-u-mt10">' +
           '<input type="text" class="ev-block-role" placeholder=\'Ruolo (es. "Live graffiti")\' style="flex:1; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
-          '<input type="text" class="ev-block-time" placeholder="Orario (es. 19:00 – 23:30)" style="flex:1; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<input type="text" class="ev-block-time" placeholder="Orario (facoltativo, es. 19:00 – 23:30)" style="flex:1; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
         '</div>' +
-        '<input type="text" class="ev-block-name az-u-mt10" placeholder="Nome artista" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
-        '<textarea class="ev-block-desc az-u-mt10" placeholder="Descrizione (facoltativa)" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line); min-height:60px; font-family:inherit; resize:vertical;"></textarea>';
+        '<textarea class="ev-block-desc az-u-mt10" placeholder="Descrizione (facoltativa)" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line); min-height:60px; font-family:inherit; resize:vertical;"></textarea>' +
+        '<div class="az-u-mt10">' +
+          '<label class="az-u-label13">Foto card</label>' +
+          '<div class="az-image-preview ev-block-photo-preview" style="aspect-ratio:1/1; max-width:160px;">' + (block.photoKey ? '<img src="' + mediaSrc(block.photoKey) + '" alt="">' : 'Nessuna immagine') + '</div>' +
+          '<input type="file" class="ev-block-photo-input" accept="image/jpeg,image/png,image/webp,image/gif">' +
+          (block.photoKey ? '<button type="button" class="az-mini-btn danger ev-block-photo-remove" style="margin-top:6px;">Rimuovi</button>' : '') +
+        '</div>';
       var roleI = container.querySelector('.ev-block-role'), nameI = container.querySelector('.ev-block-name'), timeI = container.querySelector('.ev-block-time'), descI = container.querySelector('.ev-block-desc');
       roleI.value = block.role || ''; nameI.value = block.name || ''; timeI.value = block.time || ''; descI.value = block.desc || '';
       roleI.addEventListener('input', function(){ block.role = roleI.value; });
       nameI.addEventListener('input', function(){ block.name = nameI.value; });
       timeI.addEventListener('input', function(){ block.time = timeI.value; });
       descI.addEventListener('input', function(){ block.desc = descI.value; });
+      container.querySelector('.ev-block-photo-input').addEventListener('change', async function(){
+        var file = this.files[0];
+        this.value = '';
+        if (!file) return;
+        try {
+          block.photoKey = await uploadArtistMediaGeneric(file, 'lineup', evUploadSlug, 'events');
+          renderEvBlockBody(container, block);
+        } catch (err) { alert(err.message); }
+      });
+      var removeBtn = container.querySelector('.ev-block-photo-remove');
+      if (removeBtn) removeBtn.addEventListener('click', function(){ block.photoKey = null; renderEvBlockBody(container, block); });
     } else if (block.type === 'heading') {
       container.innerHTML = '<input type="text" class="ev-block-heading" placeholder="Titolo sezione (es. Chi sale sul palco)" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">';
       var hInput = container.querySelector('input');

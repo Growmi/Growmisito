@@ -1270,6 +1270,7 @@ function eventPageHTML(event, slug) {
       if (b.type === "lineup") {
         lineupBuffer.push(
           `<div class="ed-lineup-card">` +
+            (b.photoKey ? `<div class="ed-lineup-photo"><img src="${mediaUrl(b.photoKey)}" alt="${b.name}" loading="lazy"></div>` : "") +
             (b.role ? `<span class="role">${b.role}</span>` : "") +
             `<h3>${b.name}</h3>` +
             (b.time ? `<span class="time">${b.time}</span>` : "") +
@@ -4893,7 +4894,8 @@ function validateEventPayload(body, existingTiers, sold) {
         role: String(raw.role || "").trim().slice(0, 60),
         name,
         time: String(raw.time || "").trim().slice(0, 100),
-        desc: String(raw.desc || "").trim().slice(0, 500)
+        desc: String(raw.desc || "").trim().slice(0, 500),
+        photoKey: String(raw.photoKey || "").trim() || null
       });
     } else if (type === "heading") {
       const text = String(raw.text || "").trim().slice(0, 200);
