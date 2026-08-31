@@ -787,21 +787,6 @@
             <p style="font-size:12px; color:var(--grey); margin-top:4px;">Numero più basso = più in alto/prima, tra prossimi e passati separatamente. Solo chi ha un numero salta l'ordine per data.</p>
           </div>
 
-          <p class="az-group-label">Biglietti e feedback</p>
-          <div>
-            <label class="az-u-label13">Fasce biglietti</label>
-            <p class="az-u-hint10">I prezzi qui sotto sono netti (quello che incassi tu) — sul sito il cliente paga un po' di più, la commissione Stripe stimata si aggiunge in automatico al checkout.</p>
-            <div id="az-ev-tiers"></div>
-            <button type="button" class="az-mini-btn" id="az-ev-add-tier">+ Aggiungi fascia</button>
-          </div>
-
-          <div>
-            <label class="az-u-label13">Opzioni feedback ("cosa ti è piaciuto")</label>
-            <p class="az-u-hint10">Compaiono come checkbox nel form di feedback per questo evento. Facoltative: se non ne aggiungi, il form mostra un campo di testo libero.</p>
-            <div id="az-ev-feedback-options"></div>
-            <button type="button" class="az-mini-btn" id="az-ev-add-feedback-option">+ Aggiungi opzione</button>
-          </div>
-
           <p class="az-group-label">Immagini</p>
           <div>
             <label class="az-u-label13">Immagine hero</label>
@@ -864,8 +849,27 @@
                 <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="lineup">+ Artista lineup</button>
                 <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="heading">+ Titolo</button>
                 <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="text">+ Testo</button>
+                <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="image">+ Immagine</button>
+                <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="button">+ Bottone</button>
+                <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="divider">+ Divisore</button>
+                <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="spacer">+ Spazio</button>
               </div>
             </div>
+          </div>
+
+          <p class="az-group-label">Biglietti e feedback</p>
+          <div>
+            <label class="az-u-label13">Fasce biglietti</label>
+            <p class="az-u-hint10">I prezzi qui sotto sono netti (quello che incassi tu) — sul sito il cliente paga un po' di più, la commissione Stripe stimata si aggiunge in automatico al checkout. Puoi lasciare il prezzo di un'opzione vuoto: la fascia resta pubblicabile e mostra "Presto in vendita" finché non torni a compilarlo.</p>
+            <div id="az-ev-tiers"></div>
+            <button type="button" class="az-mini-btn" id="az-ev-add-tier">+ Aggiungi fascia</button>
+          </div>
+
+          <div>
+            <label class="az-u-label13">Opzioni feedback ("cosa ti è piaciuto")</label>
+            <p class="az-u-hint10">Compaiono come checkbox nel form di feedback per questo evento. Facoltative: se non ne aggiungi, il form mostra un campo di testo libero.</p>
+            <div id="az-ev-feedback-options"></div>
+            <button type="button" class="az-mini-btn" id="az-ev-add-feedback-option">+ Aggiungi opzione</button>
           </div>
 
           <p class="az-group-label">Pubblicazione</p>
@@ -5279,13 +5283,17 @@
   var eventBlocks = [];
   var evBlockIdSeq = 0;
   var evDragFromIndex = null;
-  var EV_BLOCK_LABELS = { lineup: 'Artista lineup', heading: 'Titolo', text: 'Testo' };
+  var EV_BLOCK_LABELS = { lineup: 'Artista lineup', heading: 'Titolo', text: 'Testo', image: 'Immagine', button: 'Bottone', divider: 'Divisore', spacer: 'Spazio' };
 
   function evNewBlock(type){
     var id = 'eb' + (++evBlockIdSeq) + '_' + Date.now();
-    if (type === 'lineup') return { id: id, type: 'lineup', role: '', name: '', time: '', desc: '' };
-    if (type === 'heading') return { id: id, type: 'heading', text: '' };
-    return { id: id, type: 'text', text: '' };
+    if (type === 'lineup') return { id: id, type: 'lineup', role: '', name: '', time: '', desc: '', photoKey: null };
+    if (type === 'heading') return { id: id, type: 'heading', text: '', color: '' };
+    if (type === 'image') return { id: id, type: 'image', key: null, width: 100 };
+    if (type === 'button') return { id: id, type: 'button', label: 'Scopri di più', url: '', color: '' };
+    if (type === 'divider') return { id: id, type: 'divider' };
+    if (type === 'spacer') return { id: id, type: 'spacer', height: 24 };
+    return { id: id, type: 'text', html: '', color: '' };
   }
 
   function renderEvBlockBody(container, block){
@@ -5321,16 +5329,116 @@
       var removeBtn = container.querySelector('.ev-block-photo-remove');
       if (removeBtn) removeBtn.addEventListener('click', function(){ block.photoKey = null; renderEvBlockBody(container, block); });
     } else if (block.type === 'heading') {
-      container.innerHTML = '<input type="text" class="ev-block-heading" placeholder="Titolo sezione (es. Chi sale sul palco)" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">';
-      var hInput = container.querySelector('input');
+      container.innerHTML =
+        '<input type="text" class="ev-block-heading" placeholder="Titolo sezione (es. Chi sale sul palco)" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+        evColorFieldHtml('ev-block-color', 'Colore titolo (facoltativo)');
+      var hInput = container.querySelector('input.ev-block-heading');
       hInput.value = block.text || '';
       hInput.addEventListener('input', function(){ block.text = hInput.value; });
-    } else {
-      container.innerHTML = '<textarea class="ev-block-text" placeholder="Testo del paragrafo" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line); min-height:70px; font-family:inherit; resize:vertical;"></textarea>';
-      var tArea = container.querySelector('textarea');
-      tArea.value = block.text || '';
-      tArea.addEventListener('input', function(){ block.text = tArea.value; });
+      wireEvColorField(container, block);
+    } else if (block.type === 'text') {
+      container.innerHTML =
+        '<div class="az-nl-editor-toolbar">' +
+          '<button type="button" data-cmd="bold" title="Grassetto"><strong>B</strong></button>' +
+          '<button type="button" data-cmd="italic" title="Corsivo"><em>I</em></button>' +
+          '<button type="button" data-cmd="underline" title="Sottolineato"><u>U</u></button>' +
+          '<button type="button" data-cmd="link" title="Link">🔗</button>' +
+        '</div>' +
+        '<div class="az-nl-block-text ev-block-text" contenteditable="true"></div>' +
+        evColorFieldHtml('ev-block-color', 'Colore testo (facoltativo)');
+      var editor = container.querySelector('.ev-block-text');
+      editor.innerHTML = block.html || '';
+      editor.addEventListener('input', function(){ block.html = editor.innerHTML; });
+      container.querySelectorAll('.az-nl-editor-toolbar button').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          nlEditorEnsureCaret(editor);
+          var cmd = btn.getAttribute('data-cmd');
+          if (cmd === 'link'){
+            var url = prompt('Indirizzo del link (es. https://growmi.it/eventi):');
+            if (!url) return;
+            document.execCommand('createLink', false, normalizeNlUrl(url));
+          } else {
+            document.execCommand(cmd, false, null);
+          }
+          block.html = editor.innerHTML;
+        });
+      });
+      wireEvColorField(container, block);
+    } else if (block.type === 'image') {
+      var widthOptions = [[100, 'Larghezza intera'], [50, 'Metà'], [33, 'Un terzo']];
+      container.innerHTML =
+        '<div class="az-image-preview" style="aspect-ratio:16/9; max-width:' + (block.width || 100) + '%; margin:0 auto;">' + (block.key ? '<img src="' + mediaSrc(block.key) + '" alt="">' : 'Nessuna immagine') + '</div>' +
+        '<input type="file" class="ev-block-image-input" accept="image/jpeg,image/png,image/webp,image/gif">' +
+        (block.key ? '<button type="button" class="az-mini-btn danger ev-block-image-remove" style="margin-top:6px;">Rimuovi</button>' : '') +
+        (block.key ? (
+          '<div class="az-u-mt10">' +
+            '<label style="font-size:11px; color:var(--grey); display:block; margin-bottom:6px;">Dimensione</label>' +
+            '<div style="display:flex; gap:6px;">' +
+              widthOptions.map(function(o){
+                return '<button type="button" class="az-mini-btn ev-image-width-opt" data-width="' + o[0] + '"' + ((block.width || 100) === o[0] ? ' style="border-color:var(--coral);"' : '') + '>' + o[1] + '</button>';
+              }).join('') +
+            '</div>' +
+          '</div>'
+        ) : '');
+      container.querySelector('.ev-block-image-input').addEventListener('change', async function(){
+        var file = this.files[0];
+        this.value = '';
+        if (!file) return;
+        try {
+          block.key = await uploadArtistMediaGeneric(file, 'image', evUploadSlug, 'events');
+          renderEvBlockBody(container, block);
+        } catch (err) { alert(err.message); }
+      });
+      var imgRemoveBtn = container.querySelector('.ev-block-image-remove');
+      if (imgRemoveBtn) imgRemoveBtn.addEventListener('click', function(){ block.key = null; renderEvBlockBody(container, block); });
+      container.querySelectorAll('.ev-image-width-opt').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          block.width = Number(btn.getAttribute('data-width'));
+          renderEvBlockBody(container, block);
+        });
+      });
+    } else if (block.type === 'button') {
+      container.innerHTML =
+        '<div class="az-u-row10">' +
+          '<input type="text" class="ev-block-btn-label" placeholder="Testo del bottone" style="flex:1; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+          '<input type="text" class="ev-block-btn-url" placeholder="https://growmi.it/..." style="flex:1; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+        '</div>' +
+        evColorFieldHtml('ev-block-color', 'Colore bottone (facoltativo)');
+      var labelInput = container.querySelector('.ev-block-btn-label');
+      var urlInput = container.querySelector('.ev-block-btn-url');
+      labelInput.value = block.label || '';
+      urlInput.value = block.url || '';
+      labelInput.addEventListener('input', function(){ block.label = labelInput.value; });
+      urlInput.addEventListener('input', function(){ block.url = urlInput.value; });
+      urlInput.addEventListener('blur', function(){ block.url = normalizeNlUrl(urlInput.value); urlInput.value = block.url; });
+      wireEvColorField(container, block);
+    } else if (block.type === 'spacer') {
+      container.innerHTML =
+        '<label style="font-size:11px; color:var(--grey);">Altezza: <span class="ev-spacer-val">' + (block.height || 24) + '</span>px</label>' +
+        '<input type="range" min="8" max="120" class="ev-spacer-input">';
+      var range = container.querySelector('.ev-spacer-input');
+      range.value = block.height || 24;
+      range.addEventListener('input', function(){
+        block.height = Number(range.value);
+        container.querySelector('.ev-spacer-val').textContent = block.height;
+      });
+    } else if (block.type === 'divider') {
+      container.innerHTML = '<p style="font-size:12px; color:var(--grey); margin:0;">Una linea sottile separatrice — nessuna opzione.</p>';
     }
+  }
+
+  function evColorFieldHtml(cls, label){
+    return '<div class="az-u-row10 az-u-mt10" style="align-items:center;">' +
+      '<label style="font-size:11px; color:var(--grey); flex:1;">' + label + '</label>' +
+      '<input type="color" class="' + cls + '" style="width:44px; height:32px; padding:2px; border-radius:6px; border:1.5px solid var(--line);">' +
+      '<button type="button" class="az-mini-btn ev-block-color-clear">Predefinito</button>' +
+    '</div>';
+  }
+  function wireEvColorField(container, block){
+    var colorInput = container.querySelector('.ev-block-color');
+    colorInput.value = block.color || '#ffffff';
+    colorInput.addEventListener('input', function(){ block.color = colorInput.value; });
+    container.querySelector('.ev-block-color-clear').addEventListener('click', function(){ block.color = ''; renderEvBlockBody(container, block); });
   }
 
   function renderEventBlocks(){

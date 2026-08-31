@@ -1226,6 +1226,12 @@ function eventPageHTML(event, slug) {
   const heroImg = event.heroImageKey
     ? `<img class="ed-hero-photo" src="${mediaUrl(event.heroImageKey)}" alt="" style="${photoFramingStyle(event.heroPosition, event.heroZoom)}"><div class="ed-hero-video-overlay"></div>`
     : "";
+  // Stessa immagine hero anche nel tema scuro (era caricabile dal pannello ma non veniva mai
+  // usata) — sotto la texture a puntini e le strisce diagonali, con un velo scuro sopra così il
+  // titolo resta leggibile qualunque sia la foto.
+  const darkHeroImg = (darkTheme && event.heroImageKey)
+    ? `<img class="ed-dark-hero-photo" src="${mediaUrl(event.heroImageKey)}" alt="" style="${photoFramingStyle(event.heroPosition, event.heroZoom)}">`
+    : "";
   const coverBlock = event.coverImageKey
     ? `<section class="ed-section-tight"><div class="wrap"><div class="ed-poster-feature"><img class="ed-poster-img" src="${mediaUrl(event.coverImageKey)}" alt="${event.name}"></div></div></section>`
     : "";
@@ -1279,8 +1285,12 @@ function eventPageHTML(event, slug) {
         );
       } else {
         flushLineup();
-        if (b.type === "heading") html += `<div class="ed-head"><h2>${b.text}</h2></div>`;
-        else if (b.type === "text") html += `<p>${b.text}</p>`;
+        if (b.type === "heading") html += `<div class="ed-head"><h2${b.color ? ` style="color:${b.color};"` : ""}>${b.text}</h2></div>`;
+        else if (b.type === "text") html += `<div class="ed-block-text"${b.color ? ` style="color:${b.color};"` : ""}>${b.html}</div>`;
+        else if (b.type === "image") html += `<img src="${mediaUrl(b.key)}" alt="" style="width:${b.width}%; display:block; margin:0 auto 28px; border-radius:14px;">`;
+        else if (b.type === "button") html += `<p style="text-align:center; margin:28px 0;"><a class="btn coral" href="${b.url}"${b.color ? ` style="background:${b.color}; border-color:${b.color};"` : ""}>${b.label}</a></p>`;
+        else if (b.type === "divider") html += `<hr class="ed-block-divider">`;
+        else if (b.type === "spacer") html += `<div style="height:${b.height}px;"></div>`;
       }
     }
     flushLineup();
@@ -1344,6 +1354,7 @@ ${(darkTheme && (event.accentColor || event.accentColor2)) ? `<style>:root{ ${ev
 
 ${darkTheme ? `
 <section class="ed-dark-hero">
+  ${darkHeroImg}
   <div class="wrap ed-dark-wrap">
     ${advisoryBadge}
     <p class="ed-dark-eyebrow">${event.dateDisplay} · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">${event.location}</a></p>
@@ -4913,10 +4924,27 @@ function validateEventPayload(body, existingTiers, sold) {
       });
     } else if (type === "heading") {
       const text = String(raw.text || "").trim().slice(0, 200);
-      if (text) contentBlocks.push({ type: "heading", text });
+      if (text) contentBlocks.push({ type: "heading", text, color: isHex(raw.color) ? raw.color : null });
     } else if (type === "text") {
-      const text = String(raw.text || "").trim().slice(0, 1000);
-      if (text) contentBlocks.push({ type: "text", text });
+      // html invece di semplice testo: stessa editor con grassetto/corsivo/sottolineato/link del
+      // builder newsletter, salvato così com'è (staff autenticato, stessa fiducia di bodyHtml).
+      const html = String(raw.html || "").trim().slice(0, 3000);
+      if (html) contentBlocks.push({ type: "text", html, color: isHex(raw.color) ? raw.color : null });
+    } else if (type === "image") {
+      const key = String(raw.key || "").trim();
+      if (!key) continue;
+      const width = [100, 50, 33].includes(Number(raw.width)) ? Number(raw.width) : 100;
+      contentBlocks.push({ type: "image", key, width });
+    } else if (type === "button") {
+      const label = String(raw.label || "").trim().slice(0, 60);
+      const btnUrl = String(raw.url || "").trim().slice(0, 300);
+      if (!label || !btnUrl) continue;
+      contentBlocks.push({ type: "button", label, url: btnUrl, color: isHex(raw.color) ? raw.color : null });
+    } else if (type === "divider") {
+      contentBlocks.push({ type: "divider" });
+    } else if (type === "spacer") {
+      const height = Number.isFinite(Number(raw.height)) ? Math.min(120, Math.max(8, Number(raw.height))) : 24;
+      contentBlocks.push({ type: "spacer", height });
     }
   }
 
