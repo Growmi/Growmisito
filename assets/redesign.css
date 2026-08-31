@@ -146,7 +146,7 @@
   display:flex; align-items:center; justify-content:center; position:relative;
 }
 .ed-card-media.dark{background:#0A0A0A;}
-.ed-card-media img{width:100%; height:100%; object-fit:contain; display:block;}
+.ed-card-media img{width:100%; height:100%; object-fit:cover; display:block;}
 .ed-card-media span{
   font-family:var(--font-heading); font-weight:700; color:#fff; font-size:15px;
   text-align:center; padding:0 20px; letter-spacing:-0.01em;

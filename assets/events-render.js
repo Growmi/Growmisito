@@ -21,7 +21,7 @@
     var title = escapeHTML(ev.title);
     var framing = 'object-position:' + (ev.coverPosition || 'center') + ';' + (ev.coverZoom && ev.coverZoom > 1 ? ' transform:scale(' + ev.coverZoom + ');' : '');
     var mediaInner = ev.cover
-      ? '<img src="' + ev.cover + '" alt="' + title + '" loading="lazy" style="width:100%;height:100%;object-fit:contain;' + framing + '">'
+      ? '<img src="' + ev.cover + '" alt="' + title + '" loading="lazy" style="width:100%;height:100%;object-fit:cover;' + framing + '">'
       : '<span>' + title + '</span>';
     var mediaClass = ev.cover ? '' : ' dark';
     var badge = ev.comingSoon
