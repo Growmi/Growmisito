@@ -5287,7 +5287,7 @@
 
   function evNewBlock(type){
     var id = 'eb' + (++evBlockIdSeq) + '_' + Date.now();
-    if (type === 'lineup') return { id: id, type: 'lineup', role: '', name: '', time: '', desc: '', photoKey: null };
+    if (type === 'lineup') return { id: id, type: 'lineup', role: '', name: '', time: '', desc: '', photoKey: null, color: '' };
     if (type === 'heading') return { id: id, type: 'heading', text: '', color: '' };
     if (type === 'image') return { id: id, type: 'image', key: null, width: 100 };
     if (type === 'button') return { id: id, type: 'button', label: 'Scopri di più', url: '', color: '' };
@@ -5310,7 +5310,8 @@
           '<div class="az-image-preview ev-block-photo-preview" style="aspect-ratio:1/1; max-width:160px;">' + (block.photoKey ? '<img src="' + mediaSrc(block.photoKey) + '" alt="">' : 'Nessuna immagine') + '</div>' +
           '<input type="file" class="ev-block-photo-input" accept="image/jpeg,image/png,image/webp,image/gif">' +
           (block.photoKey ? '<button type="button" class="az-mini-btn danger ev-block-photo-remove" style="margin-top:6px;">Rimuovi</button>' : '') +
-        '</div>';
+        '</div>' +
+        evColorFieldHtml('ev-block-color', 'Colore ruolo/orario (facoltativo)');
       var roleI = container.querySelector('.ev-block-role'), nameI = container.querySelector('.ev-block-name'), timeI = container.querySelector('.ev-block-time'), descI = container.querySelector('.ev-block-desc');
       roleI.value = block.role || ''; nameI.value = block.name || ''; timeI.value = block.time || ''; descI.value = block.desc || '';
       roleI.addEventListener('input', function(){ block.role = roleI.value; });
@@ -5328,6 +5329,7 @@
       });
       var removeBtn = container.querySelector('.ev-block-photo-remove');
       if (removeBtn) removeBtn.addEventListener('click', function(){ block.photoKey = null; renderEvBlockBody(container, block); });
+      wireEvColorField(container, block);
     } else if (block.type === 'heading') {
       container.innerHTML =
         '<input type="text" class="ev-block-heading" placeholder="Titolo sezione (es. Chi sale sul palco)" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
