@@ -1353,7 +1353,7 @@ ${(darkTheme && (event.accentColor || event.accentColor2 || event.bgColor || eve
 </header>
 
 ${darkTheme ? `
-<section class="ed-dark-hero${darkHeroImg ? " has-photo" : ""}">
+<section class="ed-dark-hero${darkHeroImg ? " has-photo" : ""}${event.textureDots === false ? " no-dots" : ""}${event.textureStripes === false ? " no-stripes" : ""}">
   ${darkHeroImg}
   <div class="wrap ed-dark-wrap">
     ${advisoryBadge}
@@ -4910,6 +4910,11 @@ function validateEventPayload(body, existingTiers, sold) {
   const bgColor = isHex(body.bgColor) ? body.bgColor : "";
   const leadColor = isHex(body.leadColor) ? body.leadColor : "";
   const ticketBgColor = isHex(body.ticketBgColor) ? body.ticketBgColor : "";
+  // Texture di sfondo dell'hero scuro (puntini + strisce diagonali) — attive di default (comportamento
+  // di sempre), disattivabili singolarmente. Non hanno effetto se c'è una foto hero caricata (vedi
+  // .has-photo in event-tickets.css), contano solo per il fallback senza foto.
+  const textureDots = body.textureDots !== false;
+  const textureStripes = body.textureStripes !== false;
   const inputBlocks = Array.isArray(body.contentBlocks) ? body.contentBlocks : [];
   const contentBlocks = [];
   for (const raw of inputBlocks) {
@@ -4954,7 +4959,7 @@ function validateEventPayload(body, existingTiers, sold) {
     }
   }
 
-  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder, darkTheme, advisoryLabel, advisorySub, doorsTime, dressCode, accentColor, accentColor2, bgColor, leadColor, ticketBgColor, contentBlocks } };
+  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder, darkTheme, advisoryLabel, advisorySub, doorsTime, dressCode, accentColor, accentColor2, bgColor, leadColor, ticketBgColor, textureDots, textureStripes, contentBlocks } };
 }
 
 // image/gif incluso apposta per le newsletter: un GIF animato è l'unico modo che parte da solo e

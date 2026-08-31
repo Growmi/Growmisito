@@ -853,6 +853,16 @@
             </div>
             <p class="az-u-hint10">Sfondo di hero e sezioni scure, e colore del testo descrittivo (lead/paragrafi) — di default nero e grigio chiaro.</p>
 
+            <label style="display:flex; align-items:center; gap:10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; cursor:pointer;">
+              <input type="checkbox" id="az-ev-texturedots" checked style="width:18px; height:18px;">
+              Texture a puntini nell'hero
+            </label>
+            <label style="display:flex; align-items:center; gap:10px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; cursor:pointer;">
+              <input type="checkbox" id="az-ev-texturestripes" checked style="width:18px; height:18px;">
+              Strisce diagonali colorate nell'hero
+            </label>
+            <p class="az-u-hint10" style="margin-top:-10px;">Contano solo quando NON carichi una foto hero — con una foto, l'hero mostra sempre e solo quella.</p>
+
             <div>
               <label class="az-u-label13">Sezioni extra (lineup, titoli, testo)</label>
               <p class="az-u-hint10">Compaiono tra l'immagine di copertina e i biglietti — stesso sistema a blocchi riordinabili della newsletter. Più schede "Lineup" una dopo l'altra si raggruppano automaticamente in un'unica griglia.</p>
@@ -5584,6 +5594,8 @@
     document.getElementById('az-ev-accent2').value = (event && event.accentColor2) || '#2452FF';
     document.getElementById('az-ev-bgcolor').value = (event && event.bgColor) || '#0A0A0A';
     document.getElementById('az-ev-leadcolor').value = (event && event.leadColor) || '#C9C4CF';
+    document.getElementById('az-ev-texturedots').checked = !(event && event.textureDots === false);
+    document.getElementById('az-ev-texturestripes').checked = !(event && event.textureStripes === false);
     document.getElementById('az-ev-ticketbgcolor').value = (event && event.ticketBgColor) || '#3E0D5D';
     eventBlocks = (event && Array.isArray(event.contentBlocks)) ? event.contentBlocks.map(function(b){ return Object.assign({ id: 'eb' + (++evBlockIdSeq) + '_' + Date.now() }, b); }) : [];
     renderEventBlocks();
@@ -5664,6 +5676,8 @@
       accentColor2: document.getElementById('az-ev-accent2').value,
       bgColor: document.getElementById('az-ev-bgcolor').value,
       leadColor: document.getElementById('az-ev-leadcolor').value,
+      textureDots: document.getElementById('az-ev-texturedots').checked,
+      textureStripes: document.getElementById('az-ev-texturestripes').checked,
       ticketBgColor: document.getElementById('az-ev-ticketbgcolor').value,
       contentBlocks: eventBlocks
     };

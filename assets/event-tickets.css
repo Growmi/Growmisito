@@ -22,6 +22,8 @@
    hero caricata — con una foto reale, questa resta l'unica immagine (solo il velo scuro sopra
    per la leggibilità del testo), niente sovrapposto. */
 .ed-dark-hero.has-photo::before, .ed-dark-hero.has-photo::after{ display:none; }
+.ed-dark-hero.no-dots::before{ display:none; }
+.ed-dark-hero.no-stripes::after{ display:none; }
 .ed-dark-hero::before{
   content:""; position:absolute; inset:0;
   background-image:radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1.4px);
