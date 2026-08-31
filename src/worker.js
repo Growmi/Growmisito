@@ -1357,8 +1357,9 @@ ${darkTheme ? `
   ${darkHeroImg}
   <div class="wrap ed-dark-wrap">
     ${advisoryBadge}
-    <p class="ed-dark-eyebrow">${event.dateDisplay} · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">${event.location}</a></p>
+    <span class="ed-dark-eyebrow" data-i18n="ev1_eyebrow">GrowMi presenta</span>
     <h1 class="ed-dark-title">${event.name}</h1>
+    <p class="ed-dark-sub">${event.dateDisplay} · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">${event.location}</a></p>
     ${event.teaser ? `<p class="ed-dark-lead">${event.teaser}</p>` : ""}
     <div class="ed-dark-actions">
       <a class="btn coral" href="#biglietti" data-i18n="ev1_cta_tickets">Vedi i biglietti</a>

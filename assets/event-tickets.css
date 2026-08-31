@@ -46,6 +46,10 @@
   font-size:clamp(38px,7.4vw,92px); line-height:0.96; letter-spacing:-0.01em;
   max-width:900px; color:#fff; text-shadow:4px 4px 0 var(--ed-accent1, #E7222E), 8px 8px 0 var(--ed-accent2, #2452FF);
 }
+.ed-dark-sub{
+  font-family:var(--font-heading); font-weight:700; font-size:18px;
+  color:#fff; margin-top:26px; letter-spacing:.02em;
+}
 .ed-dark-lead{ color:#C9C4CF; max-width:520px; margin-top:14px; font-size:16px; }
 .ed-dark-actions{ display:flex; gap:14px; margin-top:34px; flex-wrap:wrap; }
 
