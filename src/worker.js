@@ -1313,7 +1313,7 @@ function eventPageHTML(event, slug) {
 <link rel="stylesheet" href="/assets/redesign.css">
 <link rel="stylesheet" href="/assets/interactive.css">
 <link rel="stylesheet" href="/assets/event-tickets.css">
-${(darkTheme && (event.accentColor || event.accentColor2)) ? `<style>:root{ ${event.accentColor ? `--ed-accent1:${event.accentColor};` : ""} ${event.accentColor2 ? `--ed-accent2:${event.accentColor2};` : ""} }</style>` : ""}
+${(darkTheme && (event.accentColor || event.accentColor2 || event.bgColor || event.leadColor)) ? `<style>:root{ ${event.accentColor ? `--ed-accent1:${event.accentColor};` : ""} ${event.accentColor2 ? `--ed-accent2:${event.accentColor2};` : ""} ${event.bgColor ? `--ed-bg:${event.bgColor};` : ""} ${event.leadColor ? `--ed-text-muted:${event.leadColor};` : ""} }</style>` : ""}
 </head>
 <body>
 
@@ -4907,6 +4907,8 @@ function validateEventPayload(body, existingTiers, sold) {
   const isHex = function(v){ return /^#[0-9a-fA-F]{6}$/.test(String(v || "")); };
   const accentColor = isHex(body.accentColor) ? body.accentColor : "";
   const accentColor2 = isHex(body.accentColor2) ? body.accentColor2 : "";
+  const bgColor = isHex(body.bgColor) ? body.bgColor : "";
+  const leadColor = isHex(body.leadColor) ? body.leadColor : "";
   const inputBlocks = Array.isArray(body.contentBlocks) ? body.contentBlocks : [];
   const contentBlocks = [];
   for (const raw of inputBlocks) {
@@ -4951,7 +4953,7 @@ function validateEventPayload(body, existingTiers, sold) {
     }
   }
 
-  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder, darkTheme, advisoryLabel, advisorySub, doorsTime, dressCode, accentColor, accentColor2, contentBlocks } };
+  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder, darkTheme, advisoryLabel, advisorySub, doorsTime, dressCode, accentColor, accentColor2, bgColor, leadColor, contentBlocks } };
 }
 
 // image/gif incluso apposta per le newsletter: un GIF animato è l'unico modo che parte da solo e
