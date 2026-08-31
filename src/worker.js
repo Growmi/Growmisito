@@ -1238,6 +1238,21 @@ function eventPageHTML(event, slug) {
   const advisoryBadge = (darkTheme && event.advisoryLabel)
     ? `<div class="ed-advisory"><b>${event.advisoryLabel}</b>${event.advisorySub ? `<span>${event.advisorySub}</span>` : ""}</div>`
     : "";
+  // Striscia info (data/apertura/dress code/location) sotto l'hero scuro — vedi
+  // the-miseducation-of-growmi.html .mise-infobar, portata qui a parità di grafica. Apertura e
+  // dress code compaiono solo se compilati, data e location ci sono sempre (campi obbligatori).
+  const infobar = darkTheme ? (function(){
+    const d = new Date(event.dateIso + "T00:00:00");
+    const dateFmt = isNaN(d.getTime()) ? event.dateIso : `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`;
+    const items = [[`data-i18n="ev1_info_date_label"`, "Data", dateFmt]];
+    if (event.doorsTime) items.push([`data-i18n="ev1_info_time_label"`, "Apertura", event.doorsTime]);
+    if (event.dressCode) items.push([`data-i18n="ev1_info_dress_label"`, "Dress code", event.dressCode]);
+    items.push([`data-i18n="ev1_info_loc_label"`, "Location", event.location]);
+    const itemsHtml = items.map(function(it){
+      return `<div class="ed-dark-info-item"><span class="lbl" ${it[0]}>${it[1]}</span><span class="val">${it[2]}</span></div>`;
+    }).join("");
+    return `<section class="ed-dark-infobar"><div class="wrap">${itemsHtml}</div></section>`;
+  })() : "";
   // Sezioni extra a blocchi (vedi validateEventPayload/azienda.html) — le fasce "lineup"
   // consecutive vengono raggruppate in un'unica griglia .ed-lineup, esattamente come sulla pagina
   // statica the-miseducation-of-growmi.html; heading/text restano semplici elementi di testo.
@@ -1332,8 +1347,13 @@ ${darkTheme ? `
     <p class="ed-dark-eyebrow">${event.dateDisplay} · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">${event.location}</a></p>
     <h1 class="ed-dark-title">${event.name}</h1>
     ${event.teaser ? `<p class="ed-dark-lead">${event.teaser}</p>` : ""}
+    <div class="ed-dark-actions">
+      <a class="btn coral" href="#biglietti" data-i18n="ev1_cta_tickets">Vedi i biglietti</a>
+      <a class="btn outline on-dark" href="/eventi.html" data-i18n="ev1_cta_back">Tutti gli eventi</a>
+    </div>
   </div>
 </section>
+${infobar}
 ` : `
 <section class="ed-hero" style="padding:110px 0 80px;">
   ${heroImg}
@@ -1349,7 +1369,7 @@ ${coverBlock}
 
 ${contentBlocksHtml}
 
-<section class="ed-section-tight" style="background:var(--purple-deep); color:var(--cream);">
+<section class="ed-section-tight" id="biglietti" style="background:var(--purple-deep); color:var(--cream);">
   <div class="wrap">
     <div class="ed-head">
       <p class="ed-eyebrow">Biglietti</p>
@@ -4851,6 +4871,8 @@ function validateEventPayload(body, existingTiers, sold) {
   const darkTheme = body.darkTheme === true;
   const advisoryLabel = String(body.advisoryLabel || "").trim().slice(0, 60);
   const advisorySub = String(body.advisorySub || "").trim().slice(0, 100);
+  const doorsTime = String(body.doorsTime || "").trim().slice(0, 30);
+  const dressCode = String(body.dressCode || "").trim().slice(0, 60);
   const inputBlocks = Array.isArray(body.contentBlocks) ? body.contentBlocks : [];
   const contentBlocks = [];
   for (const raw of inputBlocks) {
@@ -4875,7 +4897,7 @@ function validateEventPayload(body, existingTiers, sold) {
     }
   }
 
-  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder, darkTheme, advisoryLabel, advisorySub, contentBlocks } };
+  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder, darkTheme, advisoryLabel, advisorySub, doorsTime, dressCode, contentBlocks } };
 }
 
 // image/gif incluso apposta per le newsletter: un GIF animato è l'unico modo che parte da solo e

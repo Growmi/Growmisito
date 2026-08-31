@@ -838,6 +838,12 @@
             <div class="az-field"><label for="az-ev-advisory-sub">Badge advisory — sottotesto</label><input type="text" id="az-ev-advisory-sub" placeholder='es. "HIP HOP NIGHT · EXPLICIT VIBES"'></div>
             <p class="az-u-hint10">Lascia vuoto il testo principale per non mostrare nessun badge.</p>
 
+            <div class="az-u-row10">
+              <div class="az-field" style="flex:1;"><label for="az-ev-doorstime">Apertura porte (facoltativo)</label><input type="text" id="az-ev-doorstime" placeholder='es. "19:00"'></div>
+              <div class="az-field" style="flex:1;"><label for="az-ev-dresscode">Dress code (facoltativo)</label><input type="text" id="az-ev-dresscode" placeholder='es. "Street wear"'></div>
+            </div>
+            <p class="az-u-hint10">Compaiono nella striscia info sotto l'hero, insieme a data e luogo (sempre mostrati). Lascia vuoti quelli che non vuoi mostrare.</p>
+
             <div>
               <label class="az-u-label13">Sezioni extra (lineup, titoli, testo)</label>
               <p class="az-u-hint10">Compaiono tra l'immagine di copertina e i biglietti — stesso sistema a blocchi riordinabili della newsletter. Più schede "Lineup" una dopo l'altra si raggruppano automaticamente in un'unica griglia.</p>
@@ -5411,6 +5417,8 @@
     evDarkThemeFields.hidden = !evDarkThemeCheckbox.checked;
     document.getElementById('az-ev-advisory-label').value = event ? (event.advisoryLabel || '') : '';
     document.getElementById('az-ev-advisory-sub').value = event ? (event.advisorySub || '') : '';
+    document.getElementById('az-ev-doorstime').value = event ? (event.doorsTime || '') : '';
+    document.getElementById('az-ev-dresscode').value = event ? (event.dressCode || '') : '';
     eventBlocks = (event && Array.isArray(event.contentBlocks)) ? event.contentBlocks.map(function(b){ return Object.assign({ id: 'eb' + (++evBlockIdSeq) + '_' + Date.now() }, b); }) : [];
     renderEventBlocks();
   }
@@ -5481,6 +5489,8 @@
       darkTheme: evDarkThemeCheckbox.checked,
       advisoryLabel: document.getElementById('az-ev-advisory-label').value.trim(),
       advisorySub: document.getElementById('az-ev-advisory-sub').value.trim(),
+      doorsTime: document.getElementById('az-ev-doorstime').value.trim(),
+      dressCode: document.getElementById('az-ev-dresscode').value.trim(),
       contentBlocks: eventBlocks
     };
     var slug = document.getElementById('az-ev-slug').value;
