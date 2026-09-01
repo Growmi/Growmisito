@@ -1204,6 +1204,19 @@ function mediaUrl(key) {
   return `/media/${key}`;
 }
 
+// sponsorLogos è passato da una prima versione (array di chiavi/stringhe, prima del checkbox
+// "sfondo scuro") a una seconda ({key, darkBacking}) — un evento salvato con la prima versione
+// avrebbe altrimenti .key undefined con il codice nuovo (immagini rotte). Accetta entrambe le
+// forme e le riporta sempre a quella nuova, sia leggendo da KV sia da un payload in arrivo.
+function normalizeSponsorLogo(raw) {
+  if (typeof raw === "string") {
+    const key = raw.trim();
+    return key ? { key, darkBacking: false } : null;
+  }
+  const key = String((raw && raw.key) || "").trim();
+  return key ? { key, darkBacking: !!(raw && raw.darkBacking) } : null;
+}
+
 // Un evento senza "published" salvato è nato prima di questo campo (o non è mai stato
 // risalvato dal pannello dopo l'aggiunta): si considera pubblicato per non far sparire nulla
 // di già live. Solo published:false esplicito lo tiene in bozza.
@@ -1254,7 +1267,7 @@ function eventPageHTML(event, slug) {
   //   copertina caricata (sono posizionati relativamente a .ed-poster-feature), altrimenti non
   //   c'è nulla a cui agganciarli — oltre il quarto logo non c'è più posto, restano nascosti.
   // - "marquee": striscia orizzontale che scorre in loop, indipendente dalla copertina.
-  const sponsorLogos = Array.isArray(event.sponsorLogos) ? event.sponsorLogos : [];
+  const sponsorLogos = Array.isArray(event.sponsorLogos) ? event.sponsorLogos.map(normalizeSponsorLogo).filter(Boolean) : [];
   const STICKER_CLASSES = ["ed-poster-badge", "ed-poster-badge-left", "ed-poster-badge-top-right", "ed-poster-badge-top-left"];
   const sponsorStickersHtml = (sponsorLogos.length && event.sponsorDisplay !== "marquee")
     ? sponsorLogos.slice(0, 4).map(function(logo, i){
@@ -4964,11 +4977,7 @@ function validateEventPayload(body, existingTiers, sold) {
   // sparirebbero sullo sfondo chiaro della pagina — aggiunge una "targhetta" scura dietro, come
   // si faceva a mano solo per il logo Pogo Store nelle pagine statiche più vecchie.
   const sponsorLogos = Array.isArray(body.sponsorLogos)
-    ? body.sponsorLogos.map(function(raw){
-        const key = String((raw && raw.key) || "").trim();
-        if (!key) return null;
-        return { key, darkBacking: !!(raw && raw.darkBacking) };
-      }).filter(Boolean).slice(0, 12)
+    ? body.sponsorLogos.map(normalizeSponsorLogo).filter(Boolean).slice(0, 12)
     : [];
   const sponsorDisplay = body.sponsorDisplay === "marquee" ? "marquee" : "stickers";
   // Texture di sfondo dell'hero scuro (puntini + strisce diagonali) — attive di default (comportamento

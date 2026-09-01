@@ -5676,7 +5676,12 @@
     evCoverKey = event ? (event.coverImageKey || null) : null;
     evCoverFraming = { position: (event && event.coverPosition) || 'center', zoom: (event && event.coverZoom) || 1 };
     evGallery = event ? (event.gallery || []).slice() : [];
-    evSponsorLogos = event ? (event.sponsorLogos || []).slice() : [];
+    // Retrocompatibilità: eventi salvati prima del checkbox "sfondo scuro" hanno sponsorLogos
+    // come semplice lista di stringhe invece che oggetti {key, darkBacking} — altrimenti logo.key
+    // sarebbe undefined e le anteprime/pagina mostrerebbero immagini rotte.
+    evSponsorLogos = event ? (event.sponsorLogos || []).map(function(l){
+      return typeof l === 'string' ? { key: l, darkBacking: false } : l;
+    }) : [];
     document.getElementById('az-ev-sponsor-display').value = (event && event.sponsorDisplay) || 'stickers';
     renderSponsorGrid();
     document.getElementById('az-ev-checkoutnote').value = event ? (event.checkoutNote || '') : '';
