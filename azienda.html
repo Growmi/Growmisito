@@ -3488,6 +3488,25 @@
     submitBtn.textContent = 'Salva artista';
   });
 
+  // Un <input type="datetime-local"> non porta con sé il fuso orario — il browser (ora italiana)
+  // e il server Cloudflare (UTC) interpreterebbero altrimenti lo stesso valore come due istanti
+  // diversi (fino a 2 ore di scarto con l'ora legale). Prima di mandarlo al server lo si
+  // trasforma in un ISO assoluto con "Z" (UTC) usando l'interpretazione del BROWSER — che è
+  // quella giusta, essendo nel fuso dello staff/pubblico — così server e client concordano
+  // sempre sullo stesso istante, ovunque venga letto. isoToLocalDatetime fa l'inverso, per
+  // rimettere il valore salvato nel campo quando si riapre il form.
+  function localDatetimeToIso(value){
+    if (!value) return null;
+    var d = new Date(value);
+    return isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  function isoToLocalDatetime(iso){
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    var pad = function(n){ return String(n).padStart(2, '0'); };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
   function eurosToCents(str){
     var n = parseFloat(String(str || '0').replace(',', '.'));
     if (isNaN(n) || n < 0) return null;
@@ -5379,8 +5398,8 @@
     block.querySelector('.tier-sub').value = tier ? tier.sub : '';
     block.querySelector('.tier-capacity').value = tier ? tier.capacity : '';
     block.querySelector('.tier-status').value = (tier && tier.status) || 'auto';
-    block.querySelector('.tier-available-from').value = (tier && tier.availableFrom) || '';
-    block.querySelector('.tier-available-until').value = (tier && tier.availableUntil) || '';
+    block.querySelector('.tier-available-from').value = isoToLocalDatetime(tier && tier.availableFrom);
+    block.querySelector('.tier-available-until').value = isoToLocalDatetime(tier && tier.availableUntil);
     block.querySelector('.remove-tier').addEventListener('click', function(){ block.remove(); });
     block.querySelector('.add-option').addEventListener('click', function(){ addOptionRow(block, null); });
     container.appendChild(block);
@@ -5751,8 +5770,8 @@
         sub: tb.querySelector('.tier-sub').value.trim(),
         capacity: parseInt(tb.querySelector('.tier-capacity').value, 10),
         status: tb.querySelector('.tier-status').value,
-        availableFrom: tb.querySelector('.tier-available-from').value || null,
-        availableUntil: tb.querySelector('.tier-available-until').value || null,
+        availableFrom: localDatetimeToIso(tb.querySelector('.tier-available-from').value),
+        availableUntil: localDatetimeToIso(tb.querySelector('.tier-available-until').value),
         options: options
       });
     }
