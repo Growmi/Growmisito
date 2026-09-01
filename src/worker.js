@@ -737,6 +737,20 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    // Anteprima "a caldo" del form Modifica/Nuovo evento: renderizza la pagina esattamente come
+    // farebbe la pubblicazione vera (stesso eventPageHTML), ma dallo stato corrente del form —
+    // senza scrivere nulla su KV. Così l'anteprima riflette anche le modifiche non ancora
+    // salvate, qualunque campo, invece di dover tenere una copia della logica di rendering
+    // duplicata lato client (che andava fuori sincrono ogni volta che si aggiungeva un campo).
+    if (url.pathname === "/api/admin/preview-event" && request.method === "POST") {
+      try {
+        return await handleAdminPreviewEvent(request, env);
+      } catch (err) {
+        console.log("Errore admin/preview-event:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     if (url.pathname === "/api/admin/upload-image" && request.method === "POST") {
       try {
         return await handleUploadImage(request, env);
@@ -5152,6 +5166,25 @@ async function handleAdminUpdateEvent(request, env) {
 
   await env.TICKETS.put(`event:${slug}`, JSON.stringify(validated.event));
   return jsonResponse({ ok: true, slug, event: validated.event });
+}
+
+// Renderizza l'HTML della pagina evento dallo stato corrente del form del pannello, senza mai
+// scrivere su KV — usato dal pulsante "Preview" per vedere le modifiche non ancora salvate.
+// Nessun controllo sui biglietti già venduti (non stiamo scrivendo nulla, non serve). Con lo
+// slug di un evento già esistente, il widget biglietti lato client fa comunque la sua normale
+// fetch a /api/event-tiers e mostra i dati REALMENTE salvati (capienza/venduti) — solo il resto
+// della pagina (testi, tema, blocchi, colori) riflette lo stato non salvato del form.
+async function handleAdminPreviewEvent(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+
+  const body = await request.json();
+  const validated = validateEventPayload(body, null, { byTier: {}, byTierOption: {} });
+  if (!validated.ok) return jsonResponse({ error: validated.error }, 400);
+
+  const slug = String(body.slug || "").trim() || "anteprima";
+  const html = eventPageHTML(validated.event, slug);
+  return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
 
 // ============================================================================

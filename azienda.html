@@ -4103,6 +4103,23 @@
   previewPageSelect.addEventListener('change', function(){
     loadPreviewPage(previewPageSelect.value);
   });
+  // Variante per contenuto HTML già pronto (renderizzato dal server su misura per lo stato
+  // attuale del form, non ancora salvato) invece che per URL — niente selettore "altre pagine",
+  // qui si sta guardando una bozza che non esiste ancora da nessuna parte. Un blob: URL (non
+  // srcdoc) perché eredita comunque l'origine della pagina che l'ha creato — i percorsi assoluti
+  // tipo /assets/... e /media/... dentro l'HTML si risolvono correttamente; con srcdoc invece la
+  // base è "about:srcdoc" e quei percorsi rischiano di rompersi a seconda del browser.
+  var lastPreviewBlobUrl = null;
+  function openPreviewFromHtml(html){
+    previewDrawer.hidden = false;
+    requestAnimationFrame(function(){ previewDrawer.classList.add('open'); });
+    currentPreviewOpts = null;
+    currentPreviewTargetPage = null;
+    previewIframe.onload = null;
+    if (lastPreviewBlobUrl) URL.revokeObjectURL(lastPreviewBlobUrl);
+    lastPreviewBlobUrl = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    previewIframe.src = lastPreviewBlobUrl;
+  }
   function closePreview(){
     previewDrawer.classList.remove('open');
     setTimeout(function(){ previewDrawer.hidden = true; previewIframe.src = 'about:blank'; }, 320);
@@ -5629,19 +5646,18 @@
   document.getElementById('az-ev-add-tier').addEventListener('click', function(){ addTierBlock(null); });
   document.getElementById('az-ev-add-feedback-option').addEventListener('click', function(){ addFeedbackOptionRow(null); });
 
-  document.getElementById('az-event-form').addEventListener('submit', async function(e){
-    e.preventDefault();
-    var msg = document.getElementById('az-event-msg');
-    msg.hidden = true;
-
+  // Estratto dal submit così "Preview" può costruire lo stesso identico payload senza
+  // duplicare la logica (e senza rischiare che i due si disallineino nel tempo) — vedi
+  // az-ev-preview-btn più sotto, che lo manda a un endpoint di sola anteprima (nessun salvataggio).
+  function buildEventFormPayload(msg){
     var tierBlocks = Array.prototype.slice.call(document.querySelectorAll('#az-ev-tiers .az-tier-block'));
-    if (!tierBlocks.length) { showMsg(msg, 'Serve almeno una fascia biglietti.', true); return; }
+    if (!tierBlocks.length) { showMsg(msg, 'Serve almeno una fascia biglietti.', true); return null; }
 
     var tiers = [];
     for (var i = 0; i < tierBlocks.length; i++) {
       var tb = tierBlocks[i];
       var optRows = Array.prototype.slice.call(tb.querySelectorAll('.az-opt-row'));
-      if (!optRows.length) { showMsg(msg, 'Ogni fascia deve avere almeno un\'opzione.', true); return; }
+      if (!optRows.length) { showMsg(msg, 'Ogni fascia deve avere almeno un\'opzione.', true); return null; }
       var options = [];
       for (var j = 0; j < optRows.length; j++) {
         var or_ = optRows[j];
@@ -5649,7 +5665,7 @@
         // Vuoto = prezzo non ancora deciso, va bene (si può pubblicare la pagina prima di sapere
         // quanto costerà una fascia) — solo un valore compilato ma non valido blocca il salvataggio.
         var priceCents = priceRaw === '' ? null : eurosToCents(priceRaw);
-        if (priceRaw !== '' && priceCents === null) { showMsg(msg, 'Prezzo non valido in una delle opzioni.', true); return; }
+        if (priceRaw !== '' && priceCents === null) { showMsg(msg, 'Prezzo non valido in una delle opzioni.', true); return null; }
         options.push({
           id: or_.getAttribute('data-option-id') || '',
           label: or_.querySelector('.opt-label').value.trim(),
@@ -5703,8 +5719,18 @@
       contentBlocks: eventBlocks
     };
     var slug = document.getElementById('az-ev-slug').value;
-    var isEdit = !!slug;
-    if (isEdit) payload.slug = slug;
+    if (slug) payload.slug = slug;
+    return payload;
+  }
+
+  document.getElementById('az-event-form').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var msg = document.getElementById('az-event-msg');
+    msg.hidden = true;
+
+    var payload = buildEventFormPayload(msg);
+    if (!payload) return;
+    var isEdit = !!payload.slug;
 
     var confirmText = payload.published
       ? (isEdit ? 'Confermi le modifiche a questo evento? Sarà subito live sul sito.' : 'Confermi la creazione di questo evento? Sarà subito live e acquistabile sul sito.')
@@ -5738,36 +5764,35 @@
     submitBtn.textContent = 'Salva evento';
   });
 
-  // La pagina evento (/evento/<slug>) è generata da un template lato server, non da data-cms su
-  // un HTML statico come le pagine fisse — qui si punta direttamente ai selettori stabili del
-  // template (worker.js, eventPageHTML) invece di riusare applyPreviewOverrides.
-  function applyEventPreviewOverrides(doc, pending){
-    var h1 = doc.querySelector('.ed-hero h1');
-    if (h1 && pending.name) h1.textContent = pending.name;
-    var eyebrow = doc.querySelector('.ed-hero .ed-eyebrow');
-    if (eyebrow && (pending.dateDisplay || pending.location)) {
-      eyebrow.textContent = (pending.dateDisplay || '') + ' · ' + (pending.location || '');
+  // La pagina evento (/evento/<slug>) è generata da un template lato server (eventPageHTML) — con
+  // quanti campi ha ormai il form (tema scuro, blocchi, colori...) una patch client-side dei soli
+  // pochi campi principali (come si faceva prima) andava fuori sincrono in continuazione. Invece,
+  // manda lo STATO ATTUALE DEL FORM a un endpoint che lo renderizza col vero eventPageHTML() senza
+  // salvarlo — l'anteprima vede sempre esattamente le modifiche non ancora salvate, per qualsiasi
+  // campo, oggi e in futuro, senza dover tenere una seconda copia della logica di rendering qui.
+  document.getElementById('az-ev-preview-btn').addEventListener('click', async function(){
+    var msg = document.getElementById('az-event-msg');
+    var payload = buildEventFormPayload(msg);
+    if (!payload) return;
+    var btn = this;
+    btn.disabled = true;
+    try {
+      var res = await fetch('/api/admin/preview-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        var data = await res.json().catch(function(){ return {}; });
+        alert(data.error || 'Non riesco a generare l\'anteprima.');
+        return;
+      }
+      var html = await res.text();
+      openPreviewFromHtml(html);
+    } catch (err) {
+      alert('Errore di connessione.');
     }
-    var lead = doc.querySelector('.ed-hero .ed-lead');
-    if (lead && pending.teaser) lead.textContent = pending.teaser;
-    var heroImg = doc.querySelector('.ed-hero-photo');
-    if (heroImg && pending.heroImageKey) heroImg.setAttribute('src', mediaSrc(pending.heroImageKey));
-    var coverImg = doc.querySelector('.ed-poster-img');
-    if (coverImg && pending.coverImageKey) coverImg.setAttribute('src', mediaSrc(pending.coverImageKey));
-  }
-
-  document.getElementById('az-ev-preview-btn').addEventListener('click', function(){
-    var slug = document.getElementById('az-ev-slug').value;
-    if (!slug) { alert('Salva l\'evento almeno una volta per poter vedere l\'anteprima della sua pagina — finché non esiste uno slug non c\'è ancora una pagina da mostrare.'); return; }
-    var pending = {
-      name: document.getElementById('az-ev-name').value.trim(),
-      dateDisplay: document.getElementById('az-ev-datedisplay').value.trim(),
-      location: document.getElementById('az-ev-location').value.trim(),
-      teaser: document.getElementById('az-ev-teaser').value.trim(),
-      heroImageKey: evHeroKey,
-      coverImageKey: evCoverKey
-    };
-    openPreview('/evento/' + slug, { customApply: function(doc){ applyEventPreviewOverrides(doc, pending); } });
+    btn.disabled = false;
   });
 
   document.getElementById('az-events-preview-list-btn').addEventListener('click', function(){
