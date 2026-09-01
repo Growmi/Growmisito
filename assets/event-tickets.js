@@ -52,7 +52,7 @@
     var tierList = root.querySelector("[data-et-tier-list]");
     var regStep = root.querySelector("[data-et-reg-step]");
     var selectionLabel = root.querySelector("[data-et-selection-label]");
-    var priceBreakdown = root.querySelector("[data-et-price-breakdown]");
+    var checkoutBreakdown = root.querySelector("[data-et-checkout-breakdown]");
     var form = root.querySelector("[data-et-reg-form]");
     var status = root.querySelector("[data-et-reg-status]");
     var submitBtn = root.querySelector("[data-et-reg-submit]");
@@ -62,6 +62,7 @@
 
     var selectedTierId = null;
     var selectedOptionId = null;
+    var selectedPriceInfo = null;
 
     function renderTiers(data){
       tierList.innerHTML = "";
@@ -114,12 +115,8 @@
     function selectTier(tierId, optionId, label, priceInfo){
       selectedTierId = tierId;
       selectedOptionId = optionId;
+      selectedPriceInfo = priceInfo || null;
       if (selectionLabel) selectionLabel.textContent = label;
-      if (priceBreakdown && priceInfo) {
-        priceBreakdown.textContent = priceInfo.fee > 0
-          ? "Biglietto " + euro(priceInfo.price) + " + commissione transazione " + euro(priceInfo.fee) + " = " + euro(priceInfo.gross)
-          : "";
-      }
       regStep.hidden = false;
       checkoutWrap.hidden = true;
       checkoutContainer.innerHTML = "";
@@ -129,6 +126,11 @@
     async function startCheckout(registrationId){
       checkoutWrap.hidden = false;
       checkoutContainer.innerHTML = "";
+      if (checkoutBreakdown && selectedPriceInfo) {
+        checkoutBreakdown.textContent = selectedPriceInfo.fee > 0
+          ? "Biglietto " + euro(selectedPriceInfo.price) + " + commissione transazione " + euro(selectedPriceInfo.fee) + " = " + euro(selectedPriceInfo.gross)
+          : "";
+      }
       checkoutWrap.scrollIntoView({ behavior: "smooth", block: "start" });
       try {
         var res = await fetch("/api/create-checkout-session", {

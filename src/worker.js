@@ -1394,7 +1394,6 @@ ${contentBlocksHtml}
       <div class="et-tier-list" data-et-tier-list></div>
       <div class="et-reg-step" data-et-reg-step hidden>
         <p class="et-reg-step-selection">Hai scelto: <strong data-et-selection-label></strong></p>
-        <p class="et-price-breakdown" data-et-price-breakdown></p>
         <form class="et-reg-form" data-et-reg-form>
           <div class="et-form-row">
             <input type="text" data-et-firstname placeholder="Nome" required>
@@ -1421,6 +1420,8 @@ ${contentBlocksHtml}
         </form>
       </div>
       <div class="et-checkout-wrap" data-et-checkout-wrap hidden>
+        <p class="et-price-breakdown" data-et-checkout-breakdown></p>
+        <p class="et-checkout-note">Il prezzo include l'ingresso all'evento nella fascia e opzione scelte. La commissione di transazione copre i costi di elaborazione sicura del pagamento ed è già conteggiata nel totale qui sopra.</p>
         <div data-et-checkout-container></div>
       </div>
     </div>
