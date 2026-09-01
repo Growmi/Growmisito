@@ -1257,8 +1257,8 @@ function eventPageHTML(event, slug) {
   const sponsorLogos = Array.isArray(event.sponsorLogos) ? event.sponsorLogos : [];
   const STICKER_CLASSES = ["ed-poster-badge", "ed-poster-badge-left", "ed-poster-badge-top-right", "ed-poster-badge-top-left"];
   const sponsorStickersHtml = (sponsorLogos.length && event.sponsorDisplay !== "marquee")
-    ? sponsorLogos.slice(0, 4).map(function(key, i){
-        return `<img class="${STICKER_CLASSES[i]}" src="${mediaUrl(key)}" alt="Sponsor">`;
+    ? sponsorLogos.slice(0, 4).map(function(logo, i){
+        return `<img class="${STICKER_CLASSES[i]}${logo.darkBacking ? " ed-sponsor-dark-backing" : ""}" src="${mediaUrl(logo.key)}" alt="Sponsor">`;
       }).join("")
     : "";
   const coverBlock = event.coverImageKey
@@ -1266,7 +1266,7 @@ function eventPageHTML(event, slug) {
     : "";
   const sponsorMarqueeHtml = (sponsorLogos.length && event.sponsorDisplay === "marquee")
     ? (function(){
-        const imgs = sponsorLogos.map(function(key){ return `<img src="${mediaUrl(key)}" alt="Sponsor">`; }).join("");
+        const imgs = sponsorLogos.map(function(logo){ return `<img class="${logo.darkBacking ? "ed-sponsor-dark-backing" : ""}" src="${mediaUrl(logo.key)}" alt="Sponsor">`; }).join("");
         // Il contenuto è duplicato una volta: l'animazione trasla del 50% e riparte, così il loop
         // non ha uno scatto visibile nel punto in cui si "ricongiunge".
         return `<section class="ed-sponsor-marquee"><div class="ed-sponsor-track">${imgs}${imgs}</div></section>`;
@@ -4960,8 +4960,15 @@ function validateEventPayload(body, existingTiers, sold) {
   // Loghi sponsor: lista libera (come gallery) + stile di visualizzazione. "stickers" li mette
   // come adesivi sulla copertina (le prime 4 posizioni definite in CSS, serve una copertina
   // caricata); "marquee" è una striscia che scorre in loop, indipendente dalla copertina.
+  // darkBacking: per i loghi chiari/trasparenti (es. bianco su trasparente) che altrimenti
+  // sparirebbero sullo sfondo chiaro della pagina — aggiunge una "targhetta" scura dietro, come
+  // si faceva a mano solo per il logo Pogo Store nelle pagine statiche più vecchie.
   const sponsorLogos = Array.isArray(body.sponsorLogos)
-    ? body.sponsorLogos.map(function(k){ return String(k || "").trim(); }).filter(Boolean).slice(0, 12)
+    ? body.sponsorLogos.map(function(raw){
+        const key = String((raw && raw.key) || "").trim();
+        if (!key) return null;
+        return { key, darkBacking: !!(raw && raw.darkBacking) };
+      }).filter(Boolean).slice(0, 12)
     : [];
   const sponsorDisplay = body.sponsorDisplay === "marquee" ? "marquee" : "stickers";
   // Texture di sfondo dell'hero scuro (puntini + strisce diagonali) — attive di default (comportamento
