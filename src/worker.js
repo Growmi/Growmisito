@@ -1549,6 +1549,7 @@ ${galleryBlock}
 <script src="/assets/cookie-banner.js"></script>
 <script src="/assets/newsletter.js"></script>
 <script src="/assets/interactive.js"></script>
+<script src="https://js.stripe.com/v3/"></script>
 <script src="/assets/event-tickets.js"></script>
 </body>
 </html>`;
