@@ -1247,8 +1247,30 @@ function eventPageHTML(event, slug) {
   const darkHeroImg = (darkTheme && event.heroImageKey)
     ? `<img class="ed-dark-hero-photo" src="${mediaUrl(event.heroImageKey)}" alt="" style="${photoFramingStyle(event.heroPosition, event.heroZoom)}">`
     : "";
+  // Loghi sponsor, due stili possibili (vedi validateEventPayload):
+  // - "stickers": come adesivi agli angoli della copertina (stesso stile già usato su
+  //   art-mall-collab.html per i primi due) — le 4 classi .ed-poster-badge* sono in
+  //   event-tickets.css, qui vanno solo abbinate in ordine ai loghi caricati. Serve una
+  //   copertina caricata (sono posizionati relativamente a .ed-poster-feature), altrimenti non
+  //   c'è nulla a cui agganciarli — oltre il quarto logo non c'è più posto, restano nascosti.
+  // - "marquee": striscia orizzontale che scorre in loop, indipendente dalla copertina.
+  const sponsorLogos = Array.isArray(event.sponsorLogos) ? event.sponsorLogos : [];
+  const STICKER_CLASSES = ["ed-poster-badge", "ed-poster-badge-left", "ed-poster-badge-top-right", "ed-poster-badge-top-left"];
+  const sponsorStickersHtml = (sponsorLogos.length && event.sponsorDisplay !== "marquee")
+    ? sponsorLogos.slice(0, 4).map(function(key, i){
+        return `<img class="${STICKER_CLASSES[i]}" src="${mediaUrl(key)}" alt="Sponsor">`;
+      }).join("")
+    : "";
   const coverBlock = event.coverImageKey
-    ? `<section class="ed-section-tight"><div class="wrap"><div class="ed-poster-feature"><img class="ed-poster-img" src="${mediaUrl(event.coverImageKey)}" alt="${event.name}"></div></div></section>`
+    ? `<section class="ed-section-tight"><div class="wrap"><div class="ed-poster-feature"><img class="ed-poster-img" src="${mediaUrl(event.coverImageKey)}" alt="${event.name}">${sponsorStickersHtml}</div></div></section>`
+    : "";
+  const sponsorMarqueeHtml = (sponsorLogos.length && event.sponsorDisplay === "marquee")
+    ? (function(){
+        const imgs = sponsorLogos.map(function(key){ return `<img src="${mediaUrl(key)}" alt="Sponsor">`; }).join("");
+        // Il contenuto è duplicato una volta: l'animazione trasla del 50% e riparte, così il loop
+        // non ha uno scatto visibile nel punto in cui si "ricongiunge".
+        return `<section class="ed-sponsor-marquee"><div class="ed-sponsor-track">${imgs}${imgs}</div></section>`;
+      })()
     : "";
   const galleryItems = (event.gallery || []).map(function(key){
     return `<div class="ed-gallery-item"><img src="${mediaUrl(key)}" alt="${event.name}" loading="lazy"></div>`;
@@ -1396,6 +1418,8 @@ ${infobar}
 
 ${coverBlock}
 
+${sponsorMarqueeHtml}
+
 ${contentBlocksHtml}
 
 <section class="ed-section-tight" id="biglietti" style="background:${event.ticketBgColor || "var(--purple-deep)"}; color:var(--cream);">
@@ -1436,6 +1460,7 @@ ${contentBlocksHtml}
       <div class="et-checkout-wrap" data-et-checkout-wrap hidden>
         <p class="et-price-breakdown" data-et-checkout-breakdown></p>
         <p class="et-checkout-note">Il prezzo include l'ingresso all'evento nella fascia e opzione scelte. La commissione di transazione copre i costi di elaborazione sicura del pagamento ed è già conteggiata nel totale qui sopra.</p>
+        ${event.checkoutNote ? `<p class="et-checkout-note">${event.checkoutNote}</p>` : ""}
         <div data-et-checkout-container></div>
       </div>
     </div>
@@ -4928,6 +4953,17 @@ function validateEventPayload(body, existingTiers, sold) {
   const bgColor = isHex(body.bgColor) ? body.bgColor : "";
   const leadColor = isHex(body.leadColor) ? body.leadColor : "";
   const ticketBgColor = isHex(body.ticketBgColor) ? body.ticketBgColor : "";
+  // Nota facoltativa mostrata al momento del checkout, sotto la scomposizione prezzo — pensata
+  // per ripetere lì informazioni già dette altrove in pagina (es. cosa include un'opzione food),
+  // proprio quando il cliente sta per pagare. Vuota = resta il testo generico di sempre.
+  const checkoutNote = String(body.checkoutNote || "").trim().slice(0, 500);
+  // Loghi sponsor: lista libera (come gallery) + stile di visualizzazione. "stickers" li mette
+  // come adesivi sulla copertina (le prime 4 posizioni definite in CSS, serve una copertina
+  // caricata); "marquee" è una striscia che scorre in loop, indipendente dalla copertina.
+  const sponsorLogos = Array.isArray(body.sponsorLogos)
+    ? body.sponsorLogos.map(function(k){ return String(k || "").trim(); }).filter(Boolean).slice(0, 12)
+    : [];
+  const sponsorDisplay = body.sponsorDisplay === "marquee" ? "marquee" : "stickers";
   // Texture di sfondo dell'hero scuro (puntini + strisce diagonali) — attive di default (comportamento
   // di sempre), disattivabili singolarmente. Non hanno effetto se c'è una foto hero caricata (vedi
   // .has-photo in event-tickets.css), contano solo per il fallback senza foto.
@@ -4977,7 +5013,7 @@ function validateEventPayload(body, existingTiers, sold) {
     }
   }
 
-  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder, darkTheme, advisoryLabel, advisorySub, doorsTime, dressCode, accentColor, accentColor2, bgColor, leadColor, ticketBgColor, textureDots, textureStripes, contentBlocks, coverPosition, coverZoom } };
+  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder, darkTheme, advisoryLabel, advisorySub, doorsTime, dressCode, accentColor, accentColor2, bgColor, leadColor, ticketBgColor, textureDots, textureStripes, contentBlocks, coverPosition, coverZoom, checkoutNote, sponsorLogos, sponsorDisplay } };
 }
 
 // image/gif incluso apposta per le newsletter: un GIF animato è l'unico modo che parte da solo e

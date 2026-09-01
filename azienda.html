@@ -814,6 +814,20 @@
           </div>
 
           <div>
+            <label class="az-u-label13">Loghi sponsor</label>
+            <p class="az-u-hint10">Carica quanti loghi vuoi, poi scegli come mostrarli.</p>
+            <div class="az-field" style="max-width:320px;">
+              <select id="az-ev-sponsor-display">
+                <option value="stickers">Adesivi sulla copertina (fino a 4, serve una copertina)</option>
+                <option value="marquee">Striscia che scorre in loop</option>
+              </select>
+            </div>
+            <div id="az-ev-sponsor-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:8px; margin:10px 0;"></div>
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-ev-sponsor-input" multiple>
+            <p class="az-u-hint10" id="az-ev-sponsor-stickers-hint">Con gli adesivi solo i primi 4 loghi caricati compaiono (angoli della copertina) — gli altri restano ignorati finché non passi alla striscia scorrevole.</p>
+          </div>
+
+          <div>
             <label class="az-u-label13">Galleria foto</label>
             <p class="az-u-hint10">Foto dell'evento mostrate più in basso nella pagina — puoi caricarne più di una alla volta.</p>
             <div id="az-ev-gallery" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:8px; margin-bottom:10px;"></div>
@@ -898,6 +912,11 @@
             <p class="az-u-hint10">I prezzi qui sotto sono netti (quello che incassi tu) — sul sito il cliente paga un po' di più, la commissione Stripe stimata si aggiunge in automatico al checkout. Puoi lasciare il prezzo di un'opzione vuoto: la fascia resta pubblicabile e mostra "Presto in vendita" finché non torni a compilarlo.</p>
             <div id="az-ev-tiers"></div>
             <button type="button" class="az-mini-btn" id="az-ev-add-tier">+ Aggiungi fascia</button>
+          </div>
+          <div class="az-field">
+            <label for="az-ev-checkoutnote">Nota al checkout (facoltativa)</label>
+            <textarea id="az-ev-checkoutnote" style="width:100%; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line); font-family:Inter,sans-serif; font-size:14.5px; min-height:70px; resize:vertical;" placeholder='es. cosa include un'"'"'opzione food, chi fornisce cosa...'></textarea>
+            <p class="az-u-hint10">Compare sotto il prezzo, proprio prima del pagamento — utile per ripetere lì un'informazione già data altrove in pagina (es. cosa include l'opzione con cibo/bevande).</p>
           </div>
 
           <div>
@@ -3093,6 +3112,7 @@
   var evCoverKey = null;
   var evCoverFraming = { position: 'center', zoom: 1 };
   var evGallery = [];
+  var evSponsorLogos = [];
 
   function imagePreviewHTML(key){
     return key ? '<img src="/media/' + key + '" alt="">' : 'Nessuna immagine';
@@ -3134,6 +3154,25 @@
         try { await fetch('/api/admin/delete-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: key }) }); } catch (e) {}
       });
     });
+  }
+  function renderSponsorGrid(){
+    var grid = document.getElementById('az-ev-sponsor-grid');
+    grid.innerHTML = evSponsorLogos.map(function(key, i){
+      return '<div class="az-image-preview" style="aspect-ratio:1; margin-bottom:0;">' +
+        '<img src="/media/' + key + '" alt="">' +
+        (i < 4 ? '<span style="position:absolute; top:4px; left:4px; background:var(--ink); color:#fff; font-size:10px; font-weight:700; padding:2px 6px; border-radius:6px;">' + (i + 1) + '</span>' : '') +
+        '<button type="button" class="az-mini-btn danger" data-remove-sponsor="' + key + '" ' +
+        'style="position:absolute; margin:4px; right:0;">✕</button></div>';
+    }).join('');
+    grid.querySelectorAll('[data-remove-sponsor]').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        var key = btn.getAttribute('data-remove-sponsor');
+        evSponsorLogos = evSponsorLogos.filter(function(k){ return k !== key; });
+        renderSponsorGrid();
+        try { await fetch('/api/admin/delete-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: key }) }); } catch (e) {}
+      });
+    });
+    document.getElementById('az-ev-sponsor-stickers-hint').hidden = document.getElementById('az-ev-sponsor-display').value !== 'stickers';
   }
 
   async function uploadEventImage(file, purpose){
@@ -3180,6 +3219,17 @@
       try { evGallery.push(await uploadEventImage(files[i], 'gallery')); } catch (err) { alert(err.message); }
     }
     renderGalleryGrid();
+  });
+  document.getElementById('az-ev-sponsor-input').addEventListener('change', async function(){
+    var files = Array.prototype.slice.call(this.files);
+    this.value = '';
+    for (var i = 0; i < files.length; i++) {
+      try { evSponsorLogos.push(await uploadEventImage(files[i], 'sponsor')); } catch (err) { alert(err.message); }
+    }
+    renderSponsorGrid();
+  });
+  document.getElementById('az-ev-sponsor-display').addEventListener('change', function(){
+    document.getElementById('az-ev-sponsor-stickers-hint').hidden = this.value !== 'stickers';
   });
   // ---- Artisti: stesso pattern di upload/anteprima degli eventi, generalizzato per accettare
   // anche video (hero e blocchi contenuto) oltre alle immagini. ----
@@ -5612,6 +5662,10 @@
     evCoverKey = event ? (event.coverImageKey || null) : null;
     evCoverFraming = { position: (event && event.coverPosition) || 'center', zoom: (event && event.coverZoom) || 1 };
     evGallery = event ? (event.gallery || []).slice() : [];
+    evSponsorLogos = event ? (event.sponsorLogos || []).slice() : [];
+    document.getElementById('az-ev-sponsor-display').value = (event && event.sponsorDisplay) || 'stickers';
+    renderSponsorGrid();
+    document.getElementById('az-ev-checkoutnote').value = event ? (event.checkoutNote || '') : '';
     renderHeroPreview();
     renderCoverPreview();
     renderGalleryGrid();
@@ -5703,6 +5757,9 @@
       coverPosition: evCoverFraming.position,
       coverZoom: evCoverFraming.zoom,
       gallery: evGallery,
+      sponsorLogos: evSponsorLogos,
+      sponsorDisplay: document.getElementById('az-ev-sponsor-display').value,
+      checkoutNote: document.getElementById('az-ev-checkoutnote').value.trim(),
       published: document.getElementById('az-ev-published').checked,
       darkTheme: evDarkThemeCheckbox.checked,
       advisoryLabel: document.getElementById('az-ev-advisory-label').value.trim(),

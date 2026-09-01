@@ -230,10 +230,31 @@
   background:var(--ink); border-radius:14px; padding:14px 10px; box-sizing:border-box;
 }
 .ed-poster-feature:hover .ed-poster-badge-left{ transform:rotate(3deg) scale(1.05); }
+/* Terzo/quarto sponsor (facoltativi) — stessi adesivi ma agli angoli in alto, così un poster con
+   fino a 4 loghi non li ammucchia tutti in basso. */
+.ed-poster-badge-top-right{
+  position:absolute; width:100px; top:-18px; right:-18px; transform:rotate(7deg);
+  filter:drop-shadow(0 10px 18px rgba(0,0,0,.3)); transition:transform .3s ease;
+}
+.ed-poster-feature:hover .ed-poster-badge-top-right{ transform:rotate(2deg) scale(1.05); }
+.ed-poster-badge-top-left{
+  position:absolute; width:88px; top:-14px; left:-14px; transform:rotate(-6deg);
+  filter:drop-shadow(0 10px 18px rgba(0,0,0,.3)); transition:transform .3s ease;
+}
+.ed-poster-feature:hover .ed-poster-badge-top-left{ transform:rotate(-2deg) scale(1.05); }
 @media (max-width:520px){
   .ed-poster-badge{ width:84px; bottom:-12px; right:-8px; }
   .ed-poster-badge-left{ width:72px; bottom:-10px; left:-8px; }
+  .ed-poster-badge-top-right{ width:70px; top:-10px; right:-6px; }
+  .ed-poster-badge-top-left{ width:62px; top:-8px; left:-6px; }
 }
+
+/* Striscia sponsor che scorre in loop — alternativa agli adesivi, non richiede una copertina. */
+.ed-sponsor-marquee{ overflow:hidden; padding:36px 0; background:var(--cream); border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+.ed-sponsor-track{ display:flex; align-items:center; gap:64px; width:max-content; animation:ed-marquee 24s linear infinite; }
+.ed-sponsor-track img{ height:44px; width:auto; object-fit:contain; opacity:.8; }
+@keyframes ed-marquee{ from{ transform:translateX(0); } to{ transform:translateX(-50%); } }
+@media (prefers-reduced-motion: reduce){ .ed-sponsor-track{ animation:none; overflow-x:auto; } }
 
 /* badge sponsor autonomo, per pagine senza poster ufficiale (es. grow-with-us.html) */
 .ed-sponsor-badges{ display:flex; gap:24px; margin:-8px 0 44px; }
