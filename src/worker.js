@@ -560,6 +560,26 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    if (url.pathname === "/api/waitlist-join" && request.method === "POST") {
+      const rl = await checkRateLimit(env, "RL_CHECKOUT", request, "waitlist-join");
+      if (rl) return rl;
+      try {
+        return await handleWaitlistJoin(request, env);
+      } catch (err) {
+        console.log("Errore waitlist-join:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/admin/waitlist-csv" && request.method === "GET") {
+      try {
+        return await handleAdminWaitlistCsv(request, env);
+      } catch (err) {
+        console.log("Errore admin/waitlist-csv:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     if (url.pathname === "/api/validate-coupon" && request.method === "POST") {
       const rl = await checkRateLimit(env, "RL_COUPON", request, "validate-coupon");
       if (rl) return rl;
@@ -3679,6 +3699,74 @@ async function handleValidateCoupon(request, env) {
   return jsonResponse(result);
 }
 
+// Lista d'attesa: quando una fascia risulta esaurita, chi è interessato può lasciare nome/email
+// invece di trovare solo un badge "Esauriti" — utile se si libera un posto (qualcuno rinuncia) o
+// per una fascia extra futura. Un record per persona per fascia (email come parte della chiave,
+// così ri-iscriversi non crea doppioni), niente email automatica qui: lo staff scarica la lista
+// e contatta a mano chi vuole, quando/se ha senso farlo.
+async function handleWaitlistJoin(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const eventSlug = String(body.eventSlug || "").trim();
+  const tierId = String(body.tierId || "").trim();
+  const name = String(body.name || "").trim().slice(0, 200);
+  const email = String(body.email || "").trim().slice(0, 200);
+
+  const event = eventSlug ? await getEvent(env, eventSlug) : null;
+  if (!event) return jsonResponse({ error: "evento non valido" }, 400);
+  const tier = (event.tiers || []).find(function(t){ return t.id === tierId; });
+  if (!tier) return jsonResponse({ error: "fascia non valida" }, 400);
+  if (!name || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return jsonResponse({ error: "nome ed email validi sono obbligatori" }, 400);
+  }
+
+  const key = `waitlist:${eventSlug}:${tierId}:${email.toLowerCase()}`;
+  const alreadyIn = await env.TICKETS.get(key);
+  if (alreadyIn) return jsonResponse({ ok: true, alreadyJoined: true });
+
+  await env.TICKETS.put(key, JSON.stringify({
+    eventSlug, tierId, tierName: tier.name, name, email, createdAt: new Date().toISOString()
+  }), { metadata: { eventSlug, tierId } });
+
+  return jsonResponse({ ok: true });
+}
+
+// Sola lettura per lo staff — un CSV per evento (tutte le fasce insieme, colonna "Fascia" per
+// distinguerle) da poter aprire in Excel/Fogli Google e contattare le persone a mano.
+async function handleAdminWaitlistCsv(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const url = new URL(request.url);
+  const eventSlug = String(url.searchParams.get("event") || "").trim();
+  if (!eventSlug) return jsonResponse({ error: "evento mancante" }, 400);
+
+  const entries = [];
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: `waitlist:${eventSlug}:`, cursor });
+    for (const k of page.keys) {
+      const raw = await env.TICKETS.get(k.name);
+      if (raw) entries.push(JSON.parse(raw));
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  entries.sort(function(a, b){ return (a.createdAt || "").localeCompare(b.createdAt || ""); });
+
+  const rows = [["Nome", "Email", "Fascia", "Iscritto il"]];
+  for (const e of entries) {
+    rows.push([e.name, e.email, e.tierName, e.createdAt ? new Date(e.createdAt).toLocaleString("it-IT") : ""]);
+  }
+  const csv = "﻿" + rows.map(function(row){ return row.map(csvEscape).join(","); }).join("\r\n");
+  return new Response(csv, {
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": `attachment; filename="lista-attesa-${eventSlug}.csv"`
+    }
+  });
+}
+
 async function handleRegister(request, env) {
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
 
@@ -3946,6 +4034,31 @@ async function handleStripeWebhook(request, env) {
         });
         if (!resendRes.ok) {
           console.log("Resend error:", resendRes.status, await resendRes.text());
+        }
+
+        // Avviso interno allo staff a ogni vendita — separato dalla mail al cliente (mai
+        // bloccante: se questa fallisce il biglietto è comunque già valido ed emesso sopra).
+        const amount = typeof session.amount_total === "number" ? (session.amount_total / 100).toLocaleString("it-IT", { style: "currency", currency: (session.currency || "eur").toUpperCase() }) : "";
+        try {
+          const staffRes = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              from: "GrowMi <noreply@growmi.it>",
+              to: "grow.mi@outlook.it",
+              subject: `Nuovo biglietto venduto — ${eventName}`,
+              html: `<div style="font-family:Arial,sans-serif; font-size:15px; color:#1E0C2C; line-height:1.6;">` +
+                `<p><strong>Nuova vendita per ${eventName}</strong></p>` +
+                `<p>${customerName} — ${email} — ${customerPhone}<br>` +
+                `Fascia: ${tierName || "—"}<br>` +
+                `Importo incassato: ${amount || "—"}<br>` +
+                `Codice biglietto: ${ticketCode}</p>` +
+                `</div>`
+            })
+          });
+          if (!staffRes.ok) console.log("Resend staff notify error:", staffRes.status, await staffRes.text());
+        } catch (e) {
+          console.log("Errore invio notifica vendita a staff:", e.message);
         }
       }
     }

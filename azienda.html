@@ -3535,8 +3535,14 @@
         '<h4>' + esc(ev.name) + ' <span class="az-pill ' + (isPublished ? 'yes' : 'no') + '">' + (isPublished ? 'Pubblicato' : 'Bozza') + '</span></h4>' +
         '<div class="meta">' + esc(ev.dateDisplay) + ' · ' + esc(ev.location) + ' · ' + positionLabel + '</div>' +
         tierRows +
-        '<button type="button" class="edit-btn">✏️ Modifica</button>';
+        '<div class="az-u-row10">' +
+          '<button type="button" class="edit-btn">✏️ Modifica</button>' +
+          '<button type="button" class="az-mini-btn waitlist-btn">📋 Lista d\'attesa (CSV)</button>' +
+        '</div>';
       card.querySelector('.edit-btn').addEventListener('click', function(){ openEventForm(ev); });
+      card.querySelector('.waitlist-btn').addEventListener('click', function(){
+        window.open('/api/admin/waitlist-csv?event=' + encodeURIComponent(ev.slug), '_blank');
+      });
       wrap.appendChild(card);
     });
   }

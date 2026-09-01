@@ -75,7 +75,8 @@
         var optionsHtml;
         if (tier.soldOut) {
           row.className = "et-tier-row et-sold-out";
-          optionsHtml = '<span class="et-sold-out-badge" data-i18n="et_soldout">' + et_t("et_soldout", "Esauriti") + '</span>';
+          optionsHtml = '<span class="et-sold-out-badge" data-i18n="et_soldout">' + et_t("et_soldout", "Esauriti") + '</span>' +
+            '<button type="button" class="et-waitlist-btn" data-waitlist-tier="' + tier.id + '">' + et_t("et_waitlist_cta", "Iscriviti alla lista d'attesa") + '</button>';
         } else if (!tier.active) {
           row.className = "et-tier-row et-upcoming";
           optionsHtml = '<span class="et-sold-out-badge" data-i18n="et_unavailable">' + et_t("et_unavailable", "Presto in vendita") + '</span>';
@@ -101,6 +102,50 @@
             gross: parseInt(btn.dataset.gross, 10)
           });
         });
+      });
+      tierList.querySelectorAll(".et-waitlist-btn").forEach(function(btn){
+        btn.addEventListener("click", function(){ openWaitlistForm(btn); });
+      });
+    }
+
+    // Form minimo (nome + email) iniettato subito sotto il bottone, invece di riusare lo step
+    // di registrazione biglietti — qui non c'è nessun pagamento, non ha senso chiedere
+    // telefono/consensi foto come per un acquisto vero.
+    function openWaitlistForm(btn){
+      var tierId = btn.dataset.waitlistTier;
+      var row = btn.closest(".et-tier-row");
+      if (row.querySelector(".et-waitlist-form")) return; // già aperto
+      btn.hidden = true;
+      var wrap = document.createElement("div");
+      wrap.className = "et-waitlist-form";
+      wrap.innerHTML =
+        '<input type="text" placeholder="Nome" class="et-waitlist-name" required>' +
+        '<input type="email" placeholder="Email" class="et-waitlist-email" required>' +
+        '<button type="button" class="et-waitlist-submit">' + et_t("et_waitlist_submit", "Iscrivimi") + '</button>' +
+        '<p class="et-waitlist-status" hidden></p>';
+      row.appendChild(wrap);
+      var statusEl = wrap.querySelector(".et-waitlist-status");
+      wrap.querySelector(".et-waitlist-submit").addEventListener("click", async function(){
+        var nameVal = wrap.querySelector(".et-waitlist-name").value.trim();
+        var emailVal = wrap.querySelector(".et-waitlist-email").value.trim();
+        if (!nameVal || !emailVal) {
+          statusEl.textContent = et_t("et_waitlist_error", "Compila nome ed email.");
+          statusEl.hidden = false;
+          return;
+        }
+        try {
+          var res = await fetch("/api/waitlist-join", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ eventSlug: slug, tierId: tierId, name: nameVal, email: emailVal })
+          });
+          var data = await res.json();
+          if (!res.ok) throw new Error(data.error || "");
+          wrap.innerHTML = '<p class="et-waitlist-status is-ok">' + et_t("et_waitlist_done", "Fatto — ti scriviamo se si libera un posto.") + '</p>';
+        } catch (e) {
+          statusEl.textContent = et_t("et_waitlist_error", "Qualcosa è andato storto, riprova.");
+          statusEl.hidden = false;
+        }
       });
     }
 

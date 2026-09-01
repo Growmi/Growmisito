@@ -126,7 +126,10 @@
   display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;
   padding:16px 18px; border-radius:14px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
 }
-.et-tier-row.et-sold-out{ opacity:.5; }
+/* Niente opacity sull'intera riga (a differenza di .et-upcoming): ora c'è un bottone vero
+   (lista d'attesa) dentro, l'opacity del genitore lo renderebbe illeggibile/poco cliccabile
+   insieme al resto. Il nome resta comunque leggermente smorzato per segnalare "non disponibile". */
+.et-tier-row.et-sold-out .et-tier-name{ opacity:.6; }
 .et-tier-row.et-upcoming{ opacity:.6; }
 .et-tier-row.et-upcoming .et-tier-btn-price{ color:rgba(255,255,255,.35); }
 .et-tier-name{ font-family:var(--font-heading); font-weight:700; font-size:15px; color:#fff; }
@@ -145,6 +148,28 @@
   letter-spacing:.04em; color:var(--coral); padding:8px 14px;
 }
 .et-tickets-note{ font-family:var(--font-body); font-size:13px; color:#9C96A6; margin-top:16px; }
+
+.et-waitlist-btn{
+  font-family:var(--font-body); font-weight:600; font-size:12.5px; color:#fff;
+  background:transparent; border:1.5px solid rgba(255,255,255,.3); border-radius:999px;
+  padding:8px 16px; cursor:pointer; transition:border-color .15s ease, background .15s ease;
+}
+.et-waitlist-btn:hover{ border-color:var(--coral); background:rgba(248,102,57,.1); }
+.et-waitlist-form{
+  display:flex; flex-wrap:wrap; gap:8px; align-items:center; width:100%; margin-top:10px;
+}
+.et-waitlist-form input{
+  flex:1 1 160px; padding:9px 12px; border-radius:8px; border:1.5px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.05); color:#fff; font-family:var(--font-body); font-size:13.5px;
+}
+.et-waitlist-form input:focus{ outline:none; border-color:var(--coral); }
+.et-waitlist-submit{
+  font-family:var(--font-body); font-weight:700; font-size:13px; color:#fff; background:var(--coral);
+  border:none; border-radius:8px; padding:9px 16px; cursor:pointer;
+}
+.et-waitlist-submit:hover{ background:#E0552B; }
+.et-waitlist-status{ width:100%; font-size:12.5px; color:var(--coral); margin:0; }
+.et-waitlist-status.is-ok{ color:#7BE0A8; font-weight:600; }
 
 .et-reg-step{ max-width:560px; margin-top:32px; padding-top:28px; border-top:1px solid rgba(255,255,255,.1); }
 .et-reg-step[hidden]{ display:none; }
