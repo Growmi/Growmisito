@@ -247,13 +247,23 @@
       );
     }
 
-    function open(){
+    // Eventi creati dal pannello aziendale (KV, via /api/public-events) — stesso identico schema
+    // di merge già usato in events-render.js per le griglie di eventi.html: senza questo, un
+    // evento esistente solo nel pannello (nessuna voce nel GROWMI_EVENTS statico) non compariva
+    // mai in questa tendina, anche se pubblicato e acquistabile.
+    function fromPublicEvent(ev){
+      return {
+        title: ev.name, date: ev.dateIso, tag: ev.dateDisplay, location: ev.location,
+        url: ev.pageUrl, cover: ev.coverImageUrl || ev.heroImageUrl || null, comingSoon: false
+      };
+    }
+    function renderUpcoming(dynamicEvents){
       var today = new Date();
       today.setHours(0, 0, 0, 0);
       // filtro rifatto a ogni apertura: un evento la cui data è passata smette di
       // comparire da solo, senza bisogno di toccare nulla a mano
-      var upcoming = GROWMI_EVENTS.filter(function(ev){
-        if(ev.draft) return false;
+      var all = GROWMI_EVENTS.filter(function(ev){ return !ev.draft; }).concat(dynamicEvents);
+      var upcoming = all.filter(function(ev){
         var d = new Date(ev.date + 'T00:00:00');
         return d >= today;
       }).sort(function(a, b){ return new Date(a.date) - new Date(b.date); });
@@ -261,9 +271,15 @@
       grid.innerHTML = upcoming.length
         ? upcoming.map(cardHTML).join('')
         : '<p class="tickets-overlay-empty">Nessun evento disponibile al momento.</p>';
-
+    }
+    function open(){
+      grid.innerHTML = '<p class="tickets-overlay-empty">Caricamento…</p>';
       overlay.hidden = false;
       toggle.setAttribute('aria-expanded', 'true');
+      fetch('/api/public-events')
+        .then(function(r){ return r.ok ? r.json() : { events: [] }; })
+        .then(function(data){ renderUpcoming((data.events || []).map(fromPublicEvent)); })
+        .catch(function(){ renderUpcoming([]); });
     }
     function close(){
       if(overlay.hidden) return;
