@@ -1302,7 +1302,7 @@ function eventPageHTML(event, slug) {
         const imgs = sponsorLogos.map(function(logo){ return `<img class="${logo.darkBacking ? "ed-sponsor-dark-backing" : ""}" src="${mediaUrl(logo.key)}" alt="Sponsor">`; }).join("");
         // Il contenuto è duplicato una volta: l'animazione trasla del 50% e riparte, così il loop
         // non ha uno scatto visibile nel punto in cui si "ricongiunge".
-        return `<section class="ed-sponsor-marquee"><div class="ed-sponsor-track">${imgs}${imgs}</div></section>`;
+        return `<section class="ed-sponsor-marquee"><div class="ed-sponsor-track" style="--sponsor-logo-size:${event.sponsorLogoSize || 84}px;">${imgs}${imgs}</div></section>`;
       })()
     : "";
   const galleryItems = (event.gallery || []).map(function(key){
@@ -5094,6 +5094,10 @@ function validateEventPayload(body, existingTiers, sold) {
     ? body.sponsorLogos.map(normalizeSponsorLogo).filter(Boolean).slice(0, 12)
     : [];
   const sponsorDisplay = body.sponsorDisplay === "marquee" ? "marquee" : "stickers";
+  // Altezza dei loghi nella striscia scorrevole, in px — facoltativa, 84 di default (il valore
+  // fisso di prima). Solo per "marquee": gli adesivi hanno 4 dimensioni diverse per posizione
+  // già pensate per stare bene sul poster, un unico numero lì non avrebbe lo stesso senso.
+  const sponsorLogoSize = Number.isFinite(Number(body.sponsorLogoSize)) ? Math.min(200, Math.max(24, Math.round(Number(body.sponsorLogoSize)))) : 84;
   // Texture di sfondo dell'hero scuro (puntini + strisce diagonali) — attive di default (comportamento
   // di sempre), disattivabili singolarmente. Non hanno effetto se c'è una foto hero caricata (vedi
   // .has-photo in event-tickets.css), contano solo per il fallback senza foto.
@@ -5143,7 +5147,7 @@ function validateEventPayload(body, existingTiers, sold) {
     }
   }
 
-  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder, darkTheme, advisoryLabel, advisorySub, doorsTime, dressCode, accentColor, accentColor2, bgColor, leadColor, ticketBgColor, textureDots, textureStripes, contentBlocks, coverPosition, coverZoom, checkoutNote, sponsorLogos, sponsorDisplay } };
+  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder, darkTheme, advisoryLabel, advisorySub, doorsTime, dressCode, accentColor, accentColor2, bgColor, leadColor, ticketBgColor, textureDots, textureStripes, contentBlocks, coverPosition, coverZoom, checkoutNote, sponsorLogos, sponsorDisplay, sponsorLogoSize } };
 }
 
 // image/gif incluso apposta per le newsletter: un GIF animato è l'unico modo che parte da solo e

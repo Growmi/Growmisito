@@ -822,6 +822,10 @@
                 <option value="marquee">Striscia che scorre in loop</option>
               </select>
             </div>
+            <div class="az-field" id="az-ev-sponsor-size-field" style="max-width:220px;" hidden>
+              <label for="az-ev-sponsor-size">Dimensione loghi nella striscia (px)</label>
+              <input type="number" id="az-ev-sponsor-size" min="24" max="200" value="84">
+            </div>
             <div id="az-ev-sponsor-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:8px; margin:10px 0;"></div>
             <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-ev-sponsor-input" multiple>
             <p class="az-u-hint10" id="az-ev-sponsor-stickers-hint">Con gli adesivi solo i primi 4 loghi caricati compaiono (angoli della copertina) — gli altri restano ignorati finché non passi alla striscia scorrevole.</p>
@@ -3244,6 +3248,7 @@
   });
   document.getElementById('az-ev-sponsor-display').addEventListener('change', function(){
     document.getElementById('az-ev-sponsor-stickers-hint').hidden = this.value !== 'stickers';
+    document.getElementById('az-ev-sponsor-size-field').hidden = this.value !== 'marquee';
   });
   // ---- Artisti: stesso pattern di upload/anteprima degli eventi, generalizzato per accettare
   // anche video (hero e blocchi contenuto) oltre alle immagini. ----
@@ -5708,6 +5713,8 @@
       return typeof l === 'string' ? { key: l, darkBacking: false } : l;
     }) : [];
     document.getElementById('az-ev-sponsor-display').value = (event && event.sponsorDisplay) || 'stickers';
+    document.getElementById('az-ev-sponsor-size').value = (event && event.sponsorLogoSize) || 84;
+    document.getElementById('az-ev-sponsor-size-field').hidden = (event && event.sponsorDisplay) !== 'marquee';
     renderSponsorGrid();
     document.getElementById('az-ev-checkoutnote').value = event ? (event.checkoutNote || '') : '';
     renderHeroPreview();
@@ -5803,6 +5810,7 @@
       gallery: evGallery,
       sponsorLogos: evSponsorLogos,
       sponsorDisplay: document.getElementById('az-ev-sponsor-display').value,
+      sponsorLogoSize: Number(document.getElementById('az-ev-sponsor-size').value) || 84,
       checkoutNote: document.getElementById('az-ev-checkoutnote').value.trim(),
       published: document.getElementById('az-ev-published').checked,
       darkTheme: evDarkThemeCheckbox.checked,
