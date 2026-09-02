@@ -250,9 +250,10 @@
 }
 
 /* Striscia sponsor che scorre in loop — alternativa agli adesivi, non richiede una copertina. */
-.ed-sponsor-marquee{ overflow:hidden; padding:36px 0; background:var(--cream); border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
-.ed-sponsor-track{ display:flex; align-items:center; gap:64px; width:max-content; animation:ed-marquee 24s linear infinite; }
-.ed-sponsor-track img{ height:44px; width:auto; object-fit:contain; opacity:.8; }
+.ed-sponsor-marquee{ overflow:hidden; padding:48px 0; background:var(--cream); border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+.ed-sponsor-track{ display:flex; align-items:center; gap:72px; width:max-content; animation:ed-marquee 24s linear infinite; }
+.ed-sponsor-track img{ height:84px; width:auto; object-fit:contain; opacity:.9; }
+@media (max-width:600px){ .ed-sponsor-track img{ height:60px; } .ed-sponsor-track{ gap:48px; } }
 /* Per i loghi chiari/trasparenti (es. bianco su trasparente) che altrimenti sparirebbero sullo
    sfondo chiaro della pagina — stessa "targhetta" scura usata a mano per il logo Pogo Store
    nelle vecchie pagine statiche, ora attivabile per qualunque logo dal pannello. */
