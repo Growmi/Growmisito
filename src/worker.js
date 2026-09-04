@@ -6581,23 +6581,25 @@ async function applyLegacyEventsOverride(response, overrides) {
 // Tetto di percorsi distinti per non far crescere il record all'infinito con traffico bot/scanner
 // che genera URL a caso — oltre il tetto il totale continua comunque a salire.
 const ANALYTICS_MAX_PATHS_PER_DAY = 200;
-// Campionamento: si traccia solo 1 visita su 4 (a caso) invece di ognuna, e si moltiplica per 4 in
-// lettura (handleAdminGetAnalytics) — stessa stima nel pannello, ma un quarto delle scritture KV.
-// Il tetto gratuito di Cloudflare KV (1.000 scritture/giorno, condiviso con tutto il resto del
-// sito: biglietti, iscrizioni, sessioni...) è per l'intero account, non solo per l'analytics —
-// prima di questo campionamento, il traffico reale del sito da solo poteva avvicinarcisi.
+// Non più usata per decidere se tracciare (si traccia sempre, vedi sotto) — resta solo per
+// riscalare correttamente in lettura i giorni vecchi scritti nel periodo in cui si campionava
+// (marcati rec.sampled, vedi handleAdminGetAnalytics).
 const ANALYTICS_SAMPLE_RATE = 0.25;
+// Ogni visualizzazione viene tracciata (una scrittura KV per visita, nessuna stima) — su
+// richiesta esplicita: il conteggio deve essere quello vero, non un'estrapolazione. In
+// precedenza si campionava 1 visita su 4 per restare sotto il tetto gratuito di Cloudflare KV
+// (1.000 scritture/giorno, condiviso con tutto il resto del sito: biglietti, iscrizioni,
+// sessioni...) — con traffico alto quel tetto può tornare a farsi sentire.
 async function trackPageView(env, pathname) {
   try {
     const day = new Date().toISOString().slice(0, 10);
     const key = `analytics:day:${day}`;
     const raw = await env.TICKETS.get(key);
     const rec = raw ? JSON.parse(raw) : { total: 0, pages: {} };
-    // Marca il record come "campionato" — i giorni scritti PRIMA che esistesse il campionamento
-    // (o mai toccati oggi) non hanno questo campo, e in lettura NON vanno moltiplicati per 4: sono
-    // già un conteggio vero. Senza questa distinzione, un giorno vecchio da 72 visite reali
-    // risultava mostrato come 288 (72×4) — bug scoperto proprio da un numero che non tornava.
-    rec.sampled = true;
+    // Niente più rec.sampled = true qui: da oggi ogni giorno scritto è già un conteggio esatto
+    // (una scrittura = una visita vera), non serve più moltiplicare nulla in lettura. I giorni
+    // già scritti CON questo campo (dal periodo in cui si campionava) restano corretti da soli:
+    // handleAdminGetAnalytics continua a riscalarli SOLO se il campo è presente.
     rec.total = (rec.total || 0) + 1;
     if (rec.pages[pathname] !== undefined || Object.keys(rec.pages).length < ANALYTICS_MAX_PATHS_PER_DAY) {
       rec.pages[pathname] = (rec.pages[pathname] || 0) + 1;
@@ -6651,7 +6653,7 @@ async function finalizePublicHtmlResponse(request, env, response, ctx) {
   if (!isPublicThemedPath(url.pathname)) return response;
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("text/html")) return response;
-  if (response.ok && request.method === "GET" && ctx && Math.random() < ANALYTICS_SAMPLE_RATE) {
+  if (response.ok && request.method === "GET" && ctx) {
     ctx.waitUntil(trackPageView(env, url.pathname));
   }
   try {
