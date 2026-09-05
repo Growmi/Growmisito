@@ -285,6 +285,10 @@
   }
   .az-fb-summary-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   @media (max-width:900px){ .az-fb-summary-grid{ grid-template-columns:1fr; } }
+  /* "Visite al sito" + "Pagine più viste" nella Dashboard — due card fianco a fianco, ognuna già
+     larga di suo (numeri grandi, grafico a barre) — su telefono diventavano due colonne strette
+     tagliate/illeggibili invece di stare una sopra l'altra. */
+  @media (max-width:760px){ .az-analytics-cols{ grid-template-columns:1fr !important; } }
   .az-fb-summary-block{ background:#fff; border:1.5px solid var(--line); border-radius:16px; padding:16px 18px; }
   .az-fb-summary-block h4{ font-family:'Space Grotesk',sans-serif; font-size:12.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--grey); margin-bottom:12px; }
   /* "Cosa è piaciuto di più" cresce in una lista a più colonne invece di stare compressa in una
@@ -498,7 +502,7 @@
         <div class="az-stat"><span class="n" id="az-stat-avgrating">—</span><span class="l">Valutazione media</span></div>
       </div>
 
-      <div style="margin-top:36px; padding-top:28px; border-top:1.5px solid var(--line); display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div class="az-analytics-cols" style="margin-top:36px; padding-top:28px; border-top:1.5px solid var(--line); display:grid; grid-template-columns:1fr 1fr; gap:16px;">
         <div class="az-settings-card" style="max-width:none;">
           <h3>Visite al sito</h3>
           <div class="az-stat-grid" style="margin-bottom:16px;">
