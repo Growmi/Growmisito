@@ -641,6 +641,12 @@
         </div>
         <div id="az-nl-group-members-wrap" hidden style="margin-top:12px; max-width:480px;">
           <input type="text" class="az-search" id="az-nl-group-members-search" placeholder="Cerca per email o nome..." style="width:100%; margin-bottom:8px;">
+          <div class="az-u-row10" style="margin-bottom:8px;">
+            <input type="number" id="az-nl-group-members-firstn" placeholder="Es. 100" min="1" style="width:90px; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">
+            <button type="button" class="az-mini-btn" id="az-nl-group-members-selectn">Seleziona i primi N</button>
+            <button type="button" class="az-mini-btn" id="az-nl-group-members-invert">Inverti selezione</button>
+          </div>
+          <p class="az-u-hint10" style="margin-top:-4px;">Comodo per dividere un invio in due parti: seleziona i primi 100 e crea il gruppo di oggi, poi inverti la selezione e crea il gruppo con tutti gli altri per domani.</p>
           <div id="az-nl-group-members-list" style="max-height:240px; overflow-y:auto; border:1.5px solid var(--line); border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:4px;"></div>
           <p style="font-size:12px; color:var(--grey); margin-top:6px;"><span id="az-nl-group-members-count">0</span> selezionati — verranno aggiunti al gruppo appena lo crei.</p>
         </div>
@@ -1816,6 +1822,22 @@
     if (!wrap.hidden) renderGroupMembersChecklist();
   });
   document.getElementById('az-nl-group-members-search').addEventListener('input', renderGroupMembersChecklist);
+  // "primi N"/"inverti" lavorano sempre sull'elenco COMPLETO degli iscritti (allSubscribers),
+  // non solo su quelli filtrati dalla ricerca — così dividere un invio in due parti (100 oggi,
+  // il resto domani) resta prevedibile anche se nel frattempo si è usata la casella di ricerca.
+  document.getElementById('az-nl-group-members-selectn').addEventListener('click', function(){
+    var n = parseInt(document.getElementById('az-nl-group-members-firstn').value, 10);
+    if (!n || n < 1) return;
+    selectedGroupMembers.clear();
+    allSubscribers.slice(0, n).forEach(function(s){ selectedGroupMembers.add(s.email); });
+    renderGroupMembersChecklist();
+  });
+  document.getElementById('az-nl-group-members-invert').addEventListener('click', function(){
+    var next = new Set();
+    allSubscribers.forEach(function(s){ if (!selectedGroupMembers.has(s.email)) next.add(s.email); });
+    selectedGroupMembers = next;
+    renderGroupMembersChecklist();
+  });
 
   document.getElementById('az-nl-group-add').addEventListener('click', async function(){
     var nameInput = document.getElementById('az-nl-group-name');
