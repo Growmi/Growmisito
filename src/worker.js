@@ -3297,6 +3297,22 @@ async function autoCreateDraftCampaignForEvent(env, slug, event) {
   }
 }
 
+// Conta i marcatori nlsent:<id>:<email> scritti uno per uno durante un invio reale (vedi
+// sendNewsletterCampaignNow) — usato per recuperare il vero numero di destinatari quando
+// campaign.recipientCount è rimasto a 0 (es. una campagna sbloccata con "Segna come già
+// inviata" dopo essersi bloccata su "sending": quel pulsante marca solo lo stato, il numero
+// di destinatari non veniva mai salvato pur essendo stati inviati email vere).
+async function countNlSentMarkers(env, campaignId) {
+  let count = 0;
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: `nlsent:${campaignId}:`, cursor });
+    count += page.keys.length;
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  return count;
+}
+
 async function handleAdminListNewsletterCampaigns(request, env) {
   const auth = await requireStaffAccount(request, env);
   if (auth.error) return auth.error;
@@ -3311,6 +3327,17 @@ async function handleAdminListNewsletterCampaigns(request, env) {
     }
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
+  // Ripara al volo le campagne "inviata"/"parziale" rimaste con destinatari=0 (vedi
+  // countNlSentMarkers) — capita raramente, solo per campagne sbloccate manualmente in passato.
+  for (const c of campaigns) {
+    if ((c.status === "sent" || c.status === "partial") && !c.recipientCount) {
+      const real = await countNlSentMarkers(env, c.id);
+      if (real > 0) {
+        c.recipientCount = real;
+        await env.TICKETS.put(`newslettercampaign:${c.id}`, JSON.stringify(c));
+      }
+    }
+  }
   campaigns.sort(function(a, b){ return (b.createdAt || "").localeCompare(a.createdAt || ""); });
   return jsonResponse({ campaigns });
 }
@@ -3626,6 +3653,10 @@ async function handleAdminMarkNewsletterCampaignSent(request, env) {
   campaign.status = "sent";
   campaign.sentAt = campaign.sentAt || new Date().toISOString();
   campaign.scheduledAt = null;
+  if (!campaign.recipientCount) {
+    const real = await countNlSentMarkers(env, campaign.id);
+    if (real > 0) campaign.recipientCount = real;
+  }
   await env.TICKETS.put(`newslettercampaign:${id}`, JSON.stringify(campaign));
   return jsonResponse({ ok: true, campaign });
 }
