@@ -1232,17 +1232,25 @@ function mediaUrl(key) {
   return `/media/${key}`;
 }
 
-// sponsorLogos è passato da una prima versione (array di chiavi/stringhe, prima del checkbox
-// "sfondo scuro") a una seconda ({key, darkBacking}) — un evento salvato con la prima versione
-// avrebbe altrimenti .key undefined con il codice nuovo (immagini rotte). Accetta entrambe le
-// forme e le riporta sempre a quella nuova, sia leggendo da KV sia da un payload in arrivo.
+// sponsorLogos è passato da una prima versione (array di chiavi/stringhe) a una seconda
+// ({key, darkBacking: boolean}, solo sfondo scuro fisso per i loghi chiari) e infine a quella
+// attuale ({key, backingColor: string|null}, un colore qualunque dietro al logo — serve anche
+// per i loghi scuri su sfondo scuro, non solo per quelli chiari). Accetta tutte e tre le forme
+// e le riporta sempre all'ultima, sia leggendo da KV sia da un payload in arrivo.
 function normalizeSponsorLogo(raw) {
   if (typeof raw === "string") {
     const key = raw.trim();
-    return key ? { key, darkBacking: false } : null;
+    return key ? { key, backingColor: null } : null;
   }
   const key = String((raw && raw.key) || "").trim();
-  return key ? { key, darkBacking: !!(raw && raw.darkBacking) } : null;
+  if (!key) return null;
+  // Solo #rrggbb — è quello che produce l'unico modo per impostarlo (un <input type="color">
+  // nel pannello), qualunque altra cosa finirebbe scritta as-is in uno style="" inline lato
+  // pubblico: meglio scartarla che rischiare CSS iniettato.
+  const rawColor = (raw && raw.backingColor) ? String(raw.backingColor).trim() : "";
+  const backingColor = /^#[0-9a-fA-F]{6}$/.test(rawColor) ? rawColor
+    : (raw && raw.darkBacking) ? "#1E0C2C" : null;
+  return { key, backingColor };
 }
 
 // Un evento senza "published" salvato è nato prima di questo campo (o non è mai stato
@@ -1299,7 +1307,7 @@ function eventPageHTML(event, slug) {
   const STICKER_CLASSES = ["ed-poster-badge", "ed-poster-badge-left", "ed-poster-badge-top-right", "ed-poster-badge-top-left"];
   const sponsorStickersHtml = (sponsorLogos.length && event.sponsorDisplay !== "marquee")
     ? sponsorLogos.slice(0, 4).map(function(logo, i){
-        return `<img class="${STICKER_CLASSES[i]}${logo.darkBacking ? " ed-sponsor-dark-backing" : ""}" src="${mediaUrl(logo.key)}" alt="Sponsor">`;
+        return `<img class="${STICKER_CLASSES[i]}${logo.backingColor ? " ed-sponsor-has-backing" : ""}"${logo.backingColor ? ` style="background:${logo.backingColor};"` : ""} src="${mediaUrl(logo.key)}" alt="Sponsor">`;
       }).join("")
     : "";
   const coverBlock = event.coverImageKey
@@ -1307,7 +1315,7 @@ function eventPageHTML(event, slug) {
     : "";
   const sponsorMarqueeHtml = (sponsorLogos.length && event.sponsorDisplay === "marquee")
     ? (function(){
-        const imgs = sponsorLogos.map(function(logo){ return `<img class="${logo.darkBacking ? "ed-sponsor-dark-backing" : ""}" src="${mediaUrl(logo.key)}" alt="Sponsor">`; }).join("");
+        const imgs = sponsorLogos.map(function(logo){ return `<img class="${logo.backingColor ? "ed-sponsor-has-backing" : ""}"${logo.backingColor ? ` style="background:${logo.backingColor};"` : ""} src="${mediaUrl(logo.key)}" alt="Sponsor">`; }).join("");
         // Il contenuto è duplicato una volta: l'animazione trasla del 50% e riparte, così il loop
         // non ha uno scatto visibile nel punto in cui si "ricongiunge".
         return `<section class="ed-sponsor-marquee"><div class="ed-sponsor-track" style="--sponsor-logo-size:${event.sponsorLogoSize || 84}px;">${imgs}${imgs}</div></section>`;
@@ -5167,9 +5175,9 @@ function validateEventPayload(body, existingTiers, sold) {
   // Loghi sponsor: lista libera (come gallery) + stile di visualizzazione. "stickers" li mette
   // come adesivi sulla copertina (le prime 4 posizioni definite in CSS, serve una copertina
   // caricata); "marquee" è una striscia che scorre in loop, indipendente dalla copertina.
-  // darkBacking: per i loghi chiari/trasparenti (es. bianco su trasparente) che altrimenti
-  // sparirebbero sullo sfondo chiaro della pagina — aggiunge una "targhetta" scura dietro, come
-  // si faceva a mano solo per il logo Pogo Store nelle pagine statiche più vecchie.
+  // backingColor: per i loghi che altrimenti sparirebbero sullo sfondo dietro (es. loghi chiari
+  // su tema chiaro, o scuri su tema scuro) — aggiunge una "targhetta" di quel colore dietro al
+  // logo, come si faceva a mano solo per il logo Pogo Store nelle pagine statiche più vecchie.
   const sponsorLogos = Array.isArray(body.sponsorLogos)
     ? body.sponsorLogos.map(normalizeSponsorLogo).filter(Boolean).slice(0, 12)
     : [];
