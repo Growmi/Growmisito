@@ -1772,10 +1772,23 @@
       var chip = document.createElement('div');
       chip.style.cssText = 'display:flex; align-items:center; gap:8px; background:#fff; border:1.5px solid var(--line); border-radius:20px; padding:6px 8px 6px 14px; font-size:13px;';
       chip.innerHTML = '<span><strong>' + esc(g.name) + '</strong>' + (g.emailType ? ' <span style="color:var(--grey);">· ' + esc(g.emailType) + '</span>' : '') + '</span>' +
-        '<button type="button" class="az-mini-btn danger" style="padding:4px 10px; font-size:12px;">✕</button>';
-      chip.querySelector('button').addEventListener('click', async function(){
+        '<button type="button" class="az-mini-btn" data-action="clear" style="padding:4px 10px; font-size:12px;" title="Svuota gruppo (rimuove tutti i membri, il gruppo resta)">Svuota</button>' +
+        '<button type="button" class="az-mini-btn danger" data-action="delete" style="padding:4px 10px; font-size:12px;">✕</button>';
+      chip.querySelector('[data-action="delete"]').addEventListener('click', async function(){
         if (!confirm('Eliminare il gruppo "' + g.name + '"? Gli iscritti restano, escono solo da questo gruppo.')) return;
         await fetch('/api/admin/newsletter-groups?id=' + encodeURIComponent(g.id), { method: 'DELETE' });
+        await loadNlGroups();
+        renderNlSubscribers();
+      });
+      chip.querySelector('[data-action="clear"]').addEventListener('click', async function(){
+        if (!confirm('Svuotare il gruppo "' + g.name + '"? Tutti gli iscritti ne usciranno, ma il gruppo resta e potrai aggiungerne di nuovi.')) return;
+        var res = await fetch('/api/admin/newsletter-group-clear', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ groupId: g.id })
+        });
+        var data = await res.json().catch(function(){ return {}; });
+        alert(data.ok ? ('Fatto: ' + (data.removedCount || 0) + ' iscritti rimossi dal gruppo "' + g.name + '".') : ('Errore: ' + (data.error || 'sconosciuto')));
         await loadNlGroups();
         renderNlSubscribers();
       });

@@ -402,6 +402,14 @@ async function handleFetch(request, env, ctx) {
         return jsonResponse({ error: err.message }, 500);
       }
     }
+    if (url.pathname === "/api/admin/newsletter-group-clear" && request.method === "POST") {
+      try {
+        return await handleAdminClearNewsletterGroup(request, env);
+      } catch (err) {
+        console.log("Errore admin/newsletter-group-clear:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
     if (url.pathname === "/api/admin/newsletter-subscriber-groups" && request.method === "POST") {
       try {
         return await handleAdminSetSubscriberGroup(request, env);
@@ -3000,14 +3008,55 @@ async function handleAdminCreateNewsletterGroup(request, env) {
   return jsonResponse({ ok: true, group });
 }
 
+// Rimuove groupId da manualGroups di ogni iscritto che ce l'ha — condiviso da eliminazione e
+// svuotamento gruppo. Ritorna quanti iscritti erano davvero membri (utile come conferma in UI).
+async function removeGroupFromAllSubscribers(env, groupId) {
+  let removedCount = 0;
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "subscriber:", cursor });
+    for (const key of page.keys) {
+      const raw = await env.TICKETS.get(key.name);
+      if (!raw) continue;
+      const sub = JSON.parse(raw);
+      if (!(sub.manualGroups || []).includes(groupId)) continue;
+      sub.manualGroups = sub.manualGroups.filter(function(g){ return g !== groupId; });
+      sub.updatedAt = new Date().toISOString();
+      await env.TICKETS.put(key.name, JSON.stringify(sub));
+      removedCount++;
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  return removedCount;
+}
+
+// Cancella il gruppo E rimuove il suo id da manualGroups di ogni iscritto che ce l'aveva —
+// prima si cancellava solo il record del gruppo (nome/tipo), lasciando l'etichetta appesa a
+// ogni iscritto. Un gruppo ricreato in seguito con lo stesso nome (stesso id, che è slugify(nome))
+// "riassorbiva" da solo i vecchi membri senza che nessuno li avesse aggiunti di nuovo — bug
+// scoperto da un conteggio che non tornava (151 selezionati, 200 risultati).
 async function handleAdminDeleteNewsletterGroup(request, env) {
   const auth = await requireStaffAccount(request, env);
   if (auth.error) return auth.error;
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
   const id = String(new URL(request.url).searchParams.get("id") || "").trim();
   if (!id) return jsonResponse({ error: "id mancante" }, 400);
+  await removeGroupFromAllSubscribers(env, id);
   await env.TICKETS.delete(`newslettergroup:${id}`);
   return jsonResponse({ ok: true });
+}
+
+// Svuota un gruppo (tutti fuori) senza eliminarlo — per ripartire puliti riusando lo stesso
+// gruppo invece di cancellarlo e ricrearlo con lo stesso nome (che avrebbe comunque lo stesso id).
+async function handleAdminClearNewsletterGroup(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const groupId = String(body.groupId || "").trim();
+  if (!groupId) return jsonResponse({ error: "groupId mancante" }, 400);
+  const removedCount = await removeGroupFromAllSubscribers(env, groupId);
+  return jsonResponse({ ok: true, removedCount });
 }
 
 // Aggiunge/rimuove UN iscritto da UN gruppo manuale — usato dalla tabella iscritti del pannello.
