@@ -2138,7 +2138,7 @@
             (c.status === 'partial' ? '<button type="button" class="az-mini-btn" data-retry="' + c.id + '">🔁 Riprova ai rimasti</button>' : '') +
             ((c.status === 'sent' || c.status === 'partial') ? '<button type="button" class="az-mini-btn" data-manual="' + c.id + '">✉️ Invia a lista</button>' : '') +
             ((c.status === 'sent' || c.status === 'partial') ? '<button type="button" class="az-mini-btn" data-find-missing="' + c.id + '">🔍 Chi manca</button>' : '') +
-            (c.status === 'draft' ? '<button type="button" class="az-mini-btn" data-mark-sent="' + c.id + '" title="Usa solo se sai già (es. da Resend) che questa newsletter è stata inviata davvero">✅ Segna come già inviata</button>' : '') +
+            ((c.status === 'draft' || c.status === 'sending') ? '<button type="button" class="az-mini-btn" data-mark-sent="' + c.id + '" title="Usa solo se sai già (es. da Resend) che questa newsletter è stata inviata davvero — utile anche per sbloccare una campagna rimasta bloccata su Invio in corso">✅ Segna come già inviata</button>' : '') +
           '</div>' +
         '</div>' +
         ((c.status === 'sent' || c.status === 'partial') ? nlStatsDetailHtml(c) : '') +
