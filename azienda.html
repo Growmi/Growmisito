@@ -4239,9 +4239,11 @@
   // Variante per contenuto HTML già pronto (renderizzato dal server su misura per lo stato
   // attuale del form, non ancora salvato) invece che per URL — niente selettore "altre pagine",
   // qui si sta guardando una bozza che non esiste ancora da nessuna parte. Un blob: URL (non
-  // srcdoc) perché eredita comunque l'origine della pagina che l'ha creato — i percorsi assoluti
-  // tipo /assets/... e /media/... dentro l'HTML si risolvono correttamente; con srcdoc invece la
-  // base è "about:srcdoc" e quei percorsi rischiano di rompersi a seconda del browser.
+  // srcdoc, la cui base "about:srcdoc" rompe i percorsi assoluti in modo ancora peggiore) —
+  // ATTENZIONE: nemmeno un blob: ha un'origine reale da cui risolvere percorsi assoluti tipo
+  // /assets/... o /media/... (verificato: si rompono comunque). Per questo il server
+  // (handleAdminPreviewEvent) inserisce un <base href="..."> nell'HTML della preview prima di
+  // servirla — è quello a far funzionare i percorsi qui, non il blob: in sé.
   var lastPreviewBlobUrl = null;
   function openPreviewFromHtml(html){
     previewDrawer.hidden = false;

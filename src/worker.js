@@ -5433,7 +5433,13 @@ async function handleAdminPreviewEvent(request, env) {
   if (!validated.ok) return jsonResponse({ error: validated.error }, 400);
 
   const slug = String(body.slug || "").trim() || "anteprima";
-  const html = eventPageHTML(validated.event, slug);
+  let html = eventPageHTML(validated.event, slug);
+  // L'anteprima viene caricata dal pannello in un iframe con src blob: — dentro un documento
+  // blob: i percorsi assoluti "/assets/..." non si risolvono (il blob non ha un'origine reale
+  // da cui partire), quindi senza <base> css/immagini/link risultano tutti rotti. Sulla pagina
+  // evento vera questo non serve: lì il documento viene servito da un URL reale.
+  const origin = new URL(request.url).origin;
+  html = html.replace("<head>", `<head>\n<base href="${origin}/">`);
   return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
 
