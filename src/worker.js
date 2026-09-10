@@ -283,6 +283,18 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    // Elenco completo dei biglietti di un evento (entrati E non ancora entrati) — a differenza di
+    // /api/attendees (solo chi è già entrato), serve allo scanner per un check-in manuale di
+    // riserva quando il QR non si legge (foto rovinata, schermo rotto, biglietto stampato male).
+    if (url.pathname === "/api/event-roster" && request.method === "GET") {
+      try {
+        return await handleEventRoster(request, env);
+      } catch (err) {
+        console.log("Errore event-roster:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     if (url.pathname === "/api/export-attendees" && request.method === "GET") {
       try {
         return await handleExportAttendees(request, env);
@@ -2101,7 +2113,7 @@ async function handleEventHistory(request, env) {
 // delle chiavi già entrate — nessuna lettura dei singoli biglietti, veloce anche con centinaia
 // di persone. Stessa chiave staff dello scanner.
 async function handleAttendees(request, env) {
-  const auth = await requireStaffAccount(request, env);
+  const auth = await requireStaffAccountOrKey(request, env);
   if (auth.error) return auth.error;
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
 
@@ -2144,6 +2156,40 @@ async function handleAttendees(request, env) {
   attendees.sort(function(a, b){ return (a.name || "").localeCompare(b.name || ""); });
 
   return jsonResponse({ attendees });
+}
+
+// Elenco di TUTTI i biglietti di un evento, entrati o no — a differenza di handleAttendees serve
+// per il check-in manuale di riserva (QR illeggibile). Legge il singolo ticket per intero (non
+// solo la metadata) perché per i biglietti non ancora entrati la metadata non ha ancora il nome
+// (viene scritto solo al check-in, vedi handleCheckin) — accettabile: solo i ticket di QUESTO
+// evento vengono letti per intero, non l'intero archivio.
+async function handleEventRoster(request, env) {
+  const auth = await requireStaffAccountOrKey(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const slug = new URL(request.url).searchParams.get("event");
+  if (!slug) return jsonResponse({ error: "event mancante" }, 400);
+
+  const roster = [];
+  let cursor = undefined;
+  do {
+    const page = await env.TICKETS.list({ prefix: "ticket:", cursor });
+    for (const key of page.keys) {
+      if (key.metadata?.eventSlug !== slug) continue;
+      const raw = await env.TICKETS.get(key.name);
+      if (!raw) continue;
+      const ticket = JSON.parse(raw);
+      roster.push({
+        code: key.name.slice("ticket:".length),
+        name: ticket.name, email: ticket.email, tierName: ticket.tierName,
+        used: !!ticket.used, usedAt: ticket.usedAt || null
+      });
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  roster.sort(function(a, b){ return (a.name || "").localeCompare(b.name || ""); });
+  return jsonResponse({ roster });
 }
 
 // Esporta in CSV (si apre diretto in Excel/Numbers) TUTTI i biglietti venduti — non solo chi è
@@ -4822,6 +4868,18 @@ async function requireStaffAccount(request, env) {
   const email = await getStaffSessionEmail(request, env);
   if (!email) return { error: jsonResponse({ error: "non autenticato" }, 401) };
   return { email };
+}
+
+// Variante solo per /api/attendees: lo scanner all'ingresso (staff-checkin.html) non ha un
+// account staff, solo la chiave condivisa STAFF_KEY — qui basta leggere l'elenco di chi è
+// entrato, non serve un vero account. Accetta l'una o l'altra, MAI estesa agli altri endpoint
+// della sezione aziendale (quelli restano solo ad account vero: STAFF_KEY è una password
+// condivisa più debole, darle accesso a modificare eventi/newsletter sarebbe un downgrade di
+// sicurezza non richiesto).
+async function requireStaffAccountOrKey(request, env) {
+  const staffKey = request.headers.get("X-Staff-Key");
+  if (staffKey && env.STAFF_KEY && staffKey === env.STAFF_KEY) return { email: null };
+  return requireStaffAccount(request, env);
 }
 
 async function handleStaffAccountRegister(request, env) {

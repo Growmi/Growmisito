@@ -157,6 +157,29 @@
   }
   .history-box.open{ display:grid; }
 
+  .attendees-search-wrap{ display:none; padding:14px 20px 0; }
+  .attendees-search-wrap.open{ display:block; }
+  .attendees-search-wrap input{
+    width:100%; padding:11px 14px; border-radius:10px; border:1.5px solid rgba(251,246,240,0.25);
+    background:rgba(251,246,240,0.06); color:var(--cream); font-size:14px; font-family:'Inter',sans-serif;
+  }
+  .attendees-box{
+    display:none; padding:14px 20px; border-bottom:1px solid rgba(251,246,240,0.12);
+    max-height:38vh; overflow-y:auto; flex-direction:column; gap:8px;
+  }
+  .attendees-box.open{ display:flex; }
+  .attendee-row{
+    display:flex; align-items:center; gap:12px;
+    padding:9px 12px; border-radius:10px; background:rgba(251,246,240,0.06); font-size:12.5px;
+  }
+  .attendee-row.is-used{ background:rgba(46,204,113,0.12); }
+  .attendee-row input[type="checkbox"]{ flex-shrink:0; width:22px; height:22px; }
+  .attendee-row .who{ min-width:0; flex:1; }
+  .attendee-row .who .n{ font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .attendee-row .who .t{ color:rgba(251,246,240,0.55); font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .attendee-row .time{ flex-shrink:0; color:rgba(251,246,240,0.55); font-size:11.5px; }
+  .attendees-empty{ text-align:center; font-size:12.5px; color:rgba(251,246,240,0.5); padding:8px; }
+
   .walkin-btn{
     padding:12px; border-radius:12px; border:1.5px solid rgba(251,246,240,0.25); background:rgba(251,246,240,0.06);
     color:var(--cream); font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:13.5px; cursor:pointer;
@@ -237,6 +260,11 @@
   <div class="stats-box"><span class="n" id="histReward3">—</span><span class="l">Premi 3°</span></div>
   <div class="stats-box"><span class="n" id="histReward5">—</span><span class="l">Premi 5°</span></div>
 </div>
+<button type="button" class="history-link" id="attendeesLink" hidden>👥 Lista biglietti (check-in manuale)</button>
+<div class="attendees-search-wrap" id="attendeesSearchWrap">
+  <input type="text" id="attendeesSearch" placeholder="Cerca per nome...">
+</div>
+<div class="attendees-box" id="attendeesBox"></div>
 
 <main>
   <div id="reader"></div>
@@ -293,6 +321,7 @@
   var selectedEventName = "";
   var eventsLoaded = [];
   var historyOpen = false;
+  var attendeesOpen = false;
   // "checkin" (biglietti, QR) o "loyalty" (numero cliente, barcode) — un solo scanner fotocamera
   // condiviso tra le due modalità, cambia solo dove viene mandato il testo decodificato, così
   // non serve riavviare la fotocamera passando da una scheda all'altra.
@@ -338,6 +367,10 @@
     document.getElementById("historyLink").hidden = m !== "checkin" || !selectedEvent;
     document.getElementById("historyBox").classList.remove("open");
     historyOpen = false;
+    document.getElementById("attendeesLink").hidden = m !== "checkin" || !selectedEvent;
+    document.getElementById("attendeesBox").classList.remove("open");
+    document.getElementById("attendeesSearchWrap").classList.remove("open");
+    attendeesOpen = false;
     manualCode.placeholder = m === "checkin" ? "Codice biglietto" : "Numero cliente";
     pageTitle.textContent = m === "checkin" ? "Check-in biglietti" : "Ricerca loyalty";
     pageSub.textContent = eventSubtitle();
@@ -369,6 +402,10 @@
     document.getElementById("historyLink").hidden = mode !== "checkin" || !selectedEvent;
     document.getElementById("historyBox").classList.remove("open");
     historyOpen = false;
+    document.getElementById("attendeesLink").hidden = mode !== "checkin" || !selectedEvent;
+    document.getElementById("attendeesBox").classList.remove("open");
+    document.getElementById("attendeesSearchWrap").classList.remove("open");
+    attendeesOpen = false;
     document.getElementById("walkinBtn").hidden = mode !== "checkin" || !selectedEvent;
     refreshStats();
     closeDrawer();
@@ -417,6 +454,69 @@
       document.getElementById("histReward3").textContent = data.reward3Given;
       document.getElementById("histReward5").textContent = data.reward5Given;
     } catch (e) { /* connessione assente */ }
+  });
+
+  function esc(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  // Lista completa dei biglietti dell'evento (entrati e non), fascia inclusa (il "biglietto
+  // acquistato") — riusa /api/event-roster, accessibile con la sola chiave staff (vedi
+  // requireStaffAccountOrKey in src/worker.js). Chi non è ancora entrato ha una checkbox: la
+  // spunti tu se il QR non si legge (foto rovinata, schermo rotto) — richiama lo stesso
+  // checkTicket() di una scansione riuscita, quindi timbro loyalty/stats/tutto identico.
+  // Filtrata sull'evento selezionato — da "Tutti gli eventi" non avrebbe un evento da interrogare,
+  // per questo il pulsante resta nascosto finché non se ne sceglie uno, come per lo storico.
+  var rosterItems = [];
+  function renderRoster(){
+    var box = document.getElementById("attendeesBox");
+    var q = document.getElementById("attendeesSearch").value.trim().toLowerCase();
+    var items = q ? rosterItems.filter(function(a){ return (a.name || "").toLowerCase().indexOf(q) !== -1; }) : rosterItems;
+    if (!items.length) {
+      box.innerHTML = '<p class="attendees-empty">' + (rosterItems.length ? "Nessun nominativo trovato." : "Nessun biglietto per questo evento.") + '</p>';
+      return;
+    }
+    box.innerHTML = items.map(function(a){
+      var time = a.usedAt ? new Date(a.usedAt).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) : "";
+      return '<div class="attendee-row' + (a.used ? ' is-used' : '') + '">' +
+        '<input type="checkbox" data-roster-code="' + esc(a.code) + '"' + (a.used ? ' checked disabled' : '') + '>' +
+        '<div class="who"><div class="n">' + esc(a.name || "—") +
+        '</div><div class="t">' + esc(a.tierName || "—") + '</div></div>' +
+        '<div class="time">' + time + '</div></div>';
+    }).join("");
+    box.querySelectorAll('input[data-roster-code]:not(:disabled)').forEach(function(cb){
+      cb.addEventListener("change", async function(){
+        if (!cb.checked) return; // solo ON->check-in, mai il contrario da qui
+        cb.disabled = true;
+        // checkTicket ricarica da sola la lista (vedi "if (attendeesOpen) loadAttendeesList()" lì
+        // dentro), è aperta di sicuro qui dato che questa checkbox è visibile solo a box aperto.
+        await checkTicket(cb.getAttribute("data-roster-code"));
+      });
+    });
+  }
+  document.getElementById("attendeesSearch").addEventListener("input", renderRoster);
+
+  async function loadAttendeesList(){
+    if (!selectedEvent) { rosterItems = []; renderRoster(); return; }
+    try {
+      var res = await fetch("/api/event-roster?event=" + encodeURIComponent(selectedEvent), { headers: { "X-Staff-Key": getStaffKey() } });
+      if (res.status === 401) { onUnauthorized(); return; }
+      if (!res.ok) return;
+      var data = await res.json();
+      rosterItems = data.roster || [];
+      renderRoster();
+    } catch (e) { /* connessione assente: la lista resta come prima */ }
+  }
+
+  document.getElementById("attendeesLink").addEventListener("click", function(){
+    var box = document.getElementById("attendeesBox");
+    var searchWrap = document.getElementById("attendeesSearchWrap");
+    attendeesOpen = !attendeesOpen;
+    box.classList.toggle("open", attendeesOpen);
+    searchWrap.classList.toggle("open", attendeesOpen);
+    if (attendeesOpen) loadAttendeesList();
   });
   document.getElementById("tabCheckin").addEventListener("click", function(){ setMode("checkin"); });
   document.getElementById("tabLoyalty").addEventListener("click", function(){ setMode("loyalty"); });
@@ -508,6 +608,7 @@
       var data = await res.json();
       if (data.valid) {
         refreshStats();
+        if (attendeesOpen) loadAttendeesList();
         if (data.stamps !== null && data.stamps !== undefined) {
           stampsGivenCount++;
           statStampsGiven.textContent = stampsGivenCount;
@@ -669,6 +770,7 @@
       if (res.ok && data.ok) {
         closeWalkinPanel();
         refreshStats();
+        if (attendeesOpen) loadAttendeesList();
         if (data.stamps !== null && data.stamps !== undefined) {
           stampsGivenCount++;
           statStampsGiven.textContent = stampsGivenCount;
@@ -759,7 +861,11 @@
   } else {
     keyInput.focus();
   }
-  setInterval(function(){ if (getStaffKey() && mode === "checkin") refreshStats(); }, 30000);
+  setInterval(function(){
+    if (!getStaffKey() || mode !== "checkin") return;
+    refreshStats();
+    if (attendeesOpen) loadAttendeesList();
+  }, 30000);
 })();
 </script>
 
