@@ -4028,9 +4028,9 @@ async function handleCreateCommissionCheckoutSession(request, env) {
   const registration = JSON.parse(rawReg);
   if (registration.type !== "commission") return jsonResponse({ error: "registrazione non valida" }, 400);
 
-  // Stessa maggiorazione commissione Stripe già usata per i biglietti (addStripeFee), così
-  // all'artista arriva davvero l'intero contributo di 3€ e non 3€ meno le trattenute Stripe.
-  const { grossCents } = addStripeFee(COMMISSION_PRICE_CENTS);
+  // A differenza dei biglietti, qui il cliente paga esattamente 3€ tondi — niente maggiorazione
+  // Stripe in cima (addStripeFee): la commissione la assorbe l'incasso, non il cliente.
+  const grossCents = COMMISSION_PRICE_CENTS;
 
   const stripe = new Stripe(env.STRIPE_SECRET_KEY);
   const origin = new URL(request.url).origin;
