@@ -610,6 +610,32 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    // Contributo commissione opera dal vivo (pagina commissione-arte.html, QR stampato per
+    // l'artista) — stesso meccanismo di pagamento incorporato dei biglietti (registrazione su KV
+    // + Stripe Embedded Checkout + webhook), ma un pagamento a sé, non un biglietto d'ingresso:
+    // vedi il branch registration.type === "commission" dentro handleStripeWebhook.
+    if (url.pathname === "/api/commission-register" && request.method === "POST") {
+      const rl = await checkRateLimit(env, "RL_CHECKOUT", request, "commission-register");
+      if (rl) return rl;
+      try {
+        return await handleCommissionRegister(request, env);
+      } catch (err) {
+        console.log("Errore commission-register:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/create-commission-checkout-session" && request.method === "POST") {
+      const rl = await checkRateLimit(env, "RL_CHECKOUT", request, "commission-checkout-session");
+      if (rl) return rl;
+      try {
+        return await handleCreateCommissionCheckoutSession(request, env);
+      } catch (err) {
+        console.log("Errore create-commission-checkout-session:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     // Area personale: registrazione, login, verifica email, recupero password, dati account.
     if (url.pathname === "/api/account/register" && request.method === "POST") {
       const rl = await checkRateLimit(env, "RL_AUTH", request, "account-register");
@@ -3972,6 +3998,59 @@ async function handleCreateCheckoutSession(request, env) {
   return jsonResponse({ clientSecret: session.client_secret });
 }
 
+// Contributo fisso per la commissione opera dal vivo — se in futuro cambia importo o artista,
+// basta toccare questo valore, nessun altro punto del codice lo ha hardcoded.
+const COMMISSION_PRICE_CENTS = 300;
+const COMMISSION_PRODUCT_NAME = "Contributo opera dal vivo — GrowMi";
+
+async function handleCommissionRegister(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const body = await request.json();
+  const name = String(body.name || "").trim().slice(0, 200);
+  const email = String(body.email || "").trim().slice(0, 200);
+  const phone = String(body.phone || "").trim().slice(0, 40);
+  if (!name || !email) return jsonResponse({ error: "nome ed email sono obbligatori" }, 400);
+
+  const registrationId = crypto.randomUUID();
+  await env.TICKETS.put(`registration:${registrationId}`, JSON.stringify({
+    type: "commission", name, email, phone, createdAt: new Date().toISOString()
+  }));
+  return jsonResponse({ registrationId });
+}
+
+async function handleCreateCommissionCheckoutSession(request, env) {
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  if (!env.STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY non configurato");
+
+  const { registrationId } = await request.json();
+  const rawReg = registrationId ? await env.TICKETS.get(`registration:${registrationId}`) : null;
+  if (!rawReg) return jsonResponse({ error: "registrazione non trovata o scaduta" }, 400);
+  const registration = JSON.parse(rawReg);
+  if (registration.type !== "commission") return jsonResponse({ error: "registrazione non valida" }, 400);
+
+  // Stessa maggiorazione commissione Stripe già usata per i biglietti (addStripeFee), così
+  // all'artista arriva davvero l'intero contributo di 3€ e non 3€ meno le trattenute Stripe.
+  const { grossCents } = addStripeFee(COMMISSION_PRICE_CENTS);
+
+  const stripe = new Stripe(env.STRIPE_SECRET_KEY);
+  const origin = new URL(request.url).origin;
+
+  const session = await stripe.checkout.sessions.create({
+    ui_mode: "embedded",
+    mode: "payment",
+    client_reference_id: registrationId,
+    customer_email: registration.email,
+    line_items: [{
+      quantity: 1,
+      price_data: { currency: "eur", unit_amount: grossCents, product_data: { name: COMMISSION_PRODUCT_NAME } }
+    }],
+    metadata: { type: "commission" },
+    return_url: `${origin}/commissione-confermata?session_id={CHECKOUT_SESSION_ID}`
+  });
+
+  return jsonResponse({ clientSecret: session.client_secret, grossCents });
+}
+
 async function handleStripeWebhook(request, env) {
   const stripe = new Stripe(env.STRIPE_SECRET_KEY);
 
@@ -4019,6 +4098,65 @@ async function handleStripeWebhook(request, env) {
 
     if (rawReg) {
       const registration = JSON.parse(rawReg);
+
+      // Contributo commissione opera dal vivo: non è un biglietto d'ingresso, quindi niente QR/
+      // codice/email "ticket" (che parla di ingresso/documento, fuorviante qui) — solo un
+      // registro del pagamento e una email di ringraziamento a parte.
+      if (registration.type === "commission") {
+        const amount = typeof session.amount_total === "number"
+          ? (session.amount_total / 100).toLocaleString("it-IT", { style: "currency", currency: (session.currency || "eur").toUpperCase() })
+          : "";
+        await env.TICKETS.put(`commission:${session.id}`, JSON.stringify({
+          name: registration.name, email: registration.email, phone: registration.phone,
+          amountTotal: session.amount_total, currency: session.currency,
+          createdAt: new Date().toISOString(), stripeSessionId: session.id
+        }));
+        await env.TICKETS.delete(`registration:${registrationId}`);
+        await env.TICKETS.put(dedupeKey, session.id);
+
+        if (env.RESEND_API_KEY) {
+          try {
+            const resendRes = await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              headers: { "Authorization": `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                from: "GrowMi <noreply@growmi.it>",
+                to: registration.email,
+                subject: "Grazie per il tuo contributo — GrowMi",
+                html: `<div style="font-family:Arial,sans-serif; font-size:15px; color:#1E0C2C; line-height:1.6;">` +
+                  `<p>Ciao ${registration.name},</p>` +
+                  `<p>grazie per il tuo contributo di <strong>${amount}</strong> per l'opera realizzata dal vivo questa sera — un pensiero in più per l'artista, da parte tutta del team GrowMi!</p>` +
+                  `<p>Buona serata 🎨</p>` +
+                  `</div>`
+              })
+            });
+            if (!resendRes.ok) console.log("Resend commission error:", resendRes.status, await resendRes.text());
+          } catch (e) {
+            console.log("Errore invio email ringraziamento commissione:", e.message);
+          }
+          try {
+            const staffRes = await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              headers: { "Authorization": `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                from: "GrowMi <noreply@growmi.it>",
+                to: "grow.mi@outlook.it",
+                subject: "Nuovo contributo opera dal vivo",
+                html: `<div style="font-family:Arial,sans-serif; font-size:15px; color:#1E0C2C; line-height:1.6;">` +
+                  `<p><strong>Nuovo contributo opera dal vivo</strong></p>` +
+                  `<p>${registration.name} — ${registration.email}${registration.phone ? " — " + registration.phone : ""}<br>` +
+                  `Importo: ${amount}</p>` +
+                  `</div>`
+              })
+            });
+            if (!staffRes.ok) console.log("Resend staff commission notify error:", staffRes.status, await staffRes.text());
+          } catch (e) {
+            console.log("Errore invio notifica staff commissione:", e.message);
+          }
+        }
+        return new Response("ok", { status: 200 });
+      }
+
       const eventSlug = session.metadata?.event || registration.eventSlug;
       const tierId = session.metadata?.tierId;
       const optionId = session.metadata?.optionId;

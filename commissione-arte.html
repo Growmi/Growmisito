@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contributo opera dal vivo — GrowMi</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#2C0943">
+<link rel="icon" href="assets/img/logo-growmi.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://js.stripe.com/v3/"></script>
+<style>
+  :root{ --purple-deep:#3E0D5D; --purple-deeper:#2C0943; --coral:#F86639; --yellow:#FDC631; --cream:#FBF6F0; --ink:#1E0C2C; --grey:#6E6478; --line:#E6DED3; }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--cream); color:var(--ink); font-family:'Inter', system-ui, sans-serif;
+    line-height:1.6; min-height:100vh; min-height:100dvh; display:flex; flex-direction:column;
+    align-items:center; padding:40px 20px; text-align:center;
+  }
+  h1{ font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:22px; margin-bottom:10px; }
+  .logo{ height:32px; margin-bottom:24px; }
+  .card{ width:100%; max-width:440px; background:#fff; border-radius:24px; padding:36px 28px; box-shadow:0 20px 50px rgba(30,12,44,0.1); }
+  p{ font-size:14.5px; color:var(--grey); }
+  .price{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:34px; color:var(--coral); margin:18px 0; }
+  form{ text-align:left; margin-top:20px; display:flex; flex-direction:column; gap:12px; }
+  label{ font-size:12.5px; font-weight:600; color:var(--ink); }
+  input{
+    width:100%; padding:12px 14px; border-radius:10px; border:1.5px solid var(--line);
+    font-family:'Inter',sans-serif; font-size:15px; margin-top:4px;
+  }
+  input:focus{ outline:none; border-color:var(--coral); }
+  button{
+    margin-top:8px; padding:15px; border:none; border-radius:12px; background:var(--coral);
+    color:#fff; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; cursor:pointer;
+  }
+  button:disabled{ opacity:.6; cursor:default; }
+  #cm-status{ font-size:13px; color:var(--coral); margin-top:10px; }
+  #cm-checkout{ margin-top:20px; text-align:left; }
+</style>
+</head>
+<body>
+
+<img class="logo" src="assets/img/logo-growmi.png" alt="GrowMi">
+<div class="card">
+  <h1>Sostieni l'opera dal vivo</h1>
+  <p>Un piccolo contributo per il lavoro dell'artista che sta realizzando opere su commissione questa sera. Grazie di cuore!</p>
+  <div class="price">€3</div>
+
+  <form id="cm-form">
+    <div>
+      <label for="cm-name">Nome</label>
+      <input type="text" id="cm-name" required>
+    </div>
+    <div>
+      <label for="cm-email">Email</label>
+      <input type="email" id="cm-email" required>
+    </div>
+    <div>
+      <label for="cm-phone">Telefono (facoltativo)</label>
+      <input type="tel" id="cm-phone">
+    </div>
+    <button type="submit" id="cm-submit">Continua al pagamento</button>
+    <p id="cm-status" hidden></p>
+  </form>
+
+  <div id="cm-checkout" hidden></div>
+</div>
+
+<script>
+(function(){
+  var STRIPE_PUBLISHABLE_KEY = "pk_live_51RCPfzAlS0d4FgrwKgoxmfFsPUx1a7pAwn5707zCQ9PhmQYHJ41Ji4sXJt60YpD4IuDkEpUZwZe5YKRMz1lKJxbH00hrAkWQYt";
+  var form = document.getElementById('cm-form');
+  var submitBtn = document.getElementById('cm-submit');
+  var status = document.getElementById('cm-status');
+  var checkoutWrap = document.getElementById('cm-checkout');
+
+  form.addEventListener('submit', async function(e){
+    e.preventDefault();
+    submitBtn.disabled = true;
+    status.hidden = true;
+    try {
+      var regRes = await fetch('/api/commission-register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: document.getElementById('cm-name').value.trim(),
+          email: document.getElementById('cm-email').value.trim(),
+          phone: document.getElementById('cm-phone').value.trim()
+        })
+      });
+      var regData = await regRes.json();
+      if (!regRes.ok) throw new Error(regData.error || 'Errore nella registrazione');
+
+      var sessRes = await fetch('/api/create-commission-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registrationId: regData.registrationId })
+      });
+      var sessData = await sessRes.json();
+      if (!sessRes.ok) throw new Error(sessData.error || 'Errore nella creazione del pagamento');
+
+      form.hidden = true;
+      checkoutWrap.hidden = false;
+      var stripe = window.Stripe(STRIPE_PUBLISHABLE_KEY);
+      var checkout = await stripe.initEmbeddedCheckout({ clientSecret: sessData.clientSecret });
+      checkout.mount(checkoutWrap);
+    } catch (err) {
+      status.textContent = err.message || 'Errore di connessione, riprova.';
+      status.hidden = false;
+      submitBtn.disabled = false;
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
