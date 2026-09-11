@@ -173,7 +173,11 @@
     padding:9px 12px; border-radius:10px; background:rgba(251,246,240,0.06); font-size:12.5px;
   }
   .attendee-row.is-used{ background:rgba(46,204,113,0.12); }
-  .attendee-row input[type="checkbox"]{ flex-shrink:0; width:22px; height:22px; }
+  .attendee-row input[type="checkbox"]{
+    flex-shrink:0; width:22px; height:22px; accent-color:var(--green); cursor:pointer;
+  }
+  .attendee-row input[type="checkbox"]:not(:checked){ accent-color:var(--coral); }
+  .attendee-row input[type="checkbox"]:disabled{ cursor:default; opacity:1; }
   .attendee-row .who{ min-width:0; flex:1; }
   .attendee-row .who .n{ font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .attendee-row .who .t{ color:rgba(251,246,240,0.55); font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
