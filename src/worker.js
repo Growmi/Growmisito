@@ -2159,10 +2159,11 @@ async function handleAttendees(request, env) {
 }
 
 // Elenco di TUTTI i biglietti di un evento, entrati o no — a differenza di handleAttendees serve
-// per il check-in manuale di riserva (QR illeggibile). Legge il singolo ticket per intero (non
-// solo la metadata) perché per i biglietti non ancora entrati la metadata non ha ancora il nome
-// (viene scritto solo al check-in, vedi handleCheckin) — accettabile: solo i ticket di QUESTO
-// evento vengono letti per intero, non l'intero archivio.
+// sia al check-in manuale di riserva in staff-checkin.html (QR illeggibile) sia al filtro
+// "Non entrati"/"Tutti" del pannello Presenti in azienda.html. Legge il singolo ticket per intero
+// (non solo la metadata) perché per i biglietti non ancora entrati la metadata non ha ancora il
+// nome (viene scritto solo al check-in, vedi handleCheckin) — accettabile: solo i ticket di
+// QUESTO evento vengono letti per intero, non l'intero archivio.
 async function handleEventRoster(request, env) {
   const auth = await requireStaffAccountOrKey(request, env);
   if (auth.error) return auth.error;
@@ -2182,7 +2183,8 @@ async function handleEventRoster(request, env) {
       roster.push({
         code: key.name.slice("ticket:".length),
         name: ticket.name, email: ticket.email, tierName: ticket.tierName,
-        used: !!ticket.used, usedAt: ticket.usedAt || null
+        used: !!ticket.used, usedAt: ticket.usedAt || null,
+        source: ticket.source === "walkin" ? "walkin" : "stripe"
       });
     }
     cursor = page.list_complete ? undefined : page.cursor;

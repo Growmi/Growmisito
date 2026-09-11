@@ -551,6 +551,11 @@
       <div class="az-toolbar">
         <input type="text" class="az-search" id="az-attendees-search" placeholder="Cerca per nome...">
         <select id="az-attendees-event-filter"><option value="">Tutti gli eventi</option></select>
+        <select id="az-attendees-status-filter">
+          <option value="in">Entrati</option>
+          <option value="out">Non entrati</option>
+          <option value="all">Tutti (biglietti venduti)</option>
+        </select>
         <div class="actions">
           <span class="az-count" id="az-attendees-count"></span>
           <button type="button" id="az-send-feedback">📧 Manda feedback a tutti</button>
@@ -1685,16 +1690,25 @@
 
   // ---- Presenti (tabella) ----
   var allAttendees = [];
-  function renderAttendees(items){
+  var rosterCache = {}; // eventSlug -> roster (da /api/event-roster), letto una volta per evento
+  function renderAttendees(items, mode){
     var tbody = document.getElementById('az-attendees-tbody');
     var empty = document.getElementById('az-attendees-empty');
     tbody.innerHTML = '';
     empty.hidden = !!items.length;
-    document.getElementById('az-attendees-count').textContent = items.length + (items.length === 1 ? ' persona entrata' : ' persone entrate');
+    empty.textContent = 'Nessun nominativo trovato.';
+    var label = mode === 'out' ? (items.length === 1 ? ' non entrato' : ' non entrati')
+      : mode === 'all' ? (items.length === 1 ? ' biglietto venduto' : ' biglietti venduti')
+      : (items.length === 1 ? ' persona entrata' : ' persone entrate');
+    document.getElementById('az-attendees-count').textContent = items.length + label;
     items.forEach(function(a){
       var tr = document.createElement('tr');
       var time = a.usedAt ? new Date(a.usedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '—';
-      var tipo = a.physicalCardClaimed ? '<span class="az-pill card">Carta fisica</span>' : (a.hasLoyaltyAccount ? '<span class="az-pill newsletter">Loyalty</span>' : '<span class="az-pill no">Ospite</span>');
+      // hasLoyaltyAccount/physicalCardClaimed li calcola solo /api/attendees (mode "in") — per
+      // "Non entrati"/"Tutti" (da /api/event-roster) non ci sono, meglio un trattino che un dato
+      // sbagliato.
+      var tipo = a.hasLoyaltyAccount === undefined ? '—'
+        : (a.physicalCardClaimed ? '<span class="az-pill card">Carta fisica</span>' : (a.hasLoyaltyAccount ? '<span class="az-pill newsletter">Loyalty</span>' : '<span class="az-pill no">Ospite</span>'));
       var origine = a.source === 'walkin' ? '<span class="az-pill walkin">In loco</span>' : '<span class="az-pill stripe">Online</span>';
       tr.innerHTML =
         '<td>' + esc(a.name || '—') + '</td>' +
@@ -1706,16 +1720,44 @@
       tbody.appendChild(tr);
     });
   }
-  function applyAttendeesFilter(){
+  async function loadRoster(slug){
+    if (rosterCache[slug]) return rosterCache[slug];
+    try {
+      var res = await fetch('/api/event-roster?event=' + encodeURIComponent(slug));
+      var data = await res.json();
+      rosterCache[slug] = data.roster || [];
+    } catch (err) { rosterCache[slug] = []; }
+    return rosterCache[slug];
+  }
+  async function applyAttendeesFilter(){
     var q = document.getElementById('az-attendees-search').value.trim().toLowerCase();
     var slug = document.getElementById('az-attendees-event-filter').value;
-    var items = allAttendees;
-    if (slug) items = items.filter(function(a){ return a.eventSlug === slug; });
+    var status = document.getElementById('az-attendees-status-filter').value;
+    var items;
+    if (status === 'in') {
+      items = allAttendees;
+      if (slug) items = items.filter(function(a){ return a.eventSlug === slug; });
+    } else {
+      // "Non entrati"/"Tutti" servono per forza un evento specifico: /api/event-roster legge i
+      // biglietti di UN evento alla volta, incrociare "tutti gli eventi mai fatti" sarebbe lento
+      // e poco utile (i no-show hanno senso solo evento per evento).
+      if (!slug) {
+        document.getElementById('az-attendees-tbody').innerHTML = '';
+        document.getElementById('az-attendees-count').textContent = '';
+        var empty = document.getElementById('az-attendees-empty');
+        empty.hidden = false;
+        empty.textContent = 'Scegli un evento specifico per vedere chi non è entrato.';
+        return;
+      }
+      var roster = await loadRoster(slug);
+      items = status === 'out' ? roster.filter(function(r){ return !r.used; }) : roster;
+    }
     if (q) items = items.filter(function(a){ return (a.name || '').toLowerCase().indexOf(q) !== -1; });
-    renderAttendees(items);
+    renderAttendees(items, status);
   }
   document.getElementById('az-attendees-search').addEventListener('input', applyAttendeesFilter);
   document.getElementById('az-attendees-event-filter').addEventListener('change', applyAttendeesFilter);
+  document.getElementById('az-attendees-status-filter').addEventListener('change', applyAttendeesFilter);
   function populateAttendeesEventFilter(items){
     var select = document.getElementById('az-attendees-event-filter');
     var current = select.value;
@@ -1731,7 +1773,15 @@
       var res = await fetch('/api/attendees');
       var data = await res.json();
       allAttendees = data.attendees || [];
-      populateAttendeesEventFilter(allAttendees);
+      rosterCache = {};
+      // La tendina eventi si costruisce dagli eventi VERI (/api/admin/events), non solo da chi è
+      // già entrato — altrimenti un evento senza ancora nessun check-in non ci comparirebbe,
+      // proprio il caso in cui "Non entrati" servirebbe di più (subito dopo l'apertura porte).
+      try {
+        var evRes = await fetch('/api/admin/events');
+        var evData = await evRes.json();
+        populateAttendeesEventFilter((evData.events || []).map(function(e){ return { eventSlug: e.slug, eventName: e.name }; }));
+      } catch (err) { populateAttendeesEventFilter(allAttendees); }
       applyAttendeesFilter();
     } catch (err) { document.getElementById('az-attendees-count').textContent = 'Errore di connessione.'; }
   }
