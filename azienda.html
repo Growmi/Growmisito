@@ -564,7 +564,7 @@
       </div>
       <div class="az-table-wrap">
         <table class="az-table">
-          <thead><tr><th>Nome</th><th>Email</th><th>Fascia</th><th>Check-in</th><th>Tipo</th><th>Origine</th></tr></thead>
+          <thead><tr><th>Nome</th><th>Email</th><th>Fascia</th><th>Check-in</th><th>Tipo</th><th>Origine</th><th>Stato</th></tr></thead>
           <tbody id="az-attendees-tbody"></tbody>
         </table>
       </div>
@@ -1691,7 +1691,7 @@
   // ---- Presenti (tabella) ----
   var allAttendees = [];
   var rosterCache = {}; // eventSlug -> roster (da /api/event-roster), letto una volta per evento
-  function renderAttendees(items, mode){
+  function renderAttendees(items, mode, slug){
     var tbody = document.getElementById('az-attendees-tbody');
     var empty = document.getElementById('az-attendees-empty');
     tbody.innerHTML = '';
@@ -1704,20 +1704,62 @@
     items.forEach(function(a){
       var tr = document.createElement('tr');
       var time = a.usedAt ? new Date(a.usedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '—';
-      // hasLoyaltyAccount/physicalCardClaimed li calcola solo /api/attendees (mode "in") — per
-      // "Non entrati"/"Tutti" (da /api/event-roster) non ci sono, meglio un trattino che un dato
-      // sbagliato.
+      // hasLoyaltyAccount/physicalCardClaimed li calcola solo /api/attendees (mode "in" senza un
+      // evento scelto) — per le righe che vengono da /api/event-roster non ci sono, meglio un
+      // trattino che un dato sbagliato.
       var tipo = a.hasLoyaltyAccount === undefined ? '—'
         : (a.physicalCardClaimed ? '<span class="az-pill card">Carta fisica</span>' : (a.hasLoyaltyAccount ? '<span class="az-pill newsletter">Loyalty</span>' : '<span class="az-pill no">Ospite</span>'));
       var origine = a.source === 'walkin' ? '<span class="az-pill walkin">In loco</span>' : '<span class="az-pill stripe">Online</span>';
+      // Menu a comparsa per correggere lo stato a mano — serve il codice biglietto (solo nelle
+      // righe da /api/event-roster, quindi solo quando è scelto un evento specifico) per sapere
+      // su quale ticket agire.
+      var stato = a.code
+        ? '<select class="az-mini-select" data-toggle-code="' + esc(a.code) + '">' +
+            '<option value="in"' + (a.used ? ' selected' : '') + '>✅ Entrato</option>' +
+            '<option value="out"' + (!a.used ? ' selected' : '') + '>❌ Non entrato</option>' +
+          '</select>'
+        : '—';
       tr.innerHTML =
         '<td>' + esc(a.name || '—') + '</td>' +
         '<td>' + esc(a.email) + '</td>' +
         '<td>' + esc(a.tierName || '—') + '</td>' +
         '<td>' + time + '</td>' +
         '<td>' + tipo + '</td>' +
-        '<td>' + origine + '</td>';
+        '<td>' + origine + '</td>' +
+        '<td>' + stato + '</td>';
       tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll('[data-toggle-code]').forEach(function(sel){
+      sel.addEventListener('change', async function(){
+        var code = sel.getAttribute('data-toggle-code');
+        var wantIn = sel.value === 'in';
+        var prevValue = wantIn ? 'out' : 'in'; // per ripristinarla se la chiamata fallisce
+        sel.disabled = true;
+        try {
+          var res, data;
+          if (wantIn) {
+            res = await fetch('/api/checkin', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code: code, eventSlug: slug })
+            });
+            data = await res.json();
+            if (!res.ok || !data.valid) throw new Error(data.error || 'Biglietto non valido per questo evento.');
+          } else {
+            res = await fetch('/api/admin/checkin-undo', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code: code })
+            });
+            data = await res.json();
+            if (!res.ok || !data.ok) throw new Error(data.error || 'Errore sconosciuto.');
+          }
+          delete rosterCache[slug];
+          applyAttendeesFilter();
+        } catch (err) {
+          alert('Errore: ' + err.message);
+          sel.value = prevValue;
+          sel.disabled = false;
+        }
+      });
     });
   }
   async function loadRoster(slug){
@@ -1734,14 +1776,12 @@
     var slug = document.getElementById('az-attendees-event-filter').value;
     var status = document.getElementById('az-attendees-status-filter').value;
     var items;
-    if (status === 'in') {
-      items = allAttendees;
-      if (slug) items = items.filter(function(a){ return a.eventSlug === slug; });
-    } else {
-      // "Non entrati"/"Tutti" servono per forza un evento specifico: /api/event-roster legge i
-      // biglietti di UN evento alla volta, incrociare "tutti gli eventi mai fatti" sarebbe lento
-      // e poco utile (i no-show hanno senso solo evento per evento).
-      if (!slug) {
+    if (!slug) {
+      // Senza un evento specifico non c'è /api/event-roster da interrogare (legge un evento alla
+      // volta): "Non entrati"/"Tutti" restano quindi disponibili solo scegliendo un evento — e il
+      // menu a comparsa per correggere lo stato resta disattivato (niente codice biglietto da
+      // /api/attendees).
+      if (status !== 'in') {
         document.getElementById('az-attendees-tbody').innerHTML = '';
         document.getElementById('az-attendees-count').textContent = '';
         var empty = document.getElementById('az-attendees-empty');
@@ -1749,11 +1789,15 @@
         empty.textContent = 'Scegli un evento specifico per vedere chi non è entrato.';
         return;
       }
+      items = allAttendees;
+    } else {
       var roster = await loadRoster(slug);
-      items = status === 'out' ? roster.filter(function(r){ return !r.used; }) : roster;
+      items = status === 'out' ? roster.filter(function(r){ return !r.used; })
+        : status === 'all' ? roster
+        : roster.filter(function(r){ return r.used; });
     }
     if (q) items = items.filter(function(a){ return (a.name || '').toLowerCase().indexOf(q) !== -1; });
-    renderAttendees(items, status);
+    renderAttendees(items, status, slug);
   }
   document.getElementById('az-attendees-search').addEventListener('input', applyAttendeesFilter);
   document.getElementById('az-attendees-event-filter').addEventListener('change', applyAttendeesFilter);

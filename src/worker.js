@@ -238,6 +238,15 @@ async function handleFetch(request, env, ctx) {
       }
     }
 
+    if (url.pathname === "/api/admin/checkin-undo" && request.method === "POST") {
+      try {
+        return await handleAdminUndoCheckin(request, env);
+      } catch (err) {
+        console.log("Errore admin/checkin-undo:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
     if (url.pathname === "/api/manual-checkin" && request.method === "POST") {
       try {
         return await handleManualCheckin(request, env);
@@ -1817,10 +1826,11 @@ async function buildTicketPDF({ name, eventName, eventDate, eventLocation, tierN
 // stesso QR. Protetto da una chiave condivisa (STAFF_KEY) invece che da un vero login, dato
 // che è uno strumento interno per il personale all'ingresso, non per i clienti.
 async function handleCheckin(request, env) {
-  const staffKey = request.headers.get("x-staff-key");
-  if (!env.STAFF_KEY || staffKey !== env.STAFF_KEY) {
-    return jsonResponse({ error: "unauthorized" }, 401);
-  }
+  // requireStaffAccountOrKey (non solo X-Staff-Key) perché ora questo endpoint viene chiamato
+  // anche dal pannello Presenti in azienda.html (sessione staff via cookie, non chiave) per
+  // marcare "Entrato" dal menu a comparsa — stessa identica logica di un vero check-in.
+  const auth = await requireStaffAccountOrKey(request, env);
+  if (auth.error) return auth.error;
 
   if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
 
@@ -1874,6 +1884,38 @@ async function handleCheckin(request, env) {
     valid: true, email: ticket.email, name: ticket.name, eventName: ticket.eventName, tierName: ticket.tierName,
     stamps: stamps, reward3: stamps === 3, reward5: stamps === 5
   });
+}
+
+// Annulla un check-in (correzione manuale dal pannello Presenti — menu a comparsa "Entrato/Non
+// entrato" su ogni riga) — l'unico modo per tornare indietro, dato che handleCheckin va solo in
+// un verso. NON tocca l'eventuale timbro loyalty già dato da quel check-in: rimuoverlo in modo
+// affidabile richiederebbe abbinare esattamente quel timbro nello storico (non sempre univoco,
+// es. un 3°/5° evento già fisicamente riscattato) — un'incongruenza rara e da correggere a mano
+// è più sicura di una rimozione automatica potenzialmente sbagliata.
+async function handleAdminUndoCheckin(request, env) {
+  const auth = await requireStaffAccountOrKey(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const { code } = await request.json();
+  const ticketCode = String(code || "").trim().toUpperCase();
+  if (!ticketCode) return jsonResponse({ error: "codice mancante" }, 400);
+
+  const kvKey = `ticket:${ticketCode}`;
+  const raw = await env.TICKETS.get(kvKey);
+  if (!raw) return jsonResponse({ error: "biglietto non trovato" }, 404);
+  const ticket = JSON.parse(raw);
+
+  ticket.used = false;
+  ticket.usedAt = null;
+  await env.TICKETS.put(kvKey, JSON.stringify(ticket), {
+    // Stessa forma della metadata scritta alla creazione (prima di qualunque check-in) — niente
+    // nome/email/fascia qui, coerente con come handleAttendees/handleEventRoster già gestiscono
+    // un biglietto "used:false" (leggono il nome dal corpo intero, non dalla metadata).
+    metadata: { used: false, eventSlug: ticket.eventSlug, tierId: ticket.tierId, source: ticket.source || "stripe" }
+  });
+
+  return jsonResponse({ ok: true });
 }
 
 // Registra alla porta chi paga in contanti/POS fisico, senza passare da Stripe: crea comunque un
