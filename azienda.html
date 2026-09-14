@@ -377,6 +377,42 @@
   }
   .az-preview-drawer-panel iframe{ flex:1 1 auto; width:100%; border:none; background:#fff; }
 
+  .az-report-modal-backdrop{
+    position:fixed; inset:0; background:rgba(30,12,44,.45); z-index:210;
+  }
+  .az-report-modal{
+    position:fixed; inset:0; z-index:211; display:flex; align-items:center; justify-content:center;
+    padding:24px;
+  }
+  .az-report-modal-backdrop[hidden], .az-report-modal[hidden]{ display:none; }
+  .az-report-modal-card{
+    background:#fff; border-radius:18px; padding:28px; width:min(560px, 100%);
+    max-height:88vh; overflow-y:auto; box-shadow:0 30px 60px rgba(30,12,44,.3);
+  }
+  .az-report-modal-header{
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px;
+  }
+  .az-report-modal-header button{
+    width:30px; height:30px; border-radius:50%; border:1.5px solid var(--line); background:#fff;
+    font-size:16px; cursor:pointer; line-height:1;
+  }
+  .az-report-row2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .az-report-list-section{ margin-top:18px; }
+  .az-report-list-row{
+    display:flex; gap:8px; align-items:center; margin-bottom:8px;
+  }
+  .az-report-list-row input[type="text"]{ flex:2; }
+  .az-report-list-row input[type="number"]{ flex:1; }
+  .az-report-list-row input{
+    padding:9px 11px; border-radius:8px; border:1.5px solid var(--line);
+    font-family:'Inter',sans-serif; font-size:13.5px;
+  }
+  .az-report-list-row button{
+    flex:0 0 auto; width:30px; height:30px; border-radius:8px; border:1.5px solid var(--line);
+    background:#fff; color:var(--grey); cursor:pointer; font-size:14px;
+  }
+
   /* Righe di più foto affiancate (slide della home, fronte/retro della carta fedeltà, ecc.):
      su schermi stretti (telefono, iPad in verticale) una griglia rigida a più colonne non si
      restringe abbastanza — le colonne diventano più larghe della pagina e la spingono a scorrere
@@ -559,6 +595,7 @@
         <div class="actions">
           <span class="az-count" id="az-attendees-count"></span>
           <button type="button" id="az-send-feedback">📧 Manda feedback a tutti</button>
+          <button type="button" id="az-report-xlsx-open">📊 Genera Excel riassuntivo</button>
           <button type="button" class="primary" id="az-attendees-export">💾 Esporta CSV</button>
         </div>
       </div>
@@ -1352,6 +1389,47 @@
   </div>
 </div>
 
+<div class="az-report-modal-backdrop" id="az-report-modal-backdrop" hidden></div>
+<div class="az-report-modal" id="az-report-modal" hidden>
+  <div class="az-report-modal-card">
+    <div class="az-report-modal-header">
+      <span>Genera Excel riassuntivo</span>
+      <button type="button" id="az-report-modal-close" aria-label="Chiudi">&times;</button>
+    </div>
+    <p class="az-u-hint12">Riepilogo, dettaglio fasce e lista completa si compilano da soli dai dati reali. Compila qui sotto solo la parte che il sistema non conosce: l'accordo col locale e i costi di produzione.</p>
+
+    <div class="az-field">
+      <label>Nome del locale</label>
+      <input type="text" id="az-report-locale-name" placeholder="es. Art Mall">
+    </div>
+    <div class="az-report-row2">
+      <div class="az-field">
+        <label>Percentuale al locale (%)</label>
+        <input type="number" id="az-report-locale-percent" value="80" min="0" max="100">
+      </div>
+      <div class="az-field">
+        <label>Già incassato direttamente dal locale (€, facoltativo)</label>
+        <input type="number" id="az-report-locale-already" value="0" min="0" step="0.01">
+      </div>
+    </div>
+
+    <div class="az-report-list-section">
+      <label class="az-u-label13">Ricavi extra (oltre ai biglietti — es. cibo/bevande venduti)</label>
+      <div id="az-report-extra-list"></div>
+      <button type="button" class="az-mini-btn" id="az-report-extra-add">+ Aggiungi ricavo extra</button>
+    </div>
+
+    <div class="az-report-list-section">
+      <label class="az-u-label13">Costi di produzione</label>
+      <div id="az-report-cost-list"></div>
+      <button type="button" class="az-mini-btn" id="az-report-cost-add">+ Aggiungi costo</button>
+    </div>
+
+    <button type="button" class="az-submit" id="az-report-generate" style="margin-top:18px;">📊 Genera ed esporta Excel</button>
+    <p class="az-msg" id="az-report-msg" hidden></p>
+  </div>
+</div>
+
 <script>
 (function(){
   var authBox = document.getElementById('az-login-page');
@@ -1847,6 +1925,110 @@
     } catch (err) { alert('Errore di rete: ' + err.message); }
     btn.disabled = false;
     btn.textContent = '📧 Manda feedback a tutti';
+  });
+
+  // ---- Genera Excel riassuntivo (Riepilogo/Dettaglio fasce/Lista completa si compilano da soli
+  // dai dati reali; qui si raccoglie solo quello che il sistema non conosce — percentuale col
+  // locale, eventuali incassi già in loro possesso, costi di produzione — vedi
+  // handleAdminEventReportXlsx in src/worker.js). ----
+  var reportExtraItems = [];
+  var reportCostItems = [];
+
+  function renderReportList(containerId, items, placeholders){
+    var container = document.getElementById(containerId);
+    container.innerHTML = items.map(function(item, i){
+      return '<div class="az-report-list-row" data-i="' + i + '">' +
+        '<input type="text" data-f="label" placeholder="' + placeholders[0] + '" value="' + esc(item.label || '') + '">' +
+        '<input type="number" data-f="amount" placeholder="€" step="0.01" value="' + (item.amount || '') + '">' +
+        (placeholders[1] ? '<input type="text" data-f="note" placeholder="' + placeholders[1] + '" value="' + esc(item.note || '') + '">' : '') +
+        '<button type="button" data-remove>✕</button>' +
+      '</div>';
+    }).join('');
+    container.querySelectorAll('.az-report-list-row').forEach(function(row){
+      var i = Number(row.getAttribute('data-i'));
+      row.querySelectorAll('input').forEach(function(input){
+        input.addEventListener('input', function(){
+          items[i][input.getAttribute('data-f')] = input.value;
+        });
+      });
+      row.querySelector('[data-remove]').addEventListener('click', function(){
+        items.splice(i, 1);
+        renderReportList(containerId, items, placeholders);
+      });
+    });
+  }
+
+  document.getElementById('az-report-extra-add').addEventListener('click', function(){
+    reportExtraItems.push({ label: '', amount: '' });
+    renderReportList('az-report-extra-list', reportExtraItems, ['es. Vendita cibo/bevande']);
+  });
+  document.getElementById('az-report-cost-add').addEventListener('click', function(){
+    reportCostItems.push({ label: '', amount: '', note: '' });
+    renderReportList('az-report-cost-list', reportCostItems, ['es. DJ', 'Nota facoltativa']);
+  });
+
+  var reportModal = document.getElementById('az-report-modal');
+  var reportModalBackdrop = document.getElementById('az-report-modal-backdrop');
+  function closeReportModal(){ reportModal.hidden = true; reportModalBackdrop.hidden = true; }
+  document.getElementById('az-report-modal-close').addEventListener('click', closeReportModal);
+  reportModalBackdrop.addEventListener('click', closeReportModal);
+
+  document.getElementById('az-report-xlsx-open').addEventListener('click', function(){
+    var slug = document.getElementById('az-attendees-event-filter').value;
+    if (!slug) { alert('Scegli prima un evento specifico dalla tendina qui sopra.'); return; }
+    reportExtraItems = [];
+    reportCostItems = [];
+    renderReportList('az-report-extra-list', reportExtraItems, ['es. Vendita cibo/bevande']);
+    renderReportList('az-report-cost-list', reportCostItems, ['es. DJ', 'Nota facoltativa']);
+    document.getElementById('az-report-locale-name').value = '';
+    document.getElementById('az-report-locale-percent').value = '80';
+    document.getElementById('az-report-locale-already').value = '0';
+    document.getElementById('az-report-msg').hidden = true;
+    reportModal.hidden = false;
+    reportModalBackdrop.hidden = false;
+  });
+
+  document.getElementById('az-report-generate').addEventListener('click', async function(){
+    var slug = document.getElementById('az-attendees-event-filter').value;
+    if (!slug) { closeReportModal(); alert('Scegli prima un evento specifico dalla tendina qui sopra.'); return; }
+    var btn = this;
+    var msg = document.getElementById('az-report-msg');
+    btn.disabled = true;
+    btn.textContent = 'Generazione in corso...';
+    msg.hidden = true;
+    try {
+      var body = {
+        eventSlug: slug,
+        localeName: document.getElementById('az-report-locale-name').value.trim(),
+        localePercent: Number(document.getElementById('az-report-locale-percent').value) || 0,
+        localeAlreadyCollected: Number(document.getElementById('az-report-locale-already').value) || 0,
+        extraRevenue: reportExtraItems.filter(function(i){ return i.label && i.amount; }).map(function(i){ return { label: i.label, amount: Number(i.amount) }; }),
+        costs: reportCostItems.filter(function(i){ return i.label; }).map(function(i){ return { label: i.label, amount: Number(i.amount) || 0, note: i.note || '' }; })
+      };
+      var res = await fetch('/api/admin/event-report-xlsx', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        var errData = await res.json().catch(function(){ return {}; });
+        throw new Error(errData.error || ('Errore ' + res.status));
+      }
+      var blob = await res.blob();
+      var objUrl = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = objUrl;
+      a.download = 'report-' + slug + '.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(objUrl);
+      closeReportModal();
+    } catch (err) {
+      msg.className = 'az-msg error';
+      msg.textContent = 'Errore: ' + err.message;
+      msg.hidden = false;
+    }
+    btn.disabled = false;
+    btn.textContent = '📊 Genera ed esporta Excel';
   });
 
   // ---- Newsletter (iscritti + gruppi) ----

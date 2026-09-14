@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import QRCode from "qrcode";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import ExcelJS from "exceljs";
 
 // Punto d'ingresso del Worker: serve il sito statico (assets/*.html, css, js, immagini) e in più
 // gestisce le rotte /api/* per il backend biglietti/QR. Il binding ASSETS (vedi wrangler.toml)
@@ -76,6 +77,7 @@ async function handleFetch(request, env, ctx) {
         headers: { "Content-Type": "application/json" }
       });
     }
+
 
     // Diagnostica: dice solo se ogni variabile/secret è presente o no, mai il valore vero.
     // Serve solo per debug in questa fase, si può togliere una volta che tutto funziona.
@@ -309,6 +311,15 @@ async function handleFetch(request, env, ctx) {
         return await handleExportAttendees(request, env);
       } catch (err) {
         console.log("Errore export-attendees:", err.stack || err.message);
+        return jsonResponse({ error: err.message }, 500);
+      }
+    }
+
+    if (url.pathname === "/api/admin/event-report-xlsx" && request.method === "POST") {
+      try {
+        return await handleAdminEventReportXlsx(request, env);
+      } catch (err) {
+        console.log("Errore admin/event-report-xlsx:", err.stack || err.message);
         return jsonResponse({ error: err.message }, 500);
       }
     }
@@ -2206,13 +2217,9 @@ async function handleAttendees(request, env) {
 // (non solo la metadata) perché per i biglietti non ancora entrati la metadata non ha ancora il
 // nome (viene scritto solo al check-in, vedi handleCheckin) — accettabile: solo i ticket di
 // QUESTO evento vengono letti per intero, non l'intero archivio.
-async function handleEventRoster(request, env) {
-  const auth = await requireStaffAccountOrKey(request, env);
-  if (auth.error) return auth.error;
-  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
-  const slug = new URL(request.url).searchParams.get("event");
-  if (!slug) return jsonResponse({ error: "event mancante" }, 400);
-
+// Condivisa da handleEventRoster e handleAdminEventReportXlsx — un solo posto che scandisce i
+// ticket di un evento leggendo il corpo intero (serve il nome, non in metadata finché non è usato).
+async function fetchEventRoster(env, slug) {
   const roster = [];
   let cursor = undefined;
   do {
@@ -2231,9 +2238,347 @@ async function handleEventRoster(request, env) {
     }
     cursor = page.list_complete ? undefined : page.cursor;
   } while (cursor);
-
   roster.sort(function(a, b){ return (a.name || "").localeCompare(b.name || ""); });
+  return roster;
+}
+
+async function handleEventRoster(request, env) {
+  const auth = await requireStaffAccountOrKey(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+  const slug = new URL(request.url).searchParams.get("event");
+  if (!slug) return jsonResponse({ error: "event mancante" }, 400);
+  const roster = await fetchEventRoster(env, slug);
   return jsonResponse({ roster });
+}
+
+// ============================================================================
+// Report Excel riassuntivo di un evento — 5 fogli (Riepilogo, Dettaglio fasce, Lista completa,
+// Quota locale, Conto economico), stessa struttura preparata a mano più volte nel pannello prima
+// di questo pulsante. Tutto quello che si può leggere dai dati reali (biglietti/presenze/prezzi)
+// è calcolato con formule dal vivo — solo la parte locale/costi (che non esiste da nessuna parte
+// nel sistema: percentuale d'accordo, eventuali incassi già in mano al locale, costi di
+// produzione) arriva dal form compilato in azienda.html.
+// ============================================================================
+const XL_INK = "FF1E0C2C", XL_PURPLE = "FF2C0943", XL_GREY = "FF6E6478", XL_CREAM = "FFFBF6F0", XL_YELLOW = "FFFDC631", XL_BLUE = "FF0000FF";
+const XL_EUR = '#,##0.00 "€"';
+
+function xlHeaderRow(ws, row, texts, widths) {
+  texts.forEach(function(t, i) {
+    const cell = ws.getCell(row, i + 1);
+    cell.value = t;
+    cell.font = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: XL_PURPLE } };
+  });
+  if (widths) widths.forEach(function(w, i) { ws.getColumn(i + 1).width = w; });
+}
+
+function xlTotalRow(ws, row, lastCol) {
+  for (let c = 1; c <= lastCol; c++) {
+    ws.getCell(row, c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: XL_YELLOW } };
+    ws.getCell(row, c).font = { name: "Arial", size: 11, bold: true };
+  }
+}
+
+async function buildEventReportWorkbook(env, { eventSlug, localeName, localePercent, localeAlreadyCollected, extraRevenue, costs }) {
+  const event = await getEvent(env, eventSlug);
+  if (!event) throw new Error("evento non trovato");
+  const roster = await fetchEventRoster(env, eventSlug);
+
+  const tierRows = [];
+  (event.tiers || []).forEach(function(tier) {
+    (tier.options || []).forEach(function(option) {
+      const fee = addStripeFee(option.priceCents || 0);
+      tierRows.push({
+        tierName: tier.name, optionLabel: option.label,
+        fullLabel: `${tier.name} — ${option.label}`,
+        priceCents: option.priceCents || 0, feeCents: fee.feeCents
+      });
+    });
+  });
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "GrowMi";
+  wb.created = new Date();
+
+  // -------------------- Sheet 3 first (le altre due lo referenziano) --------------------
+  const wsList = wb.addWorksheet("Lista completa");
+  wsList.views = [{ state: "frozen", ySplit: 1 }];
+  xlHeaderRow(wsList, 1, ["Nome", "Email", "Fascia", "Stato", "Check-in", "Origine"], [26, 30, 32, 14, 10, 12]);
+  roster.forEach(function(p, i) {
+    const r = i + 2;
+    wsList.getCell(r, 1).value = p.name || "—";
+    wsList.getCell(r, 2).value = p.email || "—";
+    wsList.getCell(r, 3).value = p.tierName || "—";
+    const stato = p.used ? "Entrato" : "Non entrato";
+    const statoCell = wsList.getCell(r, 4);
+    statoCell.value = stato;
+    statoCell.font = { name: "Arial", size: 11, bold: true, color: { argb: p.used ? "FF2ECC71" : "FFE0217A" } };
+    wsList.getCell(r, 5).value = p.usedAt
+      ? new Date(p.usedAt).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Rome" })
+      : "—";
+    wsList.getCell(r, 6).value = p.source === "walkin" ? "In loco" : "Online";
+  });
+  const listLastRow = roster.length + 1;
+
+  // -------------------- Sheet 2: Dettaglio fasce --------------------
+  const wsTiers = wb.addWorksheet("Dettaglio fasce");
+  xlHeaderRow(wsTiers, 1,
+    ["Fascia", "Opzione", "Num biglietti", "Prezzo netto unitario", "Totale netto", "Commissione unitaria", "Prezzo lordo unitario", "Totale lordo"],
+    [16, 26, 14, 20, 14, 18, 18, 14]);
+  tierRows.forEach(function(t, i) {
+    const r = i + 2;
+    wsTiers.getCell(r, 1).value = t.tierName;
+    wsTiers.getCell(r, 2).value = t.optionLabel;
+    const cnt = wsTiers.getCell(r, 3);
+    cnt.value = { formula: `COUNTIF('Lista completa'!C2:C${listLastRow},"${t.fullLabel}")` };
+    const price = wsTiers.getCell(r, 4);
+    price.value = t.priceCents / 100; price.numFmt = XL_EUR; price.font = { name: "Arial", size: 11, color: { argb: XL_BLUE } };
+    const totNet = wsTiers.getCell(r, 5);
+    totNet.value = { formula: `C${r}*D${r}` }; totNet.numFmt = XL_EUR;
+    const fee = wsTiers.getCell(r, 6);
+    fee.value = t.feeCents / 100; fee.numFmt = XL_EUR; fee.font = { name: "Arial", size: 11, color: { argb: XL_BLUE } };
+    const grossUnit = wsTiers.getCell(r, 7);
+    grossUnit.value = { formula: `D${r}+F${r}` }; grossUnit.numFmt = XL_EUR;
+    const totGross = wsTiers.getCell(r, 8);
+    totGross.value = { formula: `C${r}*G${r}` }; totGross.numFmt = XL_EUR;
+    for (let c = 1; c <= 8; c++) wsTiers.getCell(r, c).numFmt = wsTiers.getCell(r, c).numFmt || undefined;
+  });
+  const tiersTotalRow = tierRows.length + 2;
+  wsTiers.getCell(tiersTotalRow, 1).value = "Totale";
+  wsTiers.getCell(tiersTotalRow, 3).value = { formula: `SUM(C2:C${tiersTotalRow - 1})` };
+  wsTiers.getCell(tiersTotalRow, 5).value = { formula: `SUM(E2:E${tiersTotalRow - 1})` }; wsTiers.getCell(tiersTotalRow, 5).numFmt = XL_EUR;
+  wsTiers.getCell(tiersTotalRow, 8).value = { formula: `SUM(H2:H${tiersTotalRow - 1})` }; wsTiers.getCell(tiersTotalRow, 8).numFmt = XL_EUR;
+  xlTotalRow(wsTiers, tiersTotalRow, 8);
+  const tiersNetTotalCell = `E${tiersTotalRow}`;
+  const tiersGrossTotalCell = `H${tiersTotalRow}`;
+
+  // -------------------- Sheet 1: Riepilogo --------------------
+  const wsSum = wb.addWorksheet("Riepilogo");
+  wsSum.getColumn(1).width = 42; wsSum.getColumn(2).width = 18;
+  wsSum.getCell(1, 1).value = event.name || eventSlug;
+  wsSum.getCell(1, 1).font = { name: "Arial", size: 16, bold: true, color: { argb: XL_PURPLE } };
+  wsSum.getCell(2, 1).value = `Riepilogo incassi e presenze — ${event.dateDisplay || ""}`;
+  wsSum.getCell(2, 1).font = { name: "Arial", size: 10, italic: true, color: { argb: XL_GREY } };
+  wsSum.getCell(3, 1).value = `Generato il ${new Date().toLocaleDateString("it-IT")} dai dati reali del sito (KV biglietti)`;
+  wsSum.getCell(3, 1).font = { name: "Arial", size: 10, italic: true, color: { argb: XL_GREY } };
+
+  wsSum.getCell(5, 1).value = "Presenze";
+  wsSum.getCell(5, 1).font = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+  wsSum.getCell(5, 1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: XL_PURPLE } };
+  wsSum.getCell(5, 2).fill = { type: "pattern", pattern: "solid", fgColor: { argb: XL_PURPLE } };
+
+  wsSum.getCell(6, 1).value = "Biglietti venduti (totale)";
+  wsSum.getCell(6, 2).value = { formula: `COUNTA('Lista completa'!A2:A${listLastRow})` };
+  wsSum.getCell(7, 1).value = "Entrati (timbro fatto)";
+  wsSum.getCell(7, 2).value = { formula: `COUNTIF('Lista completa'!D2:D${listLastRow},"Entrato")` };
+  wsSum.getCell(8, 1).value = "Non entrati (acquistato, non venuti)";
+  wsSum.getCell(8, 2).value = { formula: `COUNTIF('Lista completa'!D2:D${listLastRow},"Non entrato")` };
+  wsSum.getCell(9, 1).value = "% presenza";
+  wsSum.getCell(9, 2).value = { formula: "B7/B6" }; wsSum.getCell(9, 2).numFmt = "0.0%";
+  [6, 7, 8, 9].forEach(function(r) { wsSum.getCell(r, 1).font = { name: "Arial", size: 11, bold: true }; });
+
+  wsSum.getCell(11, 1).value = "Incassi";
+  wsSum.getCell(11, 1).font = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+  wsSum.getCell(11, 1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: XL_PURPLE } };
+  wsSum.getCell(11, 2).fill = { type: "pattern", pattern: "solid", fgColor: { argb: XL_PURPLE } };
+  wsSum.getCell(12, 1).value = "Incasso netto (senza commissioni Stripe)";
+  wsSum.getCell(12, 2).value = { formula: `'Dettaglio fasce'!${tiersNetTotalCell}` }; wsSum.getCell(12, 2).numFmt = XL_EUR;
+  wsSum.getCell(13, 1).value = "Incasso lordo (incassato davvero, con commissioni)";
+  wsSum.getCell(13, 2).value = { formula: `'Dettaglio fasce'!${tiersGrossTotalCell}` }; wsSum.getCell(13, 2).numFmt = XL_EUR;
+  wsSum.getCell(14, 1).value = "Totale commissioni Stripe";
+  wsSum.getCell(14, 2).value = { formula: "B13-B12" }; wsSum.getCell(14, 2).numFmt = XL_EUR;
+  wsSum.getCell(15, 1).value = "% commissioni sul lordo";
+  wsSum.getCell(15, 2).value = { formula: "B14/B13" }; wsSum.getCell(15, 2).numFmt = "0.0%";
+  [12, 13, 14, 15].forEach(function(r) { wsSum.getCell(r, 1).font = { name: "Arial", size: 11, bold: true }; });
+  const netTicketRevenueCell = "Riepilogo!B12";
+
+  // -------------------- Sheet 4: Quota locale --------------------
+  const wsLocale = wb.addWorksheet("Quota locale");
+  xlHeaderRow(wsLocale, 1,
+    ["Fascia", "Opzione", "N. consumati (entrati)", "Prezzo netto unitario", "Totale netto consumati"],
+    [16, 26, 20, 20, 20]);
+  tierRows.forEach(function(t, i) {
+    const r = i + 2;
+    wsLocale.getCell(r, 1).value = t.tierName;
+    wsLocale.getCell(r, 2).value = t.optionLabel;
+    wsLocale.getCell(r, 3).value = { formula: `COUNTIFS('Lista completa'!C2:C${listLastRow},"${t.fullLabel}",'Lista completa'!D2:D${listLastRow},"Entrato")` };
+    wsLocale.getCell(r, 4).value = t.priceCents / 100; wsLocale.getCell(r, 4).numFmt = XL_EUR; wsLocale.getCell(r, 4).font = { name: "Arial", size: 11, color: { argb: XL_BLUE } };
+    wsLocale.getCell(r, 5).value = { formula: `C${r}*D${r}` }; wsLocale.getCell(r, 5).numFmt = XL_EUR;
+  });
+  const locTierTotalRow = tierRows.length + 2;
+  wsLocale.getCell(locTierTotalRow, 1).value = "Totale";
+  wsLocale.getCell(locTierTotalRow, 3).value = { formula: `SUM(C2:C${locTierTotalRow - 1})` };
+  wsLocale.getCell(locTierTotalRow, 5).value = { formula: `SUM(E2:E${locTierTotalRow - 1})` }; wsLocale.getCell(locTierTotalRow, 5).numFmt = XL_EUR;
+  xlTotalRow(wsLocale, locTierTotalRow, 5);
+  const consumedNetCell = `E${locTierTotalRow}`;
+
+  let r = locTierTotalRow + 2;
+  wsLocale.getCell(r, 1).value = `Divisione ${localePercent}/${100 - localePercent} sul fatturato generale della serata`;
+  wsLocale.getCell(r, 1).font = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+  for (let c = 1; c <= 5; c++) wsLocale.getCell(r, c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: XL_PURPLE } };
+  r += 1;
+
+  wsLocale.getCell(r, 1).value = "Incasso netto biglietti (tutti venduti)";
+  wsLocale.getCell(r, 2).value = { formula: netTicketRevenueCell }; wsLocale.getCell(r, 2).numFmt = XL_EUR;
+  const ticketRevRow = r; r += 1;
+
+  let alreadyRow = null;
+  if (localeAlreadyCollected) {
+    wsLocale.getCell(r, 1).value = `Già incassato direttamente da ${localeName || "il locale"}`;
+    const c = wsLocale.getCell(r, 2); c.value = localeAlreadyCollected; c.numFmt = XL_EUR; c.font = { name: "Arial", size: 11, color: { argb: XL_BLUE } };
+    alreadyRow = r; r += 1;
+  }
+
+  const extraRows = [];
+  (extraRevenue || []).forEach(function(item) {
+    wsLocale.getCell(r, 1).value = item.label || "Ricavo extra";
+    const c = wsLocale.getCell(r, 2); c.value = Number(item.amount) || 0; c.numFmt = XL_EUR; c.font = { name: "Arial", size: 11, color: { argb: XL_BLUE } };
+    extraRows.push(r); r += 1;
+  });
+
+  const sumTerms = [ticketRevRow, alreadyRow, ...extraRows].filter(Boolean).map(function(rr) { return `B${rr}`; }).join("+");
+  wsLocale.getCell(r, 1).value = "Totale: Fatturato generale della serata";
+  wsLocale.getCell(r, 2).value = { formula: sumTerms }; wsLocale.getCell(r, 2).numFmt = XL_EUR;
+  xlTotalRow(wsLocale, r, 2);
+  const fatturatoRow = r; r += 2;
+
+  wsLocale.getCell(r, 1).value = "Meno — incasso da biglietti NON consumati (resta esclusivo)";
+  wsLocale.getCell(r, 2).value = { formula: `-(${netTicketRevenueCell}-${consumedNetCell})` }; wsLocale.getCell(r, 2).numFmt = XL_EUR;
+  const notConsumedRow = r; r += 1;
+
+  const extraNegRows = [];
+  (extraRevenue || []).forEach(function(item, i) {
+    wsLocale.getCell(r, 1).value = `Meno — ${item.label || "ricavo extra"} (idem, resta esclusivo)`;
+    wsLocale.getCell(r, 2).value = { formula: `-B${extraRows[i]}` }; wsLocale.getCell(r, 2).numFmt = XL_EUR;
+    extraNegRows.push(r); r += 1;
+  });
+
+  const restTerms = [fatturatoRow, notConsumedRow, ...extraNegRows].map(function(rr) { return `B${rr}`; }).join("+");
+  wsLocale.getCell(r, 1).value = "Totale: Resto da dividere";
+  wsLocale.getCell(r, 2).value = { formula: restTerms }; wsLocale.getCell(r, 2).numFmt = XL_EUR;
+  xlTotalRow(wsLocale, r, 2);
+  const restRow = r; r += 2;
+
+  wsLocale.getCell(r, 1).value = `→ QUOTA ${(localeName || "LOCALE").toUpperCase()} (${localePercent}%)`;
+  wsLocale.getCell(r, 2).value = { formula: `B${restRow}*${localePercent / 100}` }; wsLocale.getCell(r, 2).numFmt = XL_EUR;
+  xlTotalRow(wsLocale, r, 2);
+  const localeShareRow = r; r += 1;
+
+  wsLocale.getCell(r, 1).value = `→ TOTALE GROWMI (${100 - localePercent}% + esclusivo)`;
+  const exclusiveTerms = [notConsumedRow, ...extraNegRows].map(function(rr) { return `B${rr}`; }).join("+");
+  wsLocale.getCell(r, 2).value = { formula: `B${restRow}*${(100 - localePercent) / 100}-(${exclusiveTerms})` };
+  wsLocale.getCell(r, 2).numFmt = XL_EUR;
+  xlTotalRow(wsLocale, r, 2);
+  r += 2;
+
+  let payRow = localeShareRow;
+  if (alreadyRow) {
+    wsLocale.getCell(r, 1).value = `Quota ${localeName || "locale"} (${localePercent}%)`;
+    wsLocale.getCell(r, 2).value = { formula: `B${localeShareRow}` }; wsLocale.getCell(r, 2).numFmt = XL_EUR;
+    r += 1;
+    wsLocale.getCell(r, 1).value = `Meno — già incassato direttamente da ${localeName || "il locale"}`;
+    wsLocale.getCell(r, 2).value = { formula: `-B${alreadyRow}` }; wsLocale.getCell(r, 2).numFmt = XL_EUR;
+    r += 1;
+    wsLocale.getCell(r, 1).value = `→ DA VERSARE A ${(localeName || "LOCALE").toUpperCase()}`;
+    wsLocale.getCell(r, 2).value = { formula: `B${localeShareRow}-B${alreadyRow}` }; wsLocale.getCell(r, 2).numFmt = XL_EUR;
+    xlTotalRow(wsLocale, r, 2);
+    payRow = r;
+    r += 1;
+  }
+  const amountToPayCell = `B${payRow}`;
+
+  // -------------------- Sheet 5: Conto economico --------------------
+  const wsPl = wb.addWorksheet("Conto economico");
+  wsPl.getColumn(1).width = 42; wsPl.getColumn(2).width = 16; wsPl.getColumn(3).width = 55;
+  wsPl.getCell(1, 1).value = `Conto economico — ${event.name || eventSlug}`;
+  wsPl.getCell(1, 1).font = { name: "Arial", size: 16, bold: true, color: { argb: XL_PURPLE } };
+
+  let pr = 3;
+  wsPl.getCell(pr, 1).value = "Ricavi";
+  for (let c = 1; c <= 3; c++) { wsPl.getCell(pr, c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: XL_PURPLE } }; }
+  wsPl.getCell(pr, 1).font = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+  pr += 1;
+
+  wsPl.getCell(pr, 1).value = "Incasso netto biglietti (tutti i venduti)";
+  wsPl.getCell(pr, 2).value = { formula: netTicketRevenueCell }; wsPl.getCell(pr, 2).numFmt = XL_EUR;
+  const plTicketRow = pr; pr += 1;
+
+  const plExtraRows = [];
+  (extraRevenue || []).forEach(function(item) {
+    wsPl.getCell(pr, 1).value = item.label || "Ricavo extra";
+    wsPl.getCell(pr, 2).value = { formula: `'Quota locale'!B${extraRows[plExtraRows.length]}` }; wsPl.getCell(pr, 2).numFmt = XL_EUR;
+    plExtraRows.push(pr); pr += 1;
+  });
+
+  const ricaviTerms = [plTicketRow, ...plExtraRows].map(function(rr) { return `B${rr}`; }).join("+");
+  wsPl.getCell(pr, 1).value = "Totale ricavi";
+  wsPl.getCell(pr, 2).value = { formula: ricaviTerms }; wsPl.getCell(pr, 2).numFmt = XL_EUR;
+  xlTotalRow(wsPl, pr, 3);
+  const totRicaviRow = pr; pr += 2;
+
+  wsPl.getCell(pr, 1).value = "Costi";
+  for (let c = 1; c <= 3; c++) { wsPl.getCell(pr, c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: XL_PURPLE } }; }
+  wsPl.getCell(pr, 1).font = { name: "Arial", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
+  pr += 1;
+
+  const costRows = [];
+  (costs || []).forEach(function(item) {
+    wsPl.getCell(pr, 1).value = item.label || "Costo";
+    const c = wsPl.getCell(pr, 2); c.value = Number(item.amount) || 0; c.numFmt = XL_EUR; c.font = { name: "Arial", size: 11, color: { argb: XL_BLUE } };
+    if (item.note) wsPl.getCell(pr, 3).value = item.note;
+    costRows.push(pr); pr += 1;
+  });
+
+  wsPl.getCell(pr, 1).value = `Quota ${localeName || "locale"}`;
+  wsPl.getCell(pr, 2).value = { formula: `'Quota locale'!${amountToPayCell}` }; wsPl.getCell(pr, 2).numFmt = XL_EUR;
+  wsPl.getCell(pr, 3).value = "Vedi foglio \"Quota locale\" per il dettaglio del calcolo.";
+  costRows.push(pr); pr += 1;
+
+  const costiTerms = costRows.map(function(rr) { return `B${rr}`; }).join("+");
+  wsPl.getCell(pr, 1).value = "Totale costi";
+  wsPl.getCell(pr, 2).value = { formula: costiTerms || "0" }; wsPl.getCell(pr, 2).numFmt = XL_EUR;
+  xlTotalRow(wsPl, pr, 3);
+  const totCostiRow = pr; pr += 2;
+
+  wsPl.getCell(pr, 1).value = "RISULTATO (ricavi − costi)";
+  wsPl.getCell(pr, 1).font = { name: "Arial", size: 13, bold: true, color: { argb: XL_PURPLE } };
+  wsPl.getCell(pr, 2).value = { formula: `B${totRicaviRow}-B${totCostiRow}` };
+  wsPl.getCell(pr, 2).numFmt = XL_EUR;
+  wsPl.getCell(pr, 2).font = { name: "Arial", size: 13, bold: true, color: { argb: XL_PURPLE } };
+  wsPl.getCell(pr, 1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: XL_YELLOW } };
+  wsPl.getCell(pr, 2).fill = { type: "pattern", pattern: "solid", fgColor: { argb: XL_YELLOW } };
+
+  return wb;
+}
+
+async function handleAdminEventReportXlsx(request, env) {
+  const auth = await requireStaffAccount(request, env);
+  if (auth.error) return auth.error;
+  if (!env.TICKETS) throw new Error("Binding KV 'TICKETS' non configurato");
+
+  const body = await request.json();
+  const eventSlug = String(body.eventSlug || "").trim();
+  if (!eventSlug) return jsonResponse({ error: "eventSlug mancante" }, 400);
+  const localeName = String(body.localeName || "").trim().slice(0, 80);
+  const localePercent = Math.min(100, Math.max(0, Number(body.localePercent) || 0));
+  const localeAlreadyCollected = Math.max(0, Number(body.localeAlreadyCollected) || 0);
+  const extraRevenue = Array.isArray(body.extraRevenue) ? body.extraRevenue.slice(0, 30).map(function(i) {
+    return { label: String(i.label || "").trim().slice(0, 120), amount: Number(i.amount) || 0 };
+  }).filter(function(i) { return i.label && i.amount; }) : [];
+  const costs = Array.isArray(body.costs) ? body.costs.slice(0, 50).map(function(i) {
+    return { label: String(i.label || "").trim().slice(0, 120), amount: Number(i.amount) || 0, note: String(i.note || "").trim().slice(0, 200) };
+  }).filter(function(i) { return i.label; }) : [];
+
+  const wb = await buildEventReportWorkbook(env, { eventSlug, localeName, localePercent, localeAlreadyCollected, extraRevenue, costs });
+  const buf = await wb.xlsx.writeBuffer();
+  const safeName = (localeName ? `report-${eventSlug}` : `report-${eventSlug}`).replace(/[^a-z0-9-]/gi, "-");
+  return new Response(buf, {
+    headers: {
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": `attachment; filename="${safeName}.xlsx"`
+    }
+  });
 }
 
 // Esporta in CSV (si apre diretto in Excel/Numbers) TUTTI i biglietti venduti — non solo chi è
