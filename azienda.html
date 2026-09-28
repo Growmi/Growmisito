@@ -830,6 +830,7 @@
         <h3 id="az-event-form-title" style="font-family:'Space Grotesk',sans-serif; font-size:18px; margin:24px 0 16px;">Nuovo evento</h3>
         <form id="az-event-form" style="max-width:600px; display:flex; flex-direction:column; gap:16px;">
           <input type="hidden" id="az-ev-slug">
+          <p class="az-msg" id="az-ev-past-notice" hidden style="background:#FDE8E0; color:#B4400F;">Evento passato — i biglietti non sono più in vendita (fasce e box acquisto nascosti sulla pagina). Qui puoi pubblicare solo un recap con foto e "Sezioni extra" (testo, lineup, immagini), sempre disponibili qui sotto qualunque sia il tema.</p>
           <p class="az-group-label">Informazioni base</p>
           <div class="az-field"><label for="az-ev-name">Nome evento</label><input type="text" id="az-ev-name" required></div>
           <div class="az-field">
@@ -940,39 +941,41 @@
               Strisce diagonali colorate nell'hero
             </label>
             <p class="az-u-hint10" style="margin-top:-10px;">Contano solo quando NON carichi una foto hero — con una foto, l'hero mostra sempre e solo quella.</p>
+          </div>
 
-            <div>
-              <label class="az-u-label13">Sezioni extra (lineup, titoli, testo)</label>
-              <p class="az-u-hint10">Compaiono tra l'immagine di copertina e i biglietti — stesso sistema a blocchi riordinabili della newsletter. Più schede "Lineup" una dopo l'altra si raggruppano automaticamente in un'unica griglia.</p>
-              <div id="az-ev-blocks" class="az-nl-blocks"></div>
-              <div class="az-u-row10" style="margin-top:10px;">
-                <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="lineup">+ Artista lineup</button>
-                <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="heading">+ Titolo</button>
-                <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="text">+ Testo</button>
-                <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="image">+ Immagine</button>
-                <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="button">+ Bottone</button>
-                <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="divider">+ Divisore</button>
-                <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="spacer">+ Spazio</button>
-              </div>
+          <div id="az-ev-sections-extra-wrap" hidden>
+            <label class="az-u-label13">Sezioni extra (lineup, titoli, testo)</label>
+            <p class="az-u-hint10">Compaiono tra l'immagine di copertina e i biglietti (o, per un evento passato, come recap al posto dei biglietti) — stesso sistema a blocchi riordinabili della newsletter. Più schede "Lineup" una dopo l'altra si raggruppano automaticamente in un'unica griglia.</p>
+            <div id="az-ev-blocks" class="az-nl-blocks"></div>
+            <div class="az-u-row10" style="margin-top:10px;">
+              <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="lineup">+ Artista lineup</button>
+              <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="heading">+ Titolo</button>
+              <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="text">+ Testo</button>
+              <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="image">+ Immagine</button>
+              <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="button">+ Bottone</button>
+              <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="divider">+ Divisore</button>
+              <button type="button" class="az-mini-btn az-ev-add-block-btn" data-block-type="spacer">+ Spazio</button>
             </div>
           </div>
 
-          <p class="az-group-label">Biglietti e feedback</p>
-          <div class="az-field">
-            <label for="az-ev-ticketbgcolor">Colore sfondo box prezzi</label>
-            <input type="color" id="az-ev-ticketbgcolor" value="#3E0D5D" style="width:100%; height:40px; padding:2px; border-radius:8px; border:1.5px solid var(--line);">
-            <p class="az-u-hint10">Sfondo della sezione biglietti — di default il viola del sito, con testo sempre chiaro sopra.</p>
-          </div>
-          <div>
-            <label class="az-u-label13">Fasce biglietti</label>
-            <p class="az-u-hint10">I prezzi qui sotto sono netti (quello che incassi tu) — sul sito il cliente paga un po' di più, la commissione Stripe stimata si aggiunge in automatico al checkout. Puoi lasciare il prezzo di un'opzione vuoto: la fascia resta pubblicabile e mostra "Presto in vendita" finché non torni a compilarlo.</p>
-            <div id="az-ev-tiers"></div>
-            <button type="button" class="az-mini-btn" id="az-ev-add-tier">+ Aggiungi fascia</button>
-          </div>
-          <div class="az-field">
-            <label for="az-ev-checkoutnote">Nota al checkout (facoltativa)</label>
-            <textarea id="az-ev-checkoutnote" style="width:100%; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line); font-family:Inter,sans-serif; font-size:14.5px; min-height:70px; resize:vertical;" placeholder='es. cosa include un'"'"'opzione food, chi fornisce cosa...'></textarea>
-            <p class="az-u-hint10">Compare sotto il prezzo, proprio prima del pagamento — utile per ripetere lì un'informazione già data altrove in pagina (es. cosa include l'opzione con cibo/bevande).</p>
+          <div id="az-ev-tickets-fields">
+            <p class="az-group-label">Biglietti e feedback</p>
+            <div class="az-field">
+              <label for="az-ev-ticketbgcolor">Colore sfondo box prezzi</label>
+              <input type="color" id="az-ev-ticketbgcolor" value="#3E0D5D" style="width:100%; height:40px; padding:2px; border-radius:8px; border:1.5px solid var(--line);">
+              <p class="az-u-hint10">Sfondo della sezione biglietti — di default il viola del sito, con testo sempre chiaro sopra.</p>
+            </div>
+            <div>
+              <label class="az-u-label13">Fasce biglietti</label>
+              <p class="az-u-hint10">I prezzi qui sotto sono netti (quello che incassi tu) — sul sito il cliente paga un po' di più, la commissione Stripe stimata si aggiunge in automatico al checkout. Puoi lasciare il prezzo di un'opzione vuoto: la fascia resta pubblicabile e mostra "Presto in vendita" finché non torni a compilarlo.</p>
+              <div id="az-ev-tiers"></div>
+              <button type="button" class="az-mini-btn" id="az-ev-add-tier">+ Aggiungi fascia</button>
+            </div>
+            <div class="az-field">
+              <label for="az-ev-checkoutnote">Nota al checkout (facoltativa)</label>
+              <textarea id="az-ev-checkoutnote" style="width:100%; padding:9px 11px; border-radius:8px; border:1.5px solid var(--line); font-family:Inter,sans-serif; font-size:14.5px; min-height:70px; resize:vertical;" placeholder='es. cosa include un'"'"'opzione food, chi fornisce cosa...'></textarea>
+              <p class="az-u-hint10">Compare sotto il prezzo, proprio prima del pagamento — utile per ripetere lì un'informazione già data altrove in pagina (es. cosa include l'opzione con cibo/bevande).</p>
+            </div>
           </div>
 
           <div>
@@ -1000,19 +1003,23 @@
 
       <div style="margin-top:36px; padding-top:28px; border-top:1.5px solid var(--line);">
         <h3 class="az-u-h3-16">Eventi passati (pagine storiche)</h3>
-        <p style="font-size:12px; color:var(--grey); margin-bottom:16px; max-width:600px;">Le prime edizioni, con una pagina propria invece che generata dal biglietto online — titolo, data, luogo e copertina modificabili qui.</p>
-        <div id="az-legacy-events" style="display:flex; flex-direction:column; gap:16px;"></div>
-        <div style="display:flex; gap:10px; align-items:center; margin-top:16px;">
-          <button type="button" class="az-submit" id="az-legacy-events-save" style="flex:0 0 auto; padding:14px 26px;">Pubblica eventi passati</button>
+        <p style="font-size:12px; color:var(--grey); margin-bottom:16px; max-width:600px;">Le prime edizioni, con una pagina propria invece che generata dal biglietto online — card nell'elenco e contenuto della pagina si modificano insieme, in un unico "Pubblica" per evento.</p>
+        <div id="az-legacy-event-art-mall" style="border:1.5px solid var(--line); border-radius:14px; padding:18px;">
+          <div id="az-legacy-event-art-mall-card"></div>
+          <div id="az-legacy-event-art-mall-content" style="margin-top:20px;"></div>
+          <div style="display:flex; gap:10px; align-items:center; margin-top:16px;">
+            <button type="button" class="az-submit" data-legacy-publish="art-mall" style="flex:0 0 auto; padding:14px 26px;">Pubblica</button>
+          </div>
+          <p class="az-msg" data-legacy-msg="art-mall" hidden></p>
         </div>
-        <p class="az-msg" id="az-legacy-events-msg" hidden></p>
-      </div>
-
-      <div style="margin-top:36px; padding-top:28px; border-top:1.5px solid var(--line);">
-        <h3 class="az-u-h3-16">Contenuto delle pagine eventi passati</h3>
-        <p style="font-size:12px; color:var(--grey); margin-bottom:16px; max-width:600px;">Testi e foto principali dentro ciascuna pagina evento (non solo la card nell'elenco) — sono già quelli pubblicati: modificali e premi "Pubblica" per aggiornarli.</p>
-        <div id="az-legacy-page-art-mall-collab"></div>
-        <div id="az-legacy-page-grow-with-us" style="margin-top:28px;"></div>
+        <div id="az-legacy-event-grow-with-us" style="border:1.5px solid var(--line); border-radius:14px; padding:18px; margin-top:20px;">
+          <div id="az-legacy-event-grow-with-us-card"></div>
+          <div id="az-legacy-event-grow-with-us-content" style="margin-top:20px;"></div>
+          <div style="display:flex; gap:10px; align-items:center; margin-top:16px;">
+            <button type="button" class="az-submit" data-legacy-publish="grow-with-us" style="flex:0 0 auto; padding:14px 26px;">Pubblica</button>
+          </div>
+          <p class="az-msg" data-legacy-msg="grow-with-us" hidden></p>
+        </div>
       </div>
     </div>
 
@@ -3921,9 +3928,8 @@
         '</div>' +
         '<div class="az-u-row10">' +
           '<button type="button" class="az-preview-btn" data-action="preview">👁 Preview</button>' +
-          '<button type="submit" class="az-submit" style="flex:0 0 auto; padding:14px 26px;">Pubblica</button>' +
         '</div>' +
-        '<p class="az-msg" hidden></p>' +
+        '<p class="az-u-hint10">Il contenuto qui sopra si pubblica insieme a titolo/data/luogo/copertina, con il pulsante "Pubblica" in fondo alla card.</p>' +
       '</form>' +
       '</div>';
 
@@ -3999,8 +4005,6 @@
     form.querySelector('[data-action="add-text"]').addEventListener('click', function(){ extraSections.push({ type: 'text', title: '', body: '' }); renderExtra(); });
     form.querySelector('[data-action="add-image"]').addEventListener('click', function(){ extraSections.push({ type: 'image', key: null, caption: '' }); renderExtra(); });
 
-    var msg = form.querySelector('.az-msg');
-
     function collectFields(){
       var fields = {};
       Object.keys(fieldInputs).forEach(function(key){ var v = fieldInputs[key].value.trim(); if (v) fields[key] = v; });
@@ -4017,27 +4021,20 @@
       });
     });
 
-    form.addEventListener('submit', async function(e){
-      e.preventDefault();
-      msg.hidden = true;
-      var submitBtn = form.querySelector('.az-submit');
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Salvataggio...';
-      try {
-        var res = await fetch('/api/admin/page-content', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ page: pageKey, fields: collectFields(), extraSections: extraSections, gallery: defaults.galleryKeys ? galleryKeys : undefined })
-        });
-        var data = await res.json();
-        if (res.ok) showMsg(msg, 'Salvato — la pagina è già aggiornata.', false);
-        else showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
-      } catch (err) { showMsg(msg, 'Errore di connessione.', true); }
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'Pubblica';
-    });
+    // Niente più bottone/submit proprio: il salvataggio del contenuto pagina è richiamato dal
+    // pulsante "Pubblica" unico della card (vedi data-legacy-publish più sotto), che chiama
+    // questa funzione insieme al salvataggio di titolo/data/luogo/copertina.
+    async function saveContent(){
+      var res = await fetch('/api/admin/page-content', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page: pageKey, fields: collectFields(), extraSections: extraSections, gallery: defaults.galleryKeys ? galleryKeys : undefined })
+      });
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Qualcosa è andato storto con il contenuto della pagina.');
+    }
 
-    return async function load(){
+    async function load(){
       try {
         var res = await fetch('/api/admin/page-content?page=' + pageKey);
         var data = await res.json();
@@ -4055,12 +4052,14 @@
         extraSections = (content.extraSections || []).slice();
         renderExtra();
       } catch (err) { /* riprovabile ricaricando il pannello */ }
-    };
+    }
+
+    return { load: load, save: saveContent };
   }
-  var loadArtMallCollabPage = createLegacyEventPageEditor('az-legacy-page-art-mall-collab', 'art-mall-collab', 'The Art of Being Yourself (4 giugno 2026)', {
+  var artMallCollabEditor = createLegacyEventPageEditor('az-legacy-event-art-mall-content', 'art-mall-collab', 'The Art of Being Yourself (4 giugno 2026)', {
     heroKey: 'assets/img/eventi/art-mall-collab/sticker-bg.jpg', posterKey: 'assets/img/eventi/art-mall-collab/poster.png'
   });
-  var loadGrowWithUsPage = createLegacyEventPageEditor('az-legacy-page-grow-with-us', 'grow-with-us', 'Grow With Us (6 maggio 2025)', {
+  var growWithUsEditor = createLegacyEventPageEditor('az-legacy-event-grow-with-us-content', 'grow-with-us', 'Grow With Us (6 maggio 2025)', {
     heroKey: 'assets/img/eventi/grow-with-us/cover.jpg', posterKey: 'assets/img/eventi/grow-with-us/poster.png',
     galleryKeys: [
       'assets/img/eventi/grow-with-us/01.jpg',
@@ -4080,8 +4079,8 @@
       renderEventsList(allEvents);
     } catch (err) { document.getElementById('az-events-empty').hidden = false; }
     await loadLegacyEvents();
-    await loadArtMallCollabPage();
-    await loadGrowWithUsPage();
+    await artMallCollabEditor.load();
+    await growWithUsEditor.load();
   }
   panelLoaders.eventi = { loaded: false, load: loadEvents };
 
@@ -4097,10 +4096,9 @@
   var legacyEventInputs = {}; // slug -> {title, tag, location, dateIso, coverKey: {input, preview}}
 
   function renderLegacyEvents(overrides){
-    var wrap = document.getElementById('az-legacy-events');
-    wrap.innerHTML = '';
     legacyEventInputs = {};
     LEGACY_EVENTS_DEFAULTS.forEach(function(def){
+      var wrap = document.getElementById('az-legacy-event-' + def.slug + '-card');
       var o = overrides[def.slug] || {};
       var card = document.createElement('div');
       card.style.cssText = 'border:1.5px solid var(--line); border-radius:12px; padding:14px; display:grid; grid-template-columns:90px 1fr; gap:14px;';
@@ -4140,6 +4138,7 @@
         } catch (err) { alert(err.message); }
       });
       legacyEventInputs[def.slug] = state;
+      wrap.innerHTML = '';
       wrap.appendChild(card);
     });
   }
@@ -4168,29 +4167,35 @@
     } catch (err) { renderLegacyEvents({}); }
   }
 
-  document.getElementById('az-legacy-events-save').addEventListener('click', async function(){
-    var msg = document.getElementById('az-legacy-events-msg');
-    msg.hidden = true;
-    var btn = this;
-    btn.disabled = true;
-    btn.textContent = 'Salvataggio...';
-    try {
-      var res = await fetch('/api/admin/legacy-events', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ overrides: buildLegacyEventsPayload() })
-      });
-      var data = await res.json();
-      if (res.ok) {
-        showMsg(msg, 'Salvato — gli eventi passati sono già aggiornati.', false);
-      } else {
-        showMsg(msg, data.error || 'Qualcosa è andato storto.', true);
+  // Un solo "Pubblica" per evento storico: salva insieme la card (titolo/data/luogo/copertina,
+  // stesso payload di sempre — buildLegacyEventsPayload manda comunque TUTTI gli eventi, quello di
+  // cui non si è toccato nulla resta invariato) e il contenuto della pagina (hero/testi/galleria/
+  // sezioni extra, via l'editor associato a quello slug).
+  var LEGACY_EVENT_CONTENT_EDITORS = { 'art-mall': artMallCollabEditor, 'grow-with-us': growWithUsEditor };
+  document.querySelectorAll('[data-legacy-publish]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      var slug = btn.getAttribute('data-legacy-publish');
+      var msg = document.querySelector('[data-legacy-msg="' + slug + '"]');
+      msg.hidden = true;
+      btn.disabled = true;
+      var originalLabel = btn.textContent;
+      btn.textContent = 'Pubblicazione...';
+      try {
+        var res = await fetch('/api/admin/legacy-events', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ overrides: buildLegacyEventsPayload() })
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Qualcosa è andato storto con la card.');
+        await LEGACY_EVENT_CONTENT_EDITORS[slug].save();
+        showMsg(msg, 'Pubblicato — la pagina è già aggiornata.', false);
+      } catch (err) {
+        showMsg(msg, err.message || 'Errore di connessione.', true);
       }
-    } catch (err) {
-      showMsg(msg, 'Errore di connessione.', true);
-    }
-    btn.disabled = false;
-    btn.textContent = 'Pubblica eventi passati';
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+    });
   });
 
   // ---- Pagina Home: campi liberi chiave->testo (le chiavi combaciano con i data-cms nell'HTML
@@ -6001,7 +6006,14 @@
 
   var evDarkThemeCheckbox = document.getElementById('az-ev-darktheme');
   var evDarkThemeFields = document.getElementById('az-ev-darktheme-fields');
-  evDarkThemeCheckbox.addEventListener('change', function(){ evDarkThemeFields.hidden = !evDarkThemeCheckbox.checked; });
+  var evSectionsExtraWrap = document.getElementById('az-ev-sections-extra-wrap');
+  // "Sezioni extra" resta visibile anche fuori dal tema scuro quando l'evento è passato (serve
+  // per il recap — lineup/testo/immagini — al posto dei biglietti), altrimenti segue solo il tema.
+  var evCurrentEventIsPast = false;
+  evDarkThemeCheckbox.addEventListener('change', function(){
+    evDarkThemeFields.hidden = !evDarkThemeCheckbox.checked;
+    evSectionsExtraWrap.hidden = !(evDarkThemeCheckbox.checked || evCurrentEventIsPast);
+  });
 
   function openEventForm(event){
     document.getElementById('az-event-form-wrap').hidden = false;
@@ -6009,6 +6021,11 @@
     document.getElementById('az-events-empty').hidden = true;
     document.getElementById('az-event-form-title').textContent = event ? 'Modifica evento' : 'Nuovo evento';
     document.getElementById('az-event-msg').hidden = true;
+    // "Passato" = la data è già trascorsa (non il giorno stesso — resta comprabile/scansionabile
+    // fino a mezzanotte, stesso confronto già usato dal cron feedback lato server).
+    evCurrentEventIsPast = !!(event && event.dateIso && event.dateIso < new Date().toISOString().slice(0, 10));
+    document.getElementById('az-ev-past-notice').hidden = !evCurrentEventIsPast;
+    document.getElementById('az-ev-tickets-fields').hidden = evCurrentEventIsPast;
     document.getElementById('az-ev-slug').value = event ? event.slug : '';
     document.getElementById('az-ev-name').value = event ? event.name : '';
     document.getElementById('az-ev-datedisplay').value = event ? event.dateDisplay : '';
@@ -6056,6 +6073,7 @@
 
     evDarkThemeCheckbox.checked = !!(event && event.darkTheme);
     evDarkThemeFields.hidden = !evDarkThemeCheckbox.checked;
+    evSectionsExtraWrap.hidden = !(evDarkThemeCheckbox.checked || evCurrentEventIsPast);
     document.getElementById('az-ev-advisory-label').value = event ? (event.advisoryLabel || '') : '';
     document.getElementById('az-ev-advisory-sub').value = event ? (event.advisorySub || '') : '';
     document.getElementById('az-ev-doorstime').value = event ? (event.doorsTime || '') : '';

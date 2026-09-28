@@ -1345,6 +1345,11 @@ async function handlePublicEvents(request, env) {
 // è visivamente indistinguibile dalle altre, senza duplicare template altrove.
 function eventPageHTML(event, slug) {
   const darkTheme = event.darkTheme === true;
+  // Il giorno dell'evento resta "attivo" (biglietti alla porta, check-in) — solo dal giorno DOPO
+  // il box acquisto sparisce e restano solo sezioni extra (recap) e galleria, come per le pagine
+  // storiche (art-mall-collab.html, grow-with-us.html). Stesso confronto già usato dal cron
+  // feedback (runScheduledFeedback), nessun flag salvato: si aggiorna da solo ogni giorno.
+  const isPast = !!(event.dateIso && event.dateIso < new Date().toISOString().slice(0, 10));
   const heroImg = event.heroImageKey
     ? `<img class="ed-hero-photo" src="${mediaUrl(event.heroImageKey)}" alt="" style="${photoFramingStyle(event.heroPosition, event.heroZoom)}"><div class="ed-hero-video-overlay"></div>`
     : "";
@@ -1506,7 +1511,7 @@ ${darkTheme ? `
     <p class="ed-dark-sub">${event.dateDisplay} · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">${event.location}</a></p>
     ${event.teaser ? `<p class="ed-dark-lead">${event.teaser}</p>` : ""}
     <div class="ed-dark-actions">
-      <a class="btn coral" href="#biglietti" data-i18n="ev1_cta_tickets">Vedi i biglietti</a>
+      ${isPast ? "" : `<a class="btn coral" href="#biglietti" data-i18n="ev1_cta_tickets">Vedi i biglietti</a>`}
       <a class="btn outline on-dark" href="/eventi.html" data-i18n="ev1_cta_back">Tutti gli eventi</a>
     </div>
   </div>
@@ -1529,6 +1534,7 @@ ${sponsorMarqueeHtml}
 
 ${contentBlocksHtml}
 
+${isPast ? "" : `
 <section class="ed-section-tight" id="biglietti" style="background:${event.ticketBgColor || "var(--purple-deep)"}; color:var(--cream);">
   <div class="wrap">
     <div class="ed-head">
@@ -1573,6 +1579,7 @@ ${contentBlocksHtml}
     </div>
   </div>
 </section>
+`}
 
 ${galleryBlock}
 
@@ -4371,6 +4378,14 @@ async function handleCreateCheckoutSession(request, env) {
 
   const found = await findTierOption(env, registration.eventSlug, tierId, optionId);
   if (!found) return jsonResponse({ error: "fascia o opzione non valida" }, 400);
+
+  // La pagina pubblica smette di mostrare il box biglietti il giorno dopo l'evento (vedi
+  // eventPageHTML), ma senza questo controllo un checkout richiamato direttamente (bypassando
+  // l'interfaccia) potrebbe comunque completarsi per un evento ormai passato.
+  const todayIsoForCheckout = new Date().toISOString().slice(0, 10);
+  if (found.event.dateIso && found.event.dateIso < todayIsoForCheckout) {
+    return jsonResponse({ error: "questo evento è già passato" }, 400);
+  }
 
   // Ricontrollo la capacità qui, non solo lato UI: se nel frattempo la fascia si è esaurita
   // (un'altra persona ha comprato l'ultimo posto un attimo prima), rifiuto la creazione della
