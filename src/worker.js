@@ -6808,8 +6808,11 @@ async function handleLoyaltyCardPage(request, env) {
 // sotto per titolo/data/luogo/copertina della CARD): stesso pattern data-cms delle altre pagine
 // fisse, per il contenuto vero e proprio DENTRO la pagina dell'evento.
 async function handleArtMallCollabPage(request, env) {
-  return handleFixedPageRoute(request, env, "art-mall-collab", function(){
-    return { extraSections: "#ev-extra-sections", replace: [] };
+  return handleFixedPageRoute(request, env, "art-mall-collab", function(content){
+    return {
+      extraSections: "#ev-extra-sections",
+      replace: [{ selector: ".ed-gallery", data: content.gallery, render: galleryHTML }]
+    };
   });
 }
 async function handleGrowWithUsPage(request, env) {
