@@ -3870,17 +3870,83 @@
     pastWrap.innerHTML = '';
     empty.textContent = allEventsList.length ? 'Nessun evento in vendita al momento.' : 'Nessun evento ancora.';
     empty.hidden = !!events.length;
+    // Stesso aspetto delle card degli eventi storici (copertina + titolo/data/luogo/data/posizione
+    // in vista, "Modifica" per il form completo, "Pubblica" per i campi in vista) — un evento
+    // dinamico scaduto diventa uguale agli altri eventi passati.
     pastEvents.forEach(function(ev){
-      var card = document.createElement('div');
-      card.className = 'az-ev-card';
       var soldTotal = Object.keys(ev.soldByTier || {}).reduce(function(sum, k){ return sum + (ev.soldByTier[k] || 0); }, 0);
       var isPublished = ev.published !== false;
-      card.innerHTML =
-        '<h4>' + esc(ev.name) + ' <span class="az-pill ' + (isPublished ? 'yes' : 'no') + '">' + (isPublished ? 'Pubblicato' : 'Bozza') + '</span></h4>' +
-        '<div class="meta">' + esc(ev.dateDisplay) + ' · ' + esc(ev.location) + ' · ' + soldTotal + ' biglietti venduti</div>' +
-        '<div class="az-u-row10"><button type="button" class="edit-btn">✏️ Modifica recap e foto</button></div>';
-      card.querySelector('.edit-btn').addEventListener('click', function(){ openEventForm(ev); });
-      pastWrap.appendChild(card);
+      var coverKey = ev.coverImageKey || ev.heroImageKey || null;
+      var box = document.createElement('div');
+      box.style.cssText = 'border:1.5px solid var(--line); border-radius:14px; padding:18px; margin-bottom:20px;';
+      box.innerHTML =
+        '<div style="border:1.5px solid var(--line); border-radius:12px; padding:14px; display:grid; grid-template-columns:90px 1fr; gap:14px;">' +
+          '<div>' +
+            '<div class="az-image-preview" style="aspect-ratio:1/1;">' + (coverKey ? '<img src="' + mediaSrc(coverKey) + '" alt="">' : 'Copertina') + '</div>' +
+            '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" style="margin-top:6px; font-size:11px; width:90px;">' +
+          '</div>' +
+          '<div style="display:flex; flex-direction:column; gap:8px;">' +
+            '<div style="font-size:11px; color:var(--grey);">' + esc(ev.name) + ' · ' + soldTotal + ' biglietti venduti · ' + (isPublished ? 'pubblicato' : 'bozza') + ' · ' + (typeof ev.sortOrder === 'number' ? ('posizione ' + ev.sortOrder) : 'posizione non impostata') + '</div>' +
+            '<input type="text" data-f="name" placeholder="Titolo" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+            '<input type="text" data-f="dateDisplay" placeholder="Data mostrata" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+            '<input type="text" data-f="location" placeholder="Luogo" style="width:100%; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+            '<div style="display:flex; gap:8px; align-items:center;">' +
+              '<input type="date" data-f="dateIso" style="flex:1; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+              '<input type="number" data-f="sortOrder" placeholder="Posizione" style="width:100px; padding:8px 10px; border-radius:8px; border:1.5px solid var(--line);">' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:14px;">' +
+          '<h4 style="font-family:\'Space Grotesk\',sans-serif; font-size:14px;">' + esc(ev.name) + ' (' + esc(ev.dateDisplay) + ')</h4>' +
+          '<button type="button" class="az-mini-btn edit-btn">✏️ Modifica</button>' +
+        '</div>' +
+        '<div style="margin-top:14px;"><button type="button" class="az-submit publish-btn" style="flex:0 0 auto; padding:14px 26px;">Pubblica</button></div>' +
+        '<p class="az-msg" hidden></p>';
+      var fields = {};
+      box.querySelectorAll('[data-f]').forEach(function(input){ fields[input.getAttribute('data-f')] = input; });
+      fields.name.value = ev.name || '';
+      fields.dateDisplay.value = ev.dateDisplay || '';
+      fields.location.value = ev.location || '';
+      fields.dateIso.value = ev.dateIso || '';
+      fields.sortOrder.value = typeof ev.sortOrder === 'number' ? ev.sortOrder : '';
+      var pendingCoverKey = null;
+      box.querySelector('input[type=file]').addEventListener('change', async function(){
+        var file = this.files[0];
+        if (!file) return;
+        try {
+          pendingCoverKey = await uploadArtistMediaGeneric(file, 'cover', ev.slug, 'events');
+          box.querySelector('.az-image-preview').innerHTML = '<img src="' + mediaSrc(pendingCoverKey) + '" alt="">';
+        } catch (err) { alert(err.message); }
+      });
+      box.querySelector('.edit-btn').addEventListener('click', function(){ openEventForm(ev); });
+      box.querySelector('.publish-btn').addEventListener('click', async function(){
+        var btn = this;
+        var msg = box.querySelector('.az-msg');
+        msg.hidden = true;
+        btn.disabled = true;
+        btn.textContent = 'Pubblicazione...';
+        try {
+          var payload = Object.assign({}, ev, {
+            name: fields.name.value.trim(),
+            dateDisplay: fields.dateDisplay.value.trim(),
+            location: fields.location.value.trim(),
+            dateIso: fields.dateIso.value,
+            sortOrder: fields.sortOrder.value.trim() === '' ? null : Number(fields.sortOrder.value)
+          });
+          if (pendingCoverKey) payload.coverImageKey = pendingCoverKey;
+          delete payload.soldByTier;
+          var res = await fetch('/api/admin/events', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          var data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Qualcosa è andato storto.');
+          Object.assign(ev, data.event || payload);
+          showMsg(msg, 'Pubblicato — la pagina è già aggiornata.', false);
+        } catch (err) {
+          showMsg(msg, err.message || 'Errore di connessione.', true);
+        }
+        btn.disabled = false;
+        btn.textContent = 'Pubblica';
+      });
+      pastWrap.appendChild(box);
     });
     events.forEach(function(ev){
       var card = document.createElement('div');
