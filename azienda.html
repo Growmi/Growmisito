@@ -1003,7 +1003,8 @@
 
       <div style="margin-top:36px; padding-top:28px; border-top:1.5px solid var(--line);">
         <h3 class="az-u-h3-16">Eventi passati (pagine storiche)</h3>
-        <p style="font-size:12px; color:var(--grey); margin-bottom:16px; max-width:600px;">Le prime edizioni, con una pagina propria invece che generata dal biglietto online — card nell'elenco e contenuto della pagina si modificano insieme, in un unico "Pubblica" per evento.</p>
+        <p style="font-size:12px; color:var(--grey); margin-bottom:16px; max-width:600px;">Le prime edizioni, con una pagina propria invece che generata dal biglietto online — card nell'elenco e contenuto della pagina si modificano insieme, in un unico "Pubblica" per evento. Gli eventi con biglietti online passano qui da soli il giorno dopo la loro data.</p>
+        <div id="az-past-events-list" style="margin-bottom:20px;"></div>
         <div id="az-legacy-event-art-mall" style="border:1.5px solid var(--line); border-radius:14px; padding:18px;">
           <div id="az-legacy-event-art-mall-card"></div>
           <div id="az-legacy-event-art-mall-content" style="margin-top:20px;"></div>
@@ -3853,11 +3854,34 @@
     return (cents / 100).toFixed(2).replace('.', ',');
   }
 
-  function renderEventsList(events){
+  // Un evento è "passato" dal giorno DOPO la sua data (il giorno stesso resta in vendita/check-in),
+  // stesso confronto di openEventForm e del server — passati e in vendita stanno in liste separate.
+  function isEventPast(ev){
+    return !!(ev.dateIso && ev.dateIso < new Date().toISOString().slice(0, 10));
+  }
+
+  function renderEventsList(allEventsList){
     var wrap = document.getElementById('az-events-list');
     var empty = document.getElementById('az-events-empty');
+    var pastWrap = document.getElementById('az-past-events-list');
+    var events = allEventsList.filter(function(ev){ return !isEventPast(ev); });
+    var pastEvents = allEventsList.filter(isEventPast).sort(function(a, b){ return (b.dateIso || '').localeCompare(a.dateIso || ''); });
     wrap.innerHTML = '';
+    pastWrap.innerHTML = '';
+    empty.textContent = allEventsList.length ? 'Nessun evento in vendita al momento.' : 'Nessun evento ancora.';
     empty.hidden = !!events.length;
+    pastEvents.forEach(function(ev){
+      var card = document.createElement('div');
+      card.className = 'az-ev-card';
+      var soldTotal = Object.keys(ev.soldByTier || {}).reduce(function(sum, k){ return sum + (ev.soldByTier[k] || 0); }, 0);
+      var isPublished = ev.published !== false;
+      card.innerHTML =
+        '<h4>' + esc(ev.name) + ' <span class="az-pill ' + (isPublished ? 'yes' : 'no') + '">' + (isPublished ? 'Pubblicato' : 'Bozza') + '</span></h4>' +
+        '<div class="meta">' + esc(ev.dateDisplay) + ' · ' + esc(ev.location) + ' · ' + soldTotal + ' biglietti venduti</div>' +
+        '<div class="az-u-row10"><button type="button" class="edit-btn">✏️ Modifica recap e foto</button></div>';
+      card.querySelector('.edit-btn').addEventListener('click', function(){ openEventForm(ev); });
+      pastWrap.appendChild(card);
+    });
     events.forEach(function(ev){
       var card = document.createElement('div');
       card.className = 'az-ev-card';
