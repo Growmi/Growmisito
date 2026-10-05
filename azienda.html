@@ -858,12 +858,20 @@
 
           <div>
             <label class="az-u-label13">Immagine copertina</label>
-            <p class="az-u-hint10">Locandina/poster mostrata sulla pagina evento (e come immagine della card nell'elenco eventi, se non ne carichi una diversa).</p>
+            <p class="az-u-hint10">Locandina/poster ufficiale mostrata a metà della pagina evento, sempre per intera.</p>
             <div class="az-image-preview" id="az-ev-cover-preview">Nessuna immagine</div>
             <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-ev-cover-input">
             <button type="button" class="az-mini-btn danger" id="az-ev-cover-remove" hidden>Rimuovi</button>
+          </div>
+
+          <div>
+            <label class="az-u-label13">Copertina per l'elenco eventi</label>
+            <p class="az-u-hint10">Immagine della card nell'elenco eventi, diversa dalla locandina ufficiale a metà pagina. Se non ne carichi una, la card usa la locandina.</p>
+            <div class="az-image-preview" id="az-ev-card-preview">Nessuna immagine</div>
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" id="az-ev-card-input">
+            <button type="button" class="az-mini-btn danger" id="az-ev-card-remove" hidden>Rimuovi</button>
             <div id="az-ev-cover-framing"></div>
-            <p class="az-u-hint10" id="az-ev-cover-framing-hint" hidden>Questi controlli valgono solo per come appare nella card dell'elenco eventi (che ritaglia l'immagine per riempirla) — nella pagina evento la foto si vede sempre per intera, senza tagli.</p>
+            <p class="az-u-hint10" id="az-ev-cover-framing-hint" hidden>Il ritaglio qui sopra vale solo per la card nell'elenco eventi (che ritaglia l'immagine per riempirla) — nella pagina evento la locandina si vede sempre per intera.</p>
           </div>
 
           <div>
@@ -3437,6 +3445,7 @@
   var evHeroKey = null;
   var evHeroFraming = { position: 'center', zoom: 1 };
   var evCoverKey = null;
+  var evCardKey = null;
   var evCoverFraming = { position: 'center', zoom: 1 };
   var evGallery = [];
   var evSponsorLogos = [];
@@ -3456,14 +3465,19 @@
     var box = document.getElementById('az-ev-cover-preview');
     box.innerHTML = imagePreviewHTML(evCoverKey);
     document.getElementById('az-ev-cover-remove').hidden = !evCoverKey;
+    renderCardPreview();
+  }
+  // La locandina (evCoverKey) non viene mai ritagliata sulla pagina evento; il ritaglio
+  // (evCoverFraming) vale solo per la card nell'elenco, cioè per la copertina elenco se c'è,
+  // altrimenti per la locandina che la card usa come ripiego.
+  function renderCardPreview(){
+    var box = document.getElementById('az-ev-card-preview');
+    box.innerHTML = imagePreviewHTML(evCardKey);
+    document.getElementById('az-ev-card-remove').hidden = !evCardKey;
     var framingWrap = document.getElementById('az-ev-cover-framing');
-    // Niente previewImgEl (null): a differenza dell'hero, la copertina non viene mai ritagliata
-    // sulla pagina evento (si vede sempre per intera) — questi controlli valgono solo per come
-    // appare nella card dell'elenco eventi, che invece ritaglia. Applicarli qui all'anteprima
-    // (mostrata senza ritaglio) sarebbe fuorviante.
-    if (evCoverKey) renderFramingControls(framingWrap, null, evCoverFraming);
+    if (evCardKey || evCoverKey) renderFramingControls(framingWrap, evCardKey ? box.querySelector('img') : null, evCoverFraming);
     else framingWrap.innerHTML = '';
-    document.getElementById('az-ev-cover-framing-hint').hidden = !evCoverKey;
+    document.getElementById('az-ev-cover-framing-hint').hidden = !(evCardKey || evCoverKey);
   }
   function renderGalleryGrid(){
     var grid = document.getElementById('az-ev-gallery');
@@ -3562,6 +3576,19 @@
     try { await fetch('/api/admin/delete-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: evCoverKey }) }); } catch (e) {}
     evCoverKey = null;
     renderCoverPreview();
+  });
+  document.getElementById('az-ev-card-input').addEventListener('change', async function(){
+    var file = this.files[0];
+    this.value = '';
+    if (!file) return;
+    try { evCardKey = await uploadEventImage(file, 'card'); renderCardPreview(); }
+    catch (err) { alert(err.message); }
+  });
+  document.getElementById('az-ev-card-remove').addEventListener('click', async function(){
+    if (!evCardKey) return;
+    try { await fetch('/api/admin/delete-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: evCardKey }) }); } catch (e) {}
+    evCardKey = null;
+    renderCardPreview();
   });
   document.getElementById('az-ev-gallery-input').addEventListener('change', async function(){
     var files = Array.prototype.slice.call(this.files);
@@ -3876,7 +3903,7 @@
     pastEvents.forEach(function(ev){
       var soldTotal = Object.keys(ev.soldByTier || {}).reduce(function(sum, k){ return sum + (ev.soldByTier[k] || 0); }, 0);
       var isPublished = ev.published !== false;
-      var coverKey = ev.coverImageKey || ev.heroImageKey || null;
+      var coverKey = ev.cardImageKey || ev.coverImageKey || ev.heroImageKey || null;
       var box = document.createElement('div');
       box.style.cssText = 'border:1.5px solid var(--line); border-radius:14px; padding:18px; margin-bottom:20px;';
       box.innerHTML =
@@ -3933,7 +3960,7 @@
             dateIso: fields.dateIso.value,
             sortOrder: fields.sortOrder.value.trim() === '' ? null : Number(fields.sortOrder.value)
           });
-          if (pendingCoverKey) payload.coverImageKey = pendingCoverKey;
+          if (pendingCoverKey) payload.cardImageKey = pendingCoverKey;
           delete payload.soldByTier;
           var res = await fetch('/api/admin/events', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
           var data = await res.json();
@@ -6160,6 +6187,7 @@
     evHeroKey = event ? (event.heroImageKey || null) : null;
     evHeroFraming = { position: (event && event.heroPosition) || 'center', zoom: (event && event.heroZoom) || 1 };
     evCoverKey = event ? (event.coverImageKey || null) : null;
+    evCardKey = event ? (event.cardImageKey || null) : null;
     evCoverFraming = { position: (event && event.coverPosition) || 'center', zoom: (event && event.coverZoom) || 1 };
     evGallery = event ? (event.gallery || []).slice() : [];
     // Retrocompatibilità: sponsorLogos è passato da lista di stringhe, a {key, darkBacking:bool}
@@ -6264,6 +6292,7 @@
       heroPosition: evHeroFraming.position,
       heroZoom: evHeroFraming.zoom,
       coverImageKey: evCoverKey,
+      cardImageKey: evCardKey,
       coverPosition: evCoverFraming.position,
       coverZoom: evCoverFraming.zoom,
       gallery: evGallery,

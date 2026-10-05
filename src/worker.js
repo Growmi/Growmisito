@@ -1331,7 +1331,7 @@ async function handlePublicEvents(request, env) {
     events.push({
       slug, name: event.name, dateDisplay: event.dateDisplay, dateIso: event.dateIso,
       location: event.location, teaser: event.teaser || "",
-      heroImageUrl: mediaUrl(event.heroImageKey), coverImageUrl: mediaUrl(event.coverImageKey),
+      heroImageUrl: mediaUrl(event.heroImageKey), coverImageUrl: mediaUrl(event.cardImageKey || event.coverImageKey),
       coverImagePosition: event.coverPosition || "center", coverImageZoom: event.coverZoom || 1,
       sortOrder: typeof event.sortOrder === "number" ? event.sortOrder : null,
       pageUrl: `/evento/${slug}`
@@ -5736,6 +5736,9 @@ function validateEventPayload(body, existingTiers, sold) {
   const heroPosition = String(body.heroPosition || "center").trim().slice(0, 30);
   const heroZoom = clampImageZoom(body.heroZoom);
   const coverImageKey = String(body.coverImageKey || "").trim() || null;
+  // Immagine della CARD nell'elenco eventi, distinta dalla locandina (coverImageKey, a metà pagina):
+  // vuota = la card ricade sulla locandina come prima. Il ritaglio (coverPosition/Zoom) vale per lei.
+  const cardImageKey = String(body.cardImageKey || "").trim() || null;
   const coverPosition = String(body.coverPosition || "center").trim().slice(0, 30);
   const coverZoom = clampImageZoom(body.coverZoom);
   const gallery = Array.isArray(body.gallery)
@@ -5844,7 +5847,7 @@ function validateEventPayload(body, existingTiers, sold) {
     }
   }
 
-  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, gallery, published, sortOrder, darkTheme, advisoryLabel, advisorySub, doorsTime, dressCode, accentColor, accentColor2, bgColor, leadColor, ticketBgColor, textureDots, textureStripes, contentBlocks, coverPosition, coverZoom, checkoutNote, sponsorLogos, sponsorDisplay, sponsorLogoSize } };
+  return { ok: true, event: { name, dateDisplay, dateIso, location, teaser, tiers, feedbackOptions, heroImageKey, heroPosition, heroZoom, coverImageKey, cardImageKey, gallery, published, sortOrder, darkTheme, advisoryLabel, advisorySub, doorsTime, dressCode, accentColor, accentColor2, bgColor, leadColor, ticketBgColor, textureDots, textureStripes, contentBlocks, coverPosition, coverZoom, checkoutNote, sponsorLogos, sponsorDisplay, sponsorLogoSize } };
 }
 
 // image/gif incluso apposta per le newsletter: un GIF animato è l'unico modo che parte da solo e
