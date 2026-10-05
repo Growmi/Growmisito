@@ -6053,6 +6053,11 @@
       head.innerHTML =
         '<span class="az-nl-block-handle">⠿</span>' +
         '<span class="az-nl-block-label">' + esc(EV_BLOCK_LABELS[block.type] || block.type) + '</span>' +
+        '<select data-act="showwhen" title="Quando mostrare questo blocco sulla pagina pubblica" style="font-size:11px; padding:3px 6px; border-radius:6px; border:1.5px solid var(--line); background:#fff;">' +
+          '<option value="">Sempre</option>' +
+          '<option value="before"' + (block.showWhen === 'before' ? ' selected' : '') + '>Solo prima dell\'evento</option>' +
+          '<option value="after"' + (block.showWhen === 'after' ? ' selected' : '') + '>Solo dopo l\'evento (recap)</option>' +
+        '</select>' +
         '<span class="az-nl-block-actions">' +
           '<button type="button" data-act="up" title="Sposta su">↑</button>' +
           '<button type="button" data-act="down" title="Sposta giù">↓</button>' +
@@ -6064,6 +6069,9 @@
       card.appendChild(body);
       renderEvBlockBody(body, block);
 
+      head.querySelector('[data-act="showwhen"]').addEventListener('change', function(){
+        if (this.value) block.showWhen = this.value; else delete block.showWhen;
+      });
       head.querySelector('[data-act="up"]').addEventListener('click', function(){
         if (index === 0) return;
         eventBlocks.splice(index - 1, 0, eventBlocks.splice(index, 1)[0]);

@@ -1400,8 +1400,9 @@ function eventPageHTML(event, slug) {
     const d = new Date(event.dateIso + "T00:00:00");
     const dateFmt = isNaN(d.getTime()) ? event.dateIso : `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`;
     const items = [[`data-i18n="ev1_info_date_label"`, "Data", dateFmt]];
-    if (event.doorsTime) items.push([`data-i18n="ev1_info_time_label"`, "Apertura", event.doorsTime]);
-    if (event.dressCode) items.push([`data-i18n="ev1_info_dress_label"`, "Dress code", event.dressCode]);
+    // Apertura porte e dress code servono a chi deve ancora venire: a evento passato spariscono da soli.
+    if (event.doorsTime && !isPast) items.push([`data-i18n="ev1_info_time_label"`, "Apertura", event.doorsTime]);
+    if (event.dressCode && !isPast) items.push([`data-i18n="ev1_info_dress_label"`, "Dress code", event.dressCode]);
     items.push([`data-i18n="ev1_info_loc_label"`, "Location", event.location]);
     const itemsHtml = items.map(function(it){
       return `<div class="ed-dark-info-item"><span class="lbl" ${it[0]}>${it[1]}</span><span class="val">${it[2]}</span></div>`;
@@ -1412,7 +1413,9 @@ function eventPageHTML(event, slug) {
   // consecutive vengono raggruppate in un'unica griglia .ed-lineup, esattamente come sulla pagina
   // statica the-miseducation-of-growmi.html; heading/text restano semplici elementi di testo.
   const contentBlocksHtml = (function(){
-    const blocks = Array.isArray(event.contentBlocks) ? event.contentBlocks : [];
+    const blocks = (Array.isArray(event.contentBlocks) ? event.contentBlocks : []).filter(function(b){
+      return !(b.showWhen === "before" && isPast) && !(b.showWhen === "after" && !isPast);
+    });
     if (!blocks.length) return "";
     let html = "";
     let lineupBuffer = [];
@@ -5795,6 +5798,7 @@ function validateEventPayload(body, existingTiers, sold) {
   const contentBlocks = [];
   for (const raw of inputBlocks) {
     if (contentBlocks.length >= 30) break;
+    const lenBefore = contentBlocks.length;
     const type = String((raw && raw.type) || "");
     if (type === "lineup") {
       const name = String(raw.name || "").trim().slice(0, 100);
@@ -5832,6 +5836,11 @@ function validateEventPayload(body, existingTiers, sold) {
     } else if (type === "spacer") {
       const height = Number.isFinite(Number(raw.height)) ? Math.min(120, Math.max(8, Number(raw.height))) : 24;
       contentBlocks.push({ type: "spacer", height });
+    }
+    // showWhen (facoltativo): "before" = solo finché l'evento non è passato, "after" = solo dal
+    // giorno dopo (recap). Assente = sempre. Il passaggio avviene da solo, per data, in eventPageHTML.
+    if (contentBlocks.length > lenBefore && raw && (raw.showWhen === "before" || raw.showWhen === "after")) {
+      contentBlocks[contentBlocks.length - 1].showWhen = raw.showWhen;
     }
   }
 
